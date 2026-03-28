@@ -1,122 +1,270 @@
 package is.dyino.ui.sounds;
 
+import android.annotation.SuppressLint;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
+import android.widget.GridLayout;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.recyclerview.widget.GridLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.URL;
 import java.util.List;
 
-import is.dyino.MainActivity;
 import is.dyino.R;
+import is.dyino.model.SoundCategory;
 import is.dyino.model.SoundItem;
 import is.dyino.service.AudioService;
-import is.dyino.util.SoundLibrary;
+import is.dyino.util.AppPrefs;
+import is.dyino.util.GifFetcher;
+import is.dyino.util.SoundLoader;
+import pl.droidsonroids.gif.GifDrawable;
 import pl.droidsonroids.gif.GifImageView;
 
 public class SoundsFragment extends Fragment {
 
-    private SoundsAdapter adapter;
-    private List<Object> soundItems;
-    private TextView tvActiveSounds;
-    private View gifContainer;
     private GifImageView gifView;
+    private ProgressBar gifLoading;
+    private ViewGroup gifContainer;
+    private LinearLayout categoriesContainer;
+    private TextView btnStopAll;
+
+    private AppPrefs prefs;
+    private GifFetcher gifFetcher;
+    private AudioService audioService;
+    private List<SoundCategory> categories;
+
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
+    public void setAudioService(AudioService svc) {
+        this.audioService = svc;
+    }
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
-        View root = inflater.inflate(R.layout.fragment_sounds, container, false);
+        return inflater.inflate(R.layout.fragment_sounds, container, false);
+    }
 
-        tvActiveSounds = root.findViewById(R.id.tv_active_sounds);
-        gifContainer = root.findViewById(R.id.gif_container);
-        gifView = root.findViewById(R.id.gif_view);
-        Button btnStopAll = root.findViewById(R.id.btn_stop_all);
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
 
-        RecyclerView rv = root.findViewById(R.id.rv_sounds);
-        soundItems = SoundLibrary.getCategorizedSounds();
+        prefs      = new AppPrefs(requireContext());
+        gifFetcher = new GifFetcher();
 
-        GridLayoutManager glm = new GridLayoutManager(getContext(), 2);
-        adapter = new SoundsAdapter(soundItems, new SoundsAdapter.OnSoundInteractionListener() {
-            @Override
-            public void onSoundToggle(SoundItem item, int position) {
-                toggleSound(item, position);
+        gifView              = view.findViewById(R.id.gifViewSounds);
+        gifLoading           = view.findViewById(R.id.gifLoadingSounds);
+        gifContainer         = view.findViewById(R.id.gifContainerSounds);
+        categoriesContainer  = view.findViewById(R.id.soundsCategoriesContainer);
+        btnStopAll           = view.findViewById(R.id.btnStopAll);
+
+        applyTheme(view);
+
+        boolean showGif = prefs.isGifEnabled();
+        gifContainer.setVisibility(showGif ? View.VISIBLE : View.GONE);
+        if (showGif) fetchAndShowGif();
+
+        categories = SoundLoader.load(requireContext());
+        buildSoundGrid();
+
+        btnStopAll.setOnClickListener(v -> {
+            if (audioService != null) audioService.stopAllSounds();
+            for (SoundCategory cat : categories)
+                for (SoundItem s : cat.getSounds()) s.setPlaying(false);
+            refreshAllButtons();
+        });
+    }
+
+    private void buildSoundGrid() {
+        if (categoriesContainer == null || categories == null) return;
+        categoriesContainer.removeAllViews();
+
+        LayoutInflater inflater = LayoutInflater.from(requireContext());
+        float density = getResources().getDisplayMetrics().density;
+        int navWidthPx  = (int) (64 * density);
+        int screenWidth = getResources().getDisplayMetrics().widthPixels;
+        int available   = screenWidth - navWidthPx - 1;
+        int gap         = (int) (8 * density);
+        int btnWidth    = (available - gap * 3) / 2;
+        int btnHeight   = (int) (80 * density);
+
+        for (SoundCategory cat : categories) {
+            View catView = inflater.inflate(R.layout.item_sound_category, categoriesContainer, false);
+            TextView tvCat  = catView.findViewById(R.id.tvCategoryName);
+            GridLayout grid = catView.findViewById(R.id.soundGrid);
+
+            tvCat.setText(cat.getName());
+            tvCat.setTextColor(prefs.getTextColor());
+            grid.setColumnCount(2);
+            grid.removeAllViews();
+
+            for (SoundItem sound : cat.getSounds()) {
+                View btn = inflater.inflate(R.layout.item_sound_button, null);
+                TextView tvIcon = btn.findViewById(R.id.tvSoundIcon);
+                TextView tvName = btn.findViewById(R.id.tvSoundName);
+
+                tvIcon.setText(sound.getEmoji());
+                tvName.setText(sound.getName());
+                tvName.setTextColor(prefs.getTextColor());
+
+                GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
+                lp.width  = btnWidth;
+                lp.height = btnHeight;
+                lp.setMargins(gap / 2, gap / 2, gap / 2, gap / 2);
+                btn.setLayoutParams(lp);
+
+                updateButtonState(btn, sound);
+
+                btn.setOnClickListener(v -> {
+                    if (audioService == null) return;
+                    if (audioService.isSoundPlaying(sound.getFileName())) {
+                        audioService.stopSound(sound.getFileName());
+                        sound.setPlaying(false);
+                    } else {
+                        audioService.playSound(sound.getFileName(), sound.getVolume());
+                        sound.setPlaying(true);
+                    }
+                    updateButtonState(btn, sound);
+                });
+
+                setupVolumeSlider(btn, sound);
+                grid.addView(btn);
             }
-            @Override
-            public void onVolumeChange(SoundItem item, float volume) {
-                MainActivity main = (MainActivity) getActivity();
-                if (main != null && main.getAudioService() != null) {
-                    main.getAudioService().setSoundVolume(item.assetPath, volume);
+
+            categoriesContainer.addView(catView);
+        }
+    }
+
+    private void updateButtonState(View btn, SoundItem sound) {
+        boolean playing = audioService != null && audioService.isSoundPlaying(sound.getFileName());
+        btn.setBackgroundResource(playing
+                ? R.drawable.bg_sound_button_active
+                : R.drawable.bg_sound_button);
+
+        View overlay = btn.findViewById(R.id.volumeOverlay);
+        if (overlay == null) return;
+
+        if (playing) {
+            overlay.setVisibility(View.VISIBLE);
+            float vol = audioService != null
+                    ? audioService.getSoundVolume(sound.getFileName())
+                    : sound.getVolume();
+            btn.post(() -> {
+                ViewGroup.LayoutParams olp = overlay.getLayoutParams();
+                olp.width = (int) (btn.getWidth() * vol);
+                overlay.setLayoutParams(olp);
+            });
+        } else {
+            overlay.setVisibility(View.GONE);
+        }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private void setupVolumeSlider(View btn, SoundItem sound) {
+        final boolean[] longPressed = {false};
+
+        btn.setOnLongClickListener(v -> {
+            longPressed[0] = true;
+            View overlay = btn.findViewById(R.id.volumeOverlay);
+            if (overlay != null) overlay.setVisibility(View.VISIBLE);
+            return true;
+        });
+
+        btn.setOnTouchListener((v, event) -> {
+            if (event.getAction() == MotionEvent.ACTION_MOVE && longPressed[0]) {
+                float ratio = Math.max(0f, Math.min(1f, event.getX() / v.getWidth()));
+                sound.setVolume(ratio);
+                if (audioService != null) audioService.setSoundVolume(sound.getFileName(), ratio);
+                View overlay = btn.findViewById(R.id.volumeOverlay);
+                if (overlay != null) {
+                    ViewGroup.LayoutParams lp = overlay.getLayoutParams();
+                    lp.width = (int) (v.getWidth() * ratio);
+                    overlay.setLayoutParams(lp);
+                }
+                return true;
+            }
+            if (event.getAction() == MotionEvent.ACTION_UP
+                    || event.getAction() == MotionEvent.ACTION_CANCEL) {
+                longPressed[0] = false;
+            }
+            return false;
+        });
+    }
+
+    private void refreshAllButtons() {
+        if (categoriesContainer == null || categories == null) return;
+        for (int i = 0; i < categoriesContainer.getChildCount(); i++) {
+            View catView = categoriesContainer.getChildAt(i);
+            GridLayout grid = catView.findViewById(R.id.soundGrid);
+            if (grid == null) continue;
+            for (int j = 0; j < grid.getChildCount(); j++) {
+                View btn = grid.getChildAt(j);
+                TextView tvName = btn.findViewById(R.id.tvSoundName);
+                if (tvName == null) continue;
+                String name = tvName.getText().toString();
+                for (SoundCategory cat : categories) {
+                    for (SoundItem sound : cat.getSounds()) {
+                        if (sound.getName().equals(name)) {
+                            updateButtonState(btn, sound);
+                        }
+                    }
                 }
             }
+        }
+    }
+
+    public void refreshGif() {
+        if (prefs == null) return;
+        boolean showGif = prefs.isGifEnabled();
+        if (gifContainer != null) gifContainer.setVisibility(showGif ? View.VISIBLE : View.GONE);
+        if (showGif) fetchAndShowGif();
+    }
+
+    public void applyTheme(View root) {
+        if (root == null || prefs == null) return;
+        root.setBackgroundColor(prefs.getBgColor());
+    }
+
+    private void fetchAndShowGif() {
+        if (gifLoading != null) gifLoading.setVisibility(View.VISIBLE);
+        gifFetcher.fetchRandomGif(prefs.getGifTag(), new GifFetcher.GifCallback() {
+            @Override public void onGifUrl(String gifUrl) { loadGifFromUrl(gifUrl); }
+            @Override public void onError(String e) {
+                mainHandler.post(() -> { if (gifLoading != null) gifLoading.setVisibility(View.GONE); });
+            }
         });
-        glm.setSpanSizeLookup(adapter.getSpanSizeLookup());
-        rv.setLayoutManager(glm);
-        rv.setAdapter(adapter);
-
-        btnStopAll.setOnClickListener(v -> stopAllSounds());
-
-        // GIF visibility
-        MainActivity main = (MainActivity) getActivity();
-        if (main != null) {
-            boolean gifEnabled = main.getPrefs().isGifEnabled();
-            gifContainer.setVisibility(gifEnabled ? View.VISIBLE : View.GONE);
-            if (gifEnabled) main.loadGifInto(gifView);
-        }
-
-        return root;
     }
 
-    private void toggleSound(SoundItem item, int position) {
-        MainActivity main = (MainActivity) getActivity();
-        if (main == null || main.getAudioService() == null) return;
-
-        AudioService svc = main.getAudioService();
-        item.isPlaying = !item.isPlaying;
-
-        if (item.isPlaying) {
-            svc.playSound(item.assetPath);
-        } else {
-            svc.stopSound(item.assetPath);
-        }
-
-        adapter.notifyItemChanged(position);
-        updateActiveSoundsLabel(svc);
-    }
-
-    private void stopAllSounds() {
-        MainActivity main = (MainActivity) getActivity();
-        if (main == null || main.getAudioService() == null) return;
-
-        main.getAudioService().stopAllSounds();
-        for (Object o : soundItems) {
-            if (o instanceof SoundItem) ((SoundItem) o).isPlaying = false;
-        }
-        adapter.notifyDataSetChanged();
-        tvActiveSounds.setText("No sounds playing");
-    }
-
-    private void updateActiveSoundsLabel(AudioService svc) {
-        int count = svc.getActiveSoundCount();
-        if (count == 0) tvActiveSounds.setText("No sounds playing");
-        else tvActiveSounds.setText(count + " sound" + (count > 1 ? "s" : "") + " playing");
-    }
-
-    public void refreshGifVisibility() {
-        if (gifContainer == null) return;
-        MainActivity main = (MainActivity) getActivity();
-        if (main == null) return;
-        boolean enabled = main.getPrefs().isGifEnabled();
-        gifContainer.setVisibility(enabled ? View.VISIBLE : View.GONE);
-        if (enabled) main.loadGifInto(gifView);
+    private void loadGifFromUrl(String url) {
+        new Thread(() -> {
+            try {
+                InputStream is = new URL(url).openStream();
+                ByteArrayOutputStream buf = new ByteArrayOutputStream();
+                byte[] chunk = new byte[4096]; int n;
+                while ((n = is.read(chunk)) != -1) buf.write(chunk, 0, n);
+                is.close();
+                GifDrawable drawable = new GifDrawable(buf.toByteArray());
+                mainHandler.post(() -> {
+                    if (gifView   != null) gifView.setImageDrawable(drawable);
+                    if (gifLoading != null) gifLoading.setVisibility(View.GONE);
+                });
+            } catch (Exception e) {
+                mainHandler.post(() -> { if (gifLoading != null) gifLoading.setVisibility(View.GONE); });
+            }
+        }).start();
     }
 }

@@ -1,71 +1,112 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/radioRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@color/bg_dark">
 
-    <!-- GIF Visualizer -->
     <FrameLayout
-        android:id="@+id/gif_container"
+        android:id="@+id/gifContainer"
         android:layout_width="match_parent"
-        android:layout_height="200dp"
+        android:layout_height="220dp"
         android:background="@drawable/bg_gif_container"
-        android:margin="12dp">
+        android:visibility="visible">
 
         <pl.droidsonroids.gif.GifImageView
-            android:id="@+id/gif_view"
+            android:id="@+id/gifView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:scaleType="centerCrop"
-            android:background="@color/bg_card"/>
+            android:scaleType="centerCrop" />
 
-        <!-- Playback bar overlay at bottom of GIF -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="80dp"
+            android:layout_gravity="bottom"
+            android:background="@drawable/gradient_bottom_fade" />
+
+        <ProgressBar
+            android:id="@+id/gifLoading"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_gravity="center"
+            android:indeterminateTint="#6C63FF"
+            android:visibility="visible" />
+
         <LinearLayout
-            android:id="@+id/playback_bar"
+            android:id="@+id/nowPlayingBar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
             android:orientation="horizontal"
-            android:background="#CC0D0D14"
-            android:paddingHorizontal="16dp"
-            android:paddingVertical="10dp"
-            android:gravity="center_vertical">
+            android:gravity="center_vertical"
+            android:paddingLeft="14dp"
+            android:paddingRight="14dp"
+            android:paddingBottom="10dp">
 
-            <TextView
-                android:id="@+id/tv_now_playing"
+            <ImageButton
+                android:id="@+id/btnPlayPause"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="@drawable/bg_play_btn"
+                android:src="@android:drawable/ic_media_play"
+                android:padding="8dp"
+                android:contentDescription="Play/Pause" />
+
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="— Select a station"
-                android:textColor="@color/text_primary"
-                android:textSize="13sp"
-                android:singleLine="true"
-                android:ellipsize="marquee"
-                android:marqueeRepeatLimit="marquee_forever"
-                android:focusable="true"
-                android:focusableInTouchMode="true"
-                android:selected="true"/>
+                android:orientation="vertical"
+                android:paddingLeft="10dp">
 
-            <ImageButton
-                android:id="@+id/btn_play_stop"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:src="@android:drawable/ic_media_play"
-                android:background="@null"
-                android:tint="@color/text_primary"
-                android:contentDescription="Play/Stop"/>
+                <TextView
+                    android:id="@+id/tvNowPlayingTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Select a station"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:singleLine="true"
+                    android:ellipsize="marquee"
+                    android:marqueeRepeatLimit="marquee_forever" />
+
+                <TextView
+                    android:id="@+id/tvNowPlayingGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
         </LinearLayout>
+
     </FrameLayout>
 
-    <!-- Radio list -->
+    <TextView
+        android:id="@+id/tvGroupTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Radio"
+        android:textColor="@color/text_primary"
+        android:textSize="22sp"
+        android:fontFamily="sans-serif-medium"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp"
+        android:paddingTop="14dp"
+        android:paddingBottom="8dp" />
+
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rv_radio"
+        android:id="@+id/radioRecycler"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:paddingHorizontal="12dp"
-        android:paddingBottom="12dp"
-        android:clipToPadding="false"/>
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingBottom="16dp"
+        android:clipToPadding="false"
+        android:overScrollMode="never" />
 
 </LinearLayout>

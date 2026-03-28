@@ -1,43 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/soundBtnRoot"
     android:layout_width="match_parent"
     android:layout_height="80dp"
-    android:layout_margin="4dp">
+    android:clickable="true"
+    android:focusable="true"
+    android:longClickable="true"
+    android:background="@drawable/bg_sound_button">
 
-    <!-- Volume fill overlay -->
     <View
-        android:id="@+id/volume_fill"
+        android:id="@+id/volumeOverlay"
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:background="#33FFFFFF"
-        android:layout_gravity="start"/>
+        android:layout_gravity="left"
+        android:visibility="gone" />
 
-    <!-- Background -->
     <LinearLayout
-        android:id="@+id/btn_sound"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:gravity="center"
-        android:background="@drawable/bg_sound_button"
         android:padding="10dp">
 
         <TextView
-            android:id="@+id/tv_emoji"
+            android:id="@+id/tvSoundIcon"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textSize="22sp"
-            android:layout_marginBottom="4dp"/>
+            android:gravity="center" />
 
         <TextView
-            android:id="@+id/tv_sound_name"
-            android:layout_width="wrap_content"
+            android:id="@+id/tvSoundName"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textColor="@color/text_primary"
             android:textSize="12sp"
-            android:singleLine="true"
             android:gravity="center"
-            android:fontFamily="sans-serif-medium"/>
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:paddingTop="4dp"
+            android:fontFamily="sans-serif-medium" />
 
     </LinearLayout>
 

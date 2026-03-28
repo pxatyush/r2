@@ -1,24 +1,22 @@
 package is.dyino.ui.settings;
 
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
-import android.text.Editable;
-import android.text.TextWatcher;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.Spinner;
-import android.widget.Switch;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.fragment.app.Fragment;
 
-import is.dyino.MainActivity;
 import is.dyino.R;
 import is.dyino.util.AppPrefs;
 
@@ -26,139 +24,175 @@ public class SettingsFragment extends Fragment {
 
     private AppPrefs prefs;
 
-    private static final int[] ACCENT_COLORS = {
-        0xFF6C63FF, 0xFF00BCD4, 0xFF4CAF50, 0xFFFF5722,
-        0xFFFF9800, 0xFFE91E63, 0xFFFFFFFF, 0xFF888888
-    };
-    private static final int[] BG_COLORS = {
-        0xFF0D0D14, 0xFF0A0A0A, 0xFF0D1117, 0xFF1A0A0A,
-        0xFF0A1A0A, 0xFF0A0A1A, 0xFF1A1A1A, 0xFF121212
-    };
-    private static final int[] TEXT_COLORS = {
-        0xFFFFFFFF, 0xFFEEEEEE, 0xFFCCCCCC, 0xFFAABBCC,
-        0xFFCCBBAA, 0xFFAAFFAA, 0xFFFFCCFF, 0xFFFFFFAA
-    };
+    public interface OnSettingsChanged {
+        void onGifToggled(boolean enabled);
+        void onThemeChanged();
+        void onButtonSoundChanged(boolean enabled);
+    }
 
-    private static final String[] FONT_OPTIONS = {
-        "Default", "Monospace", "Serif", "Sans-serif Light", "Sans-serif Condensed"
-    };
+    private OnSettingsChanged listener;
+    public void setListener(OnSettingsChanged l) { this.listener = l; }
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
-        View root = inflater.inflate(R.layout.fragment_settings, container, false);
+        return inflater.inflate(R.layout.fragment_settings, container, false);
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
         prefs = new AppPrefs(requireContext());
 
-        setupToggles(root);
-        setupGifTag(root);
-        setupColorPicker(root, R.id.accent_colors, ACCENT_COLORS, 0);
-        setupColorPicker(root, R.id.bg_colors, BG_COLORS, 1);
-        setupColorPicker(root, R.id.text_colors, TEXT_COLORS, 2);
-        setupFontSpinner(root);
+        SwitchCompat swHaptic      = view.findViewById(R.id.switchHaptic);
+        SwitchCompat swButtonSound = view.findViewById(R.id.switchButtonSound);
+        SwitchCompat swDarkMode    = view.findViewById(R.id.switchDarkMode);
+        SwitchCompat swGif         = view.findViewById(R.id.switchGif);
+        EditText     etGifTag      = view.findViewById(R.id.etGifTag);
 
-        return root;
-    }
-
-    private void setupToggles(View root) {
-        Switch swHaptic = root.findViewById(R.id.sw_haptic);
-        Switch swBtnSound = root.findViewById(R.id.sw_button_sound);
-        Switch swDark = root.findViewById(R.id.sw_dark_mode);
-        Switch swGif = root.findViewById(R.id.sw_show_gif);
+        LinearLayout accentRow = view.findViewById(R.id.accentColorRow);
+        LinearLayout bgRow     = view.findViewById(R.id.bgColorRow);
+        LinearLayout textRow   = view.findViewById(R.id.textColorRow);
+        LinearLayout fontRow   = view.findViewById(R.id.fontStyleRow);
 
         swHaptic.setChecked(prefs.isHapticEnabled());
-        swBtnSound.setChecked(prefs.isButtonSoundEnabled());
-        swDark.setChecked(prefs.isDarkMode());
+        swButtonSound.setChecked(prefs.isButtonSoundEnabled());
+        swDarkMode.setChecked(prefs.isDarkMode());
         swGif.setChecked(prefs.isGifEnabled());
+        if (etGifTag != null) etGifTag.setText(prefs.getGifTag());
 
-        swHaptic.setOnCheckedChangeListener((b, v) -> prefs.setHapticEnabled(v));
-        swBtnSound.setOnCheckedChangeListener((b, v) -> prefs.setButtonSoundEnabled(v));
-        swDark.setOnCheckedChangeListener((b, v) -> {
-            prefs.setDarkMode(v);
-            MainActivity main = (MainActivity) getActivity();
-            if (main != null) main.applyTheme();
-        });
-        swGif.setOnCheckedChangeListener((b, v) -> {
-            prefs.setGifEnabled(v);
-            MainActivity main = (MainActivity) getActivity();
-            if (main != null) main.onGifSettingChanged();
-        });
-    }
+        swHaptic.setOnCheckedChangeListener((b, v2) -> prefs.setHapticEnabled(v2));
 
-    private void setupGifTag(View root) {
-        EditText etGifTag = root.findViewById(R.id.et_gif_tag);
-        etGifTag.setText(prefs.getGifTag());
-        etGifTag.addTextChangedListener(new TextWatcher() {
-            public void beforeTextChanged(CharSequence s, int st, int c, int a) {}
-            public void onTextChanged(CharSequence s, int st, int b, int c) {}
-            public void afterTextChanged(Editable s) {
-                if (s.length() > 0) {
-                    prefs.setGifTag(s.toString());
-                    MainActivity main = (MainActivity) getActivity();
-                    if (main != null) main.reloadGifs();
-                }
+        swButtonSound.setOnCheckedChangeListener((b, v2) -> {
+            prefs.setButtonSoundEnabled(v2);
+            if (listener != null) listener.onButtonSoundChanged(v2);
+        });
+
+        swDarkMode.setOnCheckedChangeListener((b, v2) -> {
+            prefs.setDarkMode(v2);
+            if (v2) {
+                prefs.setBgColor(Color.parseColor("#0D0D14"));
+                prefs.setTextColor(Color.WHITE);
+            } else {
+                prefs.setBgColor(Color.parseColor("#F0F0F0"));
+                prefs.setTextColor(Color.parseColor("#111111"));
             }
+            if (listener != null) listener.onThemeChanged();
         });
+
+        swGif.setOnCheckedChangeListener((b, v2) -> {
+            prefs.setGifEnabled(v2);
+            if (listener != null) listener.onGifToggled(v2);
+        });
+
+        if (etGifTag != null) {
+            etGifTag.setOnEditorActionListener((tv, actionId, event) -> {
+                prefs.setGifTag(tv.getText().toString().trim());
+                if (listener != null) listener.onGifToggled(prefs.isGifEnabled());
+                return false;
+            });
+        }
+
+        int[] accentColors = {
+                Color.parseColor("#6C63FF"), Color.parseColor("#FF6584"),
+                Color.parseColor("#43E97B"), Color.parseColor("#FA8231"),
+                Color.parseColor("#00B5FF"), Color.parseColor("#F7B731"),
+        };
+        buildColorRow(accentRow, accentColors, prefs.getAccentColor(), color -> {
+            prefs.setAccentColor(color);
+            if (listener != null) listener.onThemeChanged();
+        });
+
+        int[] bgColors = {
+                Color.parseColor("#0D0D14"), Color.parseColor("#0A1628"),
+                Color.parseColor("#0D1A0D"), Color.parseColor("#1A0D0D"),
+                Color.parseColor("#1A1A0D"), Color.parseColor("#F0F0F0"),
+        };
+        buildColorRow(bgRow, bgColors, prefs.getBgColor(), color -> {
+            prefs.setBgColor(color);
+            if (listener != null) listener.onThemeChanged();
+        });
+
+        int[] textColors = {
+                Color.WHITE,                Color.parseColor("#E0E0FF"),
+                Color.parseColor("#FFE0E0"), Color.parseColor("#E0FFE0"),
+                Color.parseColor("#FFFFCC"), Color.parseColor("#111111"),
+        };
+        buildColorRow(textRow, textColors, prefs.getTextColor(), color -> {
+            prefs.setTextColor(color);
+            if (listener != null) listener.onThemeChanged();
+        });
+
+        buildFontRow(fontRow);
     }
 
-    private void setupColorPicker(View root, int containerId, int[] colors, int type) {
-        LinearLayout container = root.findViewById(containerId);
-        container.removeAllViews();
+    interface ColorPicker { void onColorSelected(int color); }
 
-        int selectedColor = type == 0 ? prefs.getAccentColor()
-                : type == 1 ? prefs.getBgColor() : prefs.getTextColor();
+    private void buildColorRow(LinearLayout row, int[] colors, int selected, ColorPicker picker) {
+        if (row == null) return;
+        row.removeAllViews();
+        float dp   = getResources().getDisplayMetrics().density;
+        int size   = (int) (32 * dp);
+        int margin = (int) (6 * dp);
 
         for (int color : colors) {
-            View swatch = new View(getContext());
-            int sizePx = (int)(36 * getResources().getDisplayMetrics().density);
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(sizePx, sizePx);
-            params.setMargins(4, 0, 4, 0);
-            swatch.setLayoutParams(params);
+            View circle = new View(requireContext());
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
+            lp.setMargins(0, 0, margin, 0);
+            circle.setLayoutParams(lp);
 
-            // Circle shape
-            android.graphics.drawable.GradientDrawable circle = new android.graphics.drawable.GradientDrawable();
-            circle.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-            circle.setColor(color);
-            if (color == selectedColor) {
-                circle.setStroke(3, 0xFFFFFFFF);
-            }
-            swatch.setBackground(circle);
+            GradientDrawable gd = new GradientDrawable();
+            gd.setShape(GradientDrawable.OVAL);
+            gd.setColor(color);
+            if (color == selected) gd.setStroke((int)(2.5f * dp), Color.WHITE);
+            circle.setBackground(gd);
 
             final int c = color;
-            swatch.setOnClickListener(v -> {
-                if (type == 0) prefs.setAccentColor(c);
-                else if (type == 1) prefs.setBgColor(c);
-                else prefs.setTextColor(c);
-                // Refresh swatches
-                setupColorPicker(root, containerId, colors, type);
-                // Apply theme
-                MainActivity main = (MainActivity) getActivity();
-                if (main != null) main.applyTheme();
+            circle.setOnClickListener(v -> {
+                picker.onColorSelected(c);
+                buildColorRow(row, colors, c, picker);
             });
-
-            container.addView(swatch);
+            row.addView(circle);
         }
     }
 
-    private void setupFontSpinner(View root) {
-        Spinner spinner = root.findViewById(R.id.spinner_font);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                requireContext(),
-                android.R.layout.simple_spinner_item,
-                FONT_OPTIONS);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinner.setAdapter(adapter);
-        spinner.setSelection(prefs.getFontIndex());
-        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View v, int pos, long id) {
-                prefs.setFontIndex(pos);
-                MainActivity main = (MainActivity) getActivity();
-                if (main != null) main.applyFont(pos);
-            }
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {}
-        });
+    private void buildFontRow(LinearLayout row) {
+        if (row == null) return;
+        row.removeAllViews();
+        float dp = getResources().getDisplayMetrics().density;
+
+        String[] names = {"Default", "Serif", "Mono"};
+        Typeface[] faces = {Typeface.DEFAULT, Typeface.SERIF, Typeface.MONOSPACE};
+        int selected = prefs.getFontStyle();
+
+        for (int i = 0; i < names.length; i++) {
+            TextView tv = new TextView(requireContext());
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, (int)(36 * dp));
+            lp.setMargins(0, 0, (int)(8 * dp), 0);
+            tv.setLayoutParams(lp);
+            tv.setText(names[i]);
+            tv.setTypeface(faces[i]);
+            tv.setTextColor(i == selected ? Color.WHITE : Color.parseColor("#666680"));
+            tv.setTextSize(13);
+            tv.setPadding((int)(12 * dp), 0, (int)(12 * dp), 0);
+            tv.setGravity(Gravity.CENTER_VERTICAL);
+
+            GradientDrawable bg = new GradientDrawable();
+            bg.setShape(GradientDrawable.RECTANGLE);
+            bg.setCornerRadius(8 * dp);
+            bg.setColor(i == selected ? Color.parseColor("#2A2A4A") : Color.parseColor("#1E1E2A"));
+            tv.setBackground(bg);
+
+            final int idx = i;
+            tv.setOnClickListener(v -> {
+                prefs.setFontStyle(idx);
+                buildFontRow(row);
+            });
+            row.addView(tv);
+        }
     }
 }

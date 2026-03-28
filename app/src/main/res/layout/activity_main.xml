@@ -1,96 +1,138 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="horizontal"
     android:background="@color/bg_dark">
 
-    <!-- Vertical Navigation Rail -->
+    <!-- Left vertical nav bar -->
     <LinearLayout
-        android:id="@+id/nav_rail"
+        android:id="@+id/navBar"
         android:layout_width="64dp"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:gravity="center_horizontal"
-        android:paddingTop="48dp"
-        android:paddingBottom="16dp"
+        android:gravity="center_vertical"
+        android:paddingTop="24dp"
+        android:paddingBottom="24dp"
         android:background="@color/bg_dark">
 
-        <LinearLayout
-            android:id="@+id/nav_radio"
+        <!-- Decorative sparkle -->
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
+            android:text="&#10022;"
+            android:textSize="14sp"
+            android:textColor="#22446688"
             android:gravity="center"
-            android:padding="8dp"
-            android:layout_marginBottom="8dp">
+            android:paddingBottom="24dp" />
+
+        <!-- Radio nav item -->
+        <FrameLayout
+            android:id="@+id/navRadio"
+            android:layout_width="match_parent"
+            android:layout_height="80dp"
+            android:clickable="true"
+            android:focusable="true">
             <TextView
-                android:id="@+id/nav_radio_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:id="@+id/navRadioText"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
                 android:text="Radio"
-                android:textSize="11sp"
-                android:textColor="@color/nav_unselected"
-                android:rotation="-90"
+                android:textSize="12sp"
                 android:letterSpacing="0.06"
-                android:textAllCaps="false"
-                android:fontFamily="sans-serif-medium"/>
-        </LinearLayout>
+                android:textColor="@color/nav_selected"
+                android:gravity="center"
+                android:rotation="-90"
+                android:fontFamily="sans-serif-medium" />
+        </FrameLayout>
 
-        <LinearLayout
-            android:id="@+id/nav_sounds"
+        <!-- Sounds nav item -->
+        <FrameLayout
+            android:id="@+id/navSounds"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:padding="8dp"
-            android:layout_marginBottom="8dp">
+            android:layout_height="80dp"
+            android:clickable="true"
+            android:focusable="true">
             <TextView
-                android:id="@+id/nav_sounds_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:id="@+id/navSoundsText"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
                 android:text="Sounds"
-                android:textSize="11sp"
-                android:textColor="@color/nav_unselected"
-                android:rotation="-90"
+                android:textSize="12sp"
                 android:letterSpacing="0.06"
-                android:textAllCaps="false"
-                android:fontFamily="sans-serif-medium"/>
-        </LinearLayout>
+                android:textColor="@color/nav_unselected"
+                android:gravity="center"
+                android:rotation="-90"
+                android:fontFamily="sans-serif-medium" />
+        </FrameLayout>
 
-        <LinearLayout
-            android:id="@+id/nav_settings"
+        <!-- Settings nav item -->
+        <FrameLayout
+            android:id="@+id/navSettings"
+            android:layout_width="match_parent"
+            android:layout_height="80dp"
+            android:clickable="true"
+            android:focusable="true">
+            <TextView
+                android:id="@+id/navSettingsText"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:text="Settings"
+                android:textSize="12sp"
+                android:letterSpacing="0.06"
+                android:textColor="@color/nav_unselected"
+                android:gravity="center"
+                android:rotation="-90"
+                android:fontFamily="sans-serif-medium" />
+        </FrameLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
+            android:text="&#183;"
+            android:textSize="18sp"
+            android:textColor="#22446688"
             android:gravity="center"
-            android:padding="8dp">
-            <TextView
-                android:id="@+id/nav_settings_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Settings"
-                android:textSize="11sp"
-                android:textColor="@color/nav_unselected"
-                android:rotation="-90"
-                android:letterSpacing="0.06"
-                android:textAllCaps="false"
-                android:fontFamily="sans-serif-medium"/>
-        </LinearLayout>
+            android:paddingBottom="8dp" />
 
     </LinearLayout>
 
-    <!-- Vertical divider -->
+    <!-- Thin divider -->
     <View
         android:layout_width="1dp"
         android:layout_height="match_parent"
-        android:background="@color/divider"/>
+        android:background="@color/divider" />
 
-    <!-- Content Area -->
+    <!-- Main content area - stacked fragments -->
     <FrameLayout
-        android:id="@+id/content_container"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:layout_weight="1"/>
+        android:layout_weight="1">
+
+        <FrameLayout
+            android:id="@+id/fragmentRadio"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="visible" />
+
+        <FrameLayout
+            android:id="@+id/fragmentSounds"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
+        <FrameLayout
+            android:id="@+id/fragmentSettings"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
+    </FrameLayout>
 
 </LinearLayout>
