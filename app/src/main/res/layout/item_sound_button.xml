@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="80dp"
+    android:layout_margin="4dp">
+
+    <!-- Volume fill overlay -->
+    <View
+        android:id="@+id/volume_fill"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:background="#33FFFFFF"
+        android:layout_gravity="start"/>
+
+    <!-- Background -->
+    <LinearLayout
+        android:id="@+id/btn_sound"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@drawable/bg_sound_button"
+        android:padding="10dp">
+
+        <TextView
+            android:id="@+id/tv_emoji"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="22sp"
+            android:layout_marginBottom="4dp"/>
+
+        <TextView
+            android:id="@+id/tv_sound_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_primary"
+            android:textSize="12sp"
+            android:singleLine="true"
+            android:gravity="center"
+            android:fontFamily="sans-serif-medium"/>
+
+    </LinearLayout>
+
+</FrameLayout>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_dark">#0D0D14</color>
+    <color name="bg_card">#16161F</color>
+    <color name="bg_card2">#1E1E2A</color>
+    <color name="accent_default">#6C63FF</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#8888AA</color>
+    <color name="nav_selected">#FFFFFF</color>
+    <color name="nav_unselected">#44445A</color>
+    <color name="button_active">#6C63FF</color>
+    <color name="button_inactive">#1E1E2A</color>
+    <color name="divider">#22223A</color>
+    <color name="overlay">#AA000000</color>
+    <color name="transparent">#00000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+</resources>

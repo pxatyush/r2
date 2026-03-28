@@ -1,0 +1,4 @@
+-keep class is.dyino.** { *; }
+-keep class pl.droidsonroids.gif.** { *; }
+-dontwarn okhttp3.**
+-dontwarn okio.**
