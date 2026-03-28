@@ -19,12 +19,23 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
+    #  kill cache (prevents Gradle 9 issue)
+    - name: Clean Gradle cache
+      run: rm -rf ~/.gradle
+
+    #  ensure wrapper is executable
     - name: Grant permission
       run: chmod +x gradlew
 
-    - name: Build APK
-      run: ./gradlew assembleDebug
+    #  FORCE correct Gradle version
+    - name: Force Gradle 7.6
+      run: ./gradlew wrapper --gradle-version 7.6
 
+    #  build
+    - name: Build APK
+      run: ./gradlew assembleDebug --no-daemon
+
+    #  upload
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
