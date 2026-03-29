@@ -1,19 +1,27 @@
 package is.dyino.model;
 
 public class SoundItem {
-    public String name;
-    public String emoji;
-    public String assetPath; // e.g. "sounds/rain.mp3"
-    public String category;
-    public boolean isPlaying;
-    public float volume; // 0.0 - 1.0
+    private final String name;
+    private final String fileName;  // asset filename, e.g. "rain.mp3"
+    private final String emoji;
+    private final String category;
+    private float   volume  = 0.8f;
+    private boolean playing = false;
 
-    public SoundItem(String name, String emoji, String assetPath, String category) {
-        this.name = name;
-        this.emoji = emoji;
-        this.assetPath = assetPath;
+    public SoundItem(String name, String fileName, String emoji, String category) {
+        this.name     = name;
+        this.fileName = fileName;
+        this.emoji    = emoji;
         this.category = category;
-        this.isPlaying = false;
-        this.volume = 1.0f;
     }
+
+    public String  getName()    { return name;     }
+    public String  getFileName(){ return fileName; }
+    public String  getEmoji()   { return emoji;    }
+    public String  getCategory(){ return category; }
+    public float   getVolume()  { return volume;   }
+    public boolean isPlaying()  { return playing;  }
+
+    public void setVolume(float v)    { this.volume  = Math.max(0f, Math.min(1f, v)); }
+    public void setPlaying(boolean p) { this.playing = p; }
 }

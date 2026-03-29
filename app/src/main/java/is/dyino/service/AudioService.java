@@ -5,8 +5,8 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
-import android.content.Intent;
 import android.content.Context;
+import android.content.Intent;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.media.SoundPool;
@@ -17,7 +17,6 @@ import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,76 +24,118 @@ import is.dyino.MainActivity;
 import is.dyino.R;
 
 public class AudioService extends Service {
-    private static final String TAG = "AudioService";
-    private static final String CHANNEL_ID = "dyino_channel";
-    private static final int NOTIF_ID = 1;
 
+    private static final String TAG      = "AudioService";
+    private static final String CH_ID    = "dyino_ch";
+    private static final int    NOTIF_ID = 1001;
+
+    /* ── Binder ── */
     public class LocalBinder extends Binder {
         public AudioService getService() { return AudioService.this; }
     }
-
     private final IBinder binder = new LocalBinder();
 
-    // Radio player
+    /* ── Radio listener interface ── */
+    public interface RadioListener {
+        void onPlaybackStarted(String stationName);
+        void onPlaybackStopped();
+        void onError(String msg);
+        void onBuffering();
+    }
+    private RadioListener radioListener;
+    public void setRadioListener(RadioListener l) { this.radioListener = l; }
+
+    /* ── Radio state ── */
     private MediaPlayer radioPlayer;
-    private String currentRadioUrl;
-    private String currentRadioName;
-    private boolean radioPlaying = false;
+    private String currentStationName = "";
+    private boolean radioPlaying      = false;
 
-    // Ambient sound players: assetPath -> MediaPlayer
+    /* ── Ambient sounds ── */
     private final Map<String, MediaPlayer> soundPlayers = new HashMap<>();
-    private final Map<String, Float> soundVolumes = new HashMap<>();
+    private final Map<String, Float>       soundVolumes  = new HashMap<>();
 
-    // Callbacks
-    public interface RadioCallback {
-        void onRadioStarted(String name);
-        void onRadioStopped();
-        void onRadioError(String msg);
-    }
+    /* ── Button click sound ── */
+    private SoundPool clickPool;
+    private int       clickId            = -1;
+    private boolean   buttonSoundEnabled = true;
 
-    private RadioCallback radioCallback;
+    public void setButtonSoundEnabled(boolean v) { buttonSoundEnabled = v; }
 
-    public void setRadioCallback(RadioCallback cb) { this.radioCallback = cb; }
+    /* ════════════════════════════════════════════════
+       Lifecycle
+       ════════════════════════════════════════════════ */
 
-    @Override
-    public void onCreate() {
+    @Override public void onCreate() {
         super.onCreate();
-        createNotificationChannel();
+        createChannel();
+        initClickPool();
+        startForeground(NOTIF_ID, buildNotification("dyino", "Ready"));
     }
 
-    @Override
-    public IBinder onBind(Intent intent) { return binder; }
+    @Override public IBinder onBind(Intent i)            { return binder;       }
+    @Override public int onStartCommand(Intent i, int f, int s){ return START_STICKY; }
 
-    // ─────────────── Radio ───────────────
-
-    public void playRadio(String url, String name) {
+    @Override public void onDestroy() {
         stopRadio();
-        currentRadioUrl = url;
-        currentRadioName = name;
+        stopAllSounds();
+        if (clickPool != null) clickPool.release();
+        super.onDestroy();
+    }
+
+    /* ════════════════════════════════════════════════
+       Click sound
+       ════════════════════════════════════════════════ */
+
+    private void initClickPool() {
+        AudioAttributes aa = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build();
+        clickPool = new SoundPool.Builder().setMaxStreams(2).setAudioAttributes(aa).build();
+        try {
+            android.content.res.AssetFileDescriptor afd = getAssets().openFd("sounds/click.mp3");
+            clickId = clickPool.load(afd, 1);
+            afd.close();
+        } catch (Exception e) { Log.d(TAG, "No click.mp3"); }
+    }
+
+    public void playClickSound() {
+        if (buttonSoundEnabled && clickPool != null && clickId != -1)
+            clickPool.play(clickId, 0.5f, 0.5f, 1, 0, 1f);
+    }
+
+    /* ════════════════════════════════════════════════
+       Radio
+       ════════════════════════════════════════════════ */
+
+    public void playRadio(String name, String url) {
+        stopRadio();
+        currentStationName = name;
+        if (radioListener != null) radioListener.onBuffering();
 
         radioPlayer = new MediaPlayer();
         radioPlayer.setAudioAttributes(new AudioAttributes.Builder()
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                 .setUsage(AudioAttributes.USAGE_MEDIA)
-                .build());
-
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
         try {
             radioPlayer.setDataSource(url);
             radioPlayer.setOnPreparedListener(mp -> {
                 mp.start();
                 radioPlaying = true;
-                startForeground(NOTIF_ID, buildNotification("▶ " + name));
-                if (radioCallback != null) radioCallback.onRadioStarted(name);
+                updateNotification(name, "Playing");
+                if (radioListener != null) radioListener.onPlaybackStarted(name);
             });
-            radioPlayer.setOnErrorListener((mp, what, extra) -> {
+            radioPlayer.setOnErrorListener((mp, w, e) -> {
                 radioPlaying = false;
-                if (radioCallback != null) radioCallback.onRadioError("Stream error");
+                if (radioListener != null) radioListener.onError("Stream error " + w);
                 return true;
             });
+            radioPlayer.setOnCompletionListener(mp -> {
+                radioPlaying = false;
+                if (radioListener != null) radioListener.onPlaybackStopped();
+            });
             radioPlayer.prepareAsync();
-        } catch (IOException e) {
-            Log.e(TAG, "playRadio error", e);
-            if (radioCallback != null) radioCallback.onRadioError(e.getMessage());
+        } catch (Exception e) {
+            if (radioListener != null) radioListener.onError(e.getMessage());
         }
     }
 
@@ -105,106 +146,111 @@ public class AudioService extends Service {
             radioPlayer = null;
         }
         radioPlaying = false;
-        currentRadioUrl = null;
-        currentRadioName = null;
-        if (radioCallback != null) radioCallback.onRadioStopped();
-        if (soundPlayers.isEmpty()) stopForeground(true);
-        else startForeground(NOTIF_ID, buildNotification("Sounds playing"));
+        if (radioListener != null) radioListener.onPlaybackStopped();
+        updateNotification("dyino", "Ready");
     }
 
-    public boolean isRadioPlaying() { return radioPlaying; }
-    public String getCurrentRadioName() { return currentRadioName; }
+    public void pauseResumeRadio() {
+        if (radioPlayer == null) return;
+        if (radioPlayer.isPlaying()) {
+            radioPlayer.pause();
+            radioPlaying = false;
+            updateNotification(currentStationName, "Paused");
+        } else {
+            radioPlayer.start();
+            radioPlaying = true;
+            updateNotification(currentStationName, "Playing");
+        }
+    }
 
-    // ─────────────── Ambient Sounds ───────────────
+    public boolean isRadioPlaying()    { return radioPlayer != null && radioPlayer.isPlaying(); }
+    public String  getCurrentStationName() { return currentStationName; }
 
-    public void playSound(String assetPath) {
-        if (soundPlayers.containsKey(assetPath)) return;
+    /* ════════════════════════════════════════════════
+       Ambient sounds
+       ════════════════════════════════════════════════ */
 
+    public void playSound(String fileName, float volume) {
+        if (soundPlayers.containsKey(fileName)) {
+            MediaPlayer mp = soundPlayers.get(fileName);
+            if (mp != null) mp.setVolume(volume, volume);
+            soundVolumes.put(fileName, volume);
+            return;
+        }
         try {
             MediaPlayer mp = new MediaPlayer();
             mp.setAudioAttributes(new AudioAttributes.Builder()
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                     .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .build());
-            mp.setDataSource(getAssets().openFd(assetPath));
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
+            android.content.res.AssetFileDescriptor afd = getAssets().openFd("sounds/" + fileName);
+            mp.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+            afd.close();
             mp.setLooping(true);
-            float vol = soundVolumes.getOrDefault(assetPath, 1.0f);
-            mp.setVolume(vol, vol);
+            mp.setVolume(volume, volume);
             mp.setOnPreparedListener(MediaPlayer::start);
             mp.prepareAsync();
-            soundPlayers.put(assetPath, mp);
-
-            startForeground(NOTIF_ID, buildNotification(radioPlaying ?
-                    "▶ " + currentRadioName : "Sounds playing"));
-        } catch (IOException e) {
-            Log.e(TAG, "playSound error: " + assetPath, e);
-        }
+            soundPlayers.put(fileName, mp);
+            soundVolumes.put(fileName, volume);
+        } catch (Exception e) { Log.e(TAG, "playSound: " + fileName, e); }
     }
 
-    public void stopSound(String assetPath) {
-        MediaPlayer mp = soundPlayers.remove(assetPath);
-        if (mp != null) {
-            try { mp.stop(); } catch (Exception ignored) {}
-            mp.release();
-        }
-        if (soundPlayers.isEmpty() && !radioPlaying) stopForeground(true);
+    public void stopSound(String fileName) {
+        MediaPlayer mp = soundPlayers.remove(fileName);
+        if (mp != null) { try { mp.stop(); } catch (Exception ignored) {} mp.release(); }
+        soundVolumes.remove(fileName);
+    }
+
+    public void setSoundVolume(String fileName, float volume) {
+        soundVolumes.put(fileName, volume);
+        MediaPlayer mp = soundPlayers.get(fileName);
+        if (mp != null) mp.setVolume(volume, volume);
+    }
+
+    public boolean isSoundPlaying(String fileName) {
+        MediaPlayer mp = soundPlayers.get(fileName);
+        return mp != null && mp.isPlaying();
+    }
+
+    public float getSoundVolume(String fileName) {
+        Float v = soundVolumes.get(fileName);
+        return v != null ? v : 0.8f;
     }
 
     public void stopAllSounds() {
         for (MediaPlayer mp : soundPlayers.values()) {
-            try { mp.stop(); mp.release(); } catch (Exception ignored) {}
+            try { mp.stop(); } catch (Exception ignored) {}
+            mp.release();
         }
         soundPlayers.clear();
-        if (!radioPlaying) stopForeground(true);
+        soundVolumes.clear();
     }
 
-    public boolean isSoundPlaying(String assetPath) {
-        return soundPlayers.containsKey(assetPath);
-    }
+    /* ════════════════════════════════════════════════
+       Notification helpers
+       ════════════════════════════════════════════════ */
 
-    public void setSoundVolume(String assetPath, float volume) {
-        soundVolumes.put(assetPath, volume);
-        MediaPlayer mp = soundPlayers.get(assetPath);
-        if (mp != null) {
-            try { mp.setVolume(volume, volume); } catch (Exception ignored) {}
-        }
-    }
-
-    public float getSoundVolume(String assetPath) {
-        return soundVolumes.getOrDefault(assetPath, 1.0f);
-    }
-
-    public int getActiveSoundCount() { return soundPlayers.size(); }
-
-    // ─────────────── Notification ───────────────
-
-    private void createNotificationChannel() {
+    private void createChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID, "Dyino Audio", NotificationManager.IMPORTANCE_LOW);
-            channel.setDescription("Background audio playback");
-            getSystemService(NotificationManager.class).createNotificationChannel(channel);
+            NotificationChannel ch = new NotificationChannel(
+                    CH_ID, "dyino Playback", NotificationManager.IMPORTANCE_LOW);
+            ch.setSound(null, null);
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            if (nm != null) nm.createNotificationChannel(ch);
         }
     }
 
-    private Notification buildNotification(String text) {
-        Intent intent = new Intent(this, MainActivity.class);
-        PendingIntent pi = PendingIntent.getActivity(this, 0, intent,
+    private Notification buildNotification(String title, String text) {
+        Intent i = new Intent(this, MainActivity.class);
+        PendingIntent pi = PendingIntent.getActivity(this, 0, i,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
-        return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("dyino")
-                .setContentText(text)
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentIntent(pi)
-                .setOngoing(true)
-                .build();
+        return new NotificationCompat.Builder(this, CH_ID)
+                .setContentTitle(title).setContentText(text)
+                .setSmallIcon(R.drawable.ic_launcher_fg)
+                .setContentIntent(pi).setOngoing(true).setSilent(true).build();
     }
 
-    @Override
-    public void onDestroy() {
-        stopRadio();
-        stopAllSounds();
-        super.onDestroy();
+    private void updateNotification(String title, String text) {
+        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm != null) nm.notify(NOTIF_ID, buildNotification(title, text));
     }
 }

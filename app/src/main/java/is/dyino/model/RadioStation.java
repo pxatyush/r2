@@ -1,15 +1,17 @@
 package is.dyino.model;
 
 public class RadioStation {
-    public String name;
-    public String url;
-    public String group;
-    public String tag;
+    private final String name;
+    private final String url;
+    private final String group;
 
-    public RadioStation(String name, String url, String group, String tag) {
-        this.name = name;
-        this.url = url;
+    public RadioStation(String name, String url, String group) {
+        this.name  = name;
+        this.url   = url;
         this.group = group;
-        this.tag = tag;
     }
+
+    public String getName()  { return name;  }
+    public String getUrl()   { return url;   }
+    public String getGroup() { return group; }
 }

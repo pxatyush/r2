@@ -1,14 +1,16 @@
 package is.dyino.model;
 
 import java.util.List;
-import java.util.ArrayList;
 
 public class RadioGroup {
-    public String name;
-    public List<RadioStation> stations;
+    private final String name;
+    private final List<RadioStation> stations;
 
-    public RadioGroup(String name) {
-        this.name = name;
-        this.stations = new ArrayList<>();
+    public RadioGroup(String name, List<RadioStation> stations) {
+        this.name     = name;
+        this.stations = stations;
     }
+
+    public String             getName()    { return name;     }
+    public List<RadioStation> getStations(){ return stations; }
 }
