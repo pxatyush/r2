@@ -7,6 +7,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.media.SoundPool;
@@ -58,6 +59,7 @@ public class AudioService extends Service {
     private SoundPool clickPool;
     private int       clickId            = -1;
     private boolean   buttonSoundEnabled = true;
+    private boolean   foregroundStarted  = false;
 
     public void setButtonSoundEnabled(boolean v) { buttonSoundEnabled = v; }
 
@@ -65,21 +67,36 @@ public class AudioService extends Service {
        Lifecycle
        ════════════════════════════════════════════════ */
 
-    @Override public void onCreate() {
+    @Override
+    public void onCreate() {
         super.onCreate();
         createChannel();
         initClickPool();
-        startForeground(NOTIF_ID, buildNotification("dyino", "Ready"));
+        // Don't call startForeground here - call it lazily when audio actually starts
+        // to avoid ForegroundServiceStartNotAllowedException on API 31+
     }
 
-    @Override public IBinder onBind(Intent i)            { return binder;       }
-    @Override public int onStartCommand(Intent i, int f, int s){ return START_STICKY; }
+    @Override public IBinder onBind(Intent i)                       { return binder;       }
+    @Override public int    onStartCommand(Intent i, int f, int s)  { return START_STICKY; }
 
-    @Override public void onDestroy() {
+    @Override
+    public void onDestroy() {
         stopRadio();
         stopAllSounds();
         if (clickPool != null) clickPool.release();
         super.onDestroy();
+    }
+
+    /** Called before any audio starts to promote service to foreground. */
+    private void ensureForeground() {
+        if (foregroundStarted) return;
+        foregroundStarted = true;
+        Notification n = buildNotification("dyino", "Playing");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+        } else {
+            startForeground(NOTIF_ID, n);
+        }
     }
 
     /* ════════════════════════════════════════════════
@@ -95,7 +112,7 @@ public class AudioService extends Service {
             android.content.res.AssetFileDescriptor afd = getAssets().openFd("sounds/click.mp3");
             clickId = clickPool.load(afd, 1);
             afd.close();
-        } catch (Exception e) { Log.d(TAG, "No click.mp3"); }
+        } catch (Exception e) { Log.d(TAG, "No click.mp3 asset"); }
     }
 
     public void playClickSound() {
@@ -108,7 +125,8 @@ public class AudioService extends Service {
        ════════════════════════════════════════════════ */
 
     public void playRadio(String name, String url) {
-        stopRadio();
+        ensureForeground();
+        stopRadioPlayer();
         currentStationName = name;
         if (radioListener != null) radioListener.onBuffering();
 
@@ -140,14 +158,18 @@ public class AudioService extends Service {
     }
 
     public void stopRadio() {
+        stopRadioPlayer();
+        updateNotification("dyino", "Ready");
+        if (radioListener != null) radioListener.onPlaybackStopped();
+    }
+
+    private void stopRadioPlayer() {
         if (radioPlayer != null) {
             try { radioPlayer.stop(); } catch (Exception ignored) {}
             radioPlayer.release();
             radioPlayer = null;
         }
         radioPlaying = false;
-        if (radioListener != null) radioListener.onPlaybackStopped();
-        updateNotification("dyino", "Ready");
     }
 
     public void pauseResumeRadio() {
@@ -163,7 +185,7 @@ public class AudioService extends Service {
         }
     }
 
-    public boolean isRadioPlaying()    { return radioPlayer != null && radioPlayer.isPlaying(); }
+    public boolean isRadioPlaying()        { return radioPlayer != null && radioPlayer.isPlaying(); }
     public String  getCurrentStationName() { return currentStationName; }
 
     /* ════════════════════════════════════════════════
@@ -171,6 +193,7 @@ public class AudioService extends Service {
        ════════════════════════════════════════════════ */
 
     public void playSound(String fileName, float volume) {
+        ensureForeground();
         if (soundPlayers.containsKey(fileName)) {
             MediaPlayer mp = soundPlayers.get(fileName);
             if (mp != null) mp.setVolume(volume, volume);
@@ -226,7 +249,7 @@ public class AudioService extends Service {
     }
 
     /* ════════════════════════════════════════════════
-       Notification helpers
+       Notification
        ════════════════════════════════════════════════ */
 
     private void createChannel() {
@@ -240,7 +263,7 @@ public class AudioService extends Service {
     }
 
     private Notification buildNotification(String title, String text) {
-        Intent i = new Intent(this, MainActivity.class);
+        Intent i   = new Intent(this, MainActivity.class);
         PendingIntent pi = PendingIntent.getActivity(this, 0, i,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new NotificationCompat.Builder(this, CH_ID)
@@ -250,6 +273,7 @@ public class AudioService extends Service {
     }
 
     private void updateNotification(String title, String text) {
+        if (!foregroundStarted) return;
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm != null) nm.notify(NOTIF_ID, buildNotification(title, text));
     }
