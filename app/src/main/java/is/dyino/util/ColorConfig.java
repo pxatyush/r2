@@ -13,83 +13,96 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class ColorConfig {
-    private static final String TAG      = "ColorConfig";
-    private static final String FILENAME = "color.cfg";
+    private static final String TAG  = "ColorConfig";
+    private static final String FILE = "color.cfg";
 
-    private final Map<String, String> values = new LinkedHashMap<>();
+    private final Map<String, String> vals = new LinkedHashMap<>();
     private final Context ctx;
 
-    public ColorConfig(Context ctx) {
-        this.ctx = ctx;
-        load();
-    }
+    public ColorConfig(Context ctx) { this.ctx = ctx; load(); }
 
     private void load() {
-        // Try internal files dir first (user-edited copy)
-        File f = new File(ctx.getFilesDir(), FILENAME);
+        File f = new File(ctx.getFilesDir(), FILE);
         try {
-            BufferedReader br;
-            if (f.exists()) {
-                br = new BufferedReader(new FileReader(f));
-            } else {
-                br = new BufferedReader(new InputStreamReader(ctx.getAssets().open(FILENAME)));
-            }
+            BufferedReader br = f.exists()
+                ? new BufferedReader(new FileReader(f))
+                : new BufferedReader(new InputStreamReader(ctx.getAssets().open(FILE)));
             String line;
             while ((line = br.readLine()) != null) {
                 line = line.trim();
                 if (line.isEmpty() || line.startsWith("#")) continue;
                 int eq = line.indexOf('=');
-                if (eq > 0) {
-                    String key = line.substring(0, eq).trim();
-                    String val = line.substring(eq + 1).trim();
-                    values.put(key, val);
-                }
+                if (eq > 0) vals.put(line.substring(0, eq).trim(), line.substring(eq+1).trim());
             }
             br.close();
-        } catch (Exception e) {
-            Log.e(TAG, "load failed", e);
-        }
+        } catch (Exception e) { Log.e(TAG, "load", e); }
     }
 
-    public int get(String key, int fallback) {
-        String v = values.get(key);
-        if (v == null) return fallback;
-        try { return Color.parseColor(v); } catch (Exception e) { return fallback; }
+    private int c(String key, String fallback) {
+        String v = vals.get(key);
+        try { return Color.parseColor(v != null ? v : fallback); }
+        catch (Exception e) { try { return Color.parseColor(fallback); } catch (Exception ex) { return Color.WHITE; } }
     }
 
-    public int bgPrimary()          { return get("bg_primary",             Color.parseColor("#0D0D14")); }
-    public int bgCard()             { return get("bg_card",                Color.parseColor("#16161F")); }
-    public int bgCard2()            { return get("bg_card2",               Color.parseColor("#1E1E2A")); }
-    public int accent()             { return get("accent",                 Color.parseColor("#6C63FF")); }
-    public int textPrimary()        { return get("text_primary",           Color.WHITE);                 }
-    public int textSecondary()      { return get("text_secondary",         Color.parseColor("#8888AA")); }
-    public int navSelected()        { return get("nav_selected",           Color.WHITE);                 }
-    public int navUnselected()      { return get("nav_unselected",         Color.parseColor("#44445A")); }
-    public int stationActiveBg()    { return get("station_active_bg",      Color.parseColor("#2A1E4A")); }
-    public int stationActiveBorder(){ return get("station_active_border",  Color.parseColor("#6C63FF")); }
-    public int stationTextActive()  { return get("station_text_active",    Color.parseColor("#6C63FF")); }
-    public int divider()            { return get("divider",                Color.parseColor("#22223A")); }
-    public int soundBtnBg()         { return get("sound_btn_bg",           Color.parseColor("#1E1E2A")); }
-    public int soundBtnActiveBg()   { return get("sound_btn_active_bg",    Color.parseColor("#2A2A4A")); }
-    public int soundBtnActiveBorder(){ return get("sound_btn_active_border",Color.parseColor("#6C63FF"));}
+    // ── Backgrounds ──
+    public int bgPrimary()        { return c("bg_primary",        "#0D0D14"); }
+    public int bgCard()           { return c("bg_card",           "#16161F"); }
+    public int bgCard2()          { return c("bg_card2",          "#1E1E2A"); }
+    public int bgNav()            { return c("bg_nav",            "#0D0D14"); }
+    public int bgHeader()         { return c("bg_header",         "#0D0D14"); }
+    public int bgSettingsCard()   { return c("bg_settings_card",  "#16161F"); }
 
-    /** Save an edited copy to internal storage so it persists across restarts */
+    // ── Accent ──
+    public int accent()           { return c("accent",            "#6C63FF"); }
+    public int accentDim()        { return c("accent_dim",        "#3D3880"); }
+
+    // ── Text ──
+    public int textPrimary()      { return c("text_primary",      "#FFFFFF"); }
+    public int textSecondary()    { return c("text_secondary",    "#8888AA"); }
+    public int navSelected()      { return c("text_nav_selected", "#FFFFFF"); }
+    public int navUnselected()    { return c("text_nav_unselected","#44445A"); }
+    public int textSectionTitle() { return c("text_section_title","#FFFFFF"); }
+    public int textStationActive(){ return c("text_station_active","#6C63FF"); }
+    public int textAboutBrand()   { return c("text_about_brand",  "#6C63FF"); }
+    public int textLink()         { return c("text_link",         "#FFFFFF"); }
+
+    // ── Dividers ──
+    public int divider()          { return c("divider",           "#22223A"); }
+    public int borderCard()       { return c("border_card",       "#22223A"); }
+
+    // ── Stations ──
+    public int stationBg()        { return c("station_bg",        "#1E1E2A"); }
+    public int stationActiveBg()  { return c("station_bg_active", "#2A1E4A"); }
+    public int stationActiveBorder(){ return c("station_border_active","#6C63FF"); }
+    public int stationText()      { return c("station_text",      "#FFFFFF"); }
+    public int stationTextActive(){ return c("station_text_active","#6C63FF"); }
+    public int eqBar()            { return c("station_eq_bar",    "#6C63FF"); }
+
+    // ── Sound Buttons ──
+    public int soundBtnBg()         { return c("sound_btn_bg",          "#1A1A26"); }
+    public int soundBtnActiveBg()   { return c("sound_btn_active_bg",   "#28265A"); }
+    public int soundBtnActiveBorder(){ return c("sound_btn_border_active","#6C63FF"); }
+    public int soundBtnText()       { return c("sound_btn_text",        "#FFFFFF"); }
+    public int soundWaveColor()     { return c("sound_wave_color",      "#6C63FF"); }
+
+    // ── Controls ──
+    public int btnStopBg()        { return c("btn_stop_bg",    "#1E1E2A"); }
+    public int btnStopBorder()    { return c("btn_stop_border","#6C63FF"); }
+    public int btnStopText()      { return c("btn_stop_text",  "#FFFFFF"); }
+
     public void saveRaw(String raw) {
         try {
-            File f = new File(ctx.getFilesDir(), FILENAME);
-            FileWriter fw = new FileWriter(f);
-            fw.write(raw);
-            fw.close();
-        } catch (Exception e) { Log.e(TAG, "save failed", e); }
+            FileWriter fw = new FileWriter(new File(ctx.getFilesDir(), FILE));
+            fw.write(raw); fw.close();
+        } catch (Exception e) { Log.e(TAG, "save", e); }
     }
 
-    /** Read raw text (user-editable copy or asset fallback) */
     public String readRaw() {
-        File f = new File(ctx.getFilesDir(), FILENAME);
+        File f = new File(ctx.getFilesDir(), FILE);
         try {
             BufferedReader br = f.exists()
-                    ? new BufferedReader(new FileReader(f))
-                    : new BufferedReader(new InputStreamReader(ctx.getAssets().open(FILENAME)));
+                ? new BufferedReader(new FileReader(f))
+                : new BufferedReader(new InputStreamReader(ctx.getAssets().open(FILE)));
             StringBuilder sb = new StringBuilder();
             String line;
             while ((line = br.readLine()) != null) sb.append(line).append('\n');

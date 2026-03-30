@@ -1,48 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Sound button: thin pill shape, name only, wave fill when active -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/soundBtnRoot"
     android:layout_width="match_parent"
-    android:layout_height="88dp"
+    android:layout_height="52dp"
     android:clickable="true"
     android:focusable="true"
-    android:longClickable="true"
-    android:background="@drawable/bg_sound_button">
+    android:longClickable="true">
 
-    <!-- Volume fill overlay - left aligned, width set programmatically -->
-    <View
-        android:id="@+id/volumeOverlay"
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:background="#22FFFFFF"
-        android:layout_gravity="left"
-        android:visibility="gone"/>
-
-    <!-- Content -->
-    <LinearLayout
+    <!-- Wave fill canvas drawn programmatically behind text -->
+    <is.dyino.ui.sounds.WaveView
+        android:id="@+id/waveView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
+        android:visibility="invisible"/>
+
+    <!-- Text label centered -->
+    <TextView
+        android:id="@+id/tvSoundName"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:textColor="#FFFFFF"
+        android:textSize="13sp"
         android:gravity="center"
-        android:padding="10dp">
+        android:singleLine="true"
+        android:ellipsize="end"
+        android:paddingLeft="10dp"
+        android:paddingRight="10dp"/>
 
-        <TextView
-            android:id="@+id/tvSoundIcon"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="26sp"
-            android:gravity="center"/>
+    <!-- Volume control overlay (full height, shown on long press) -->
+    <FrameLayout
+        android:id="@+id/volumeControlOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:background="#CC000000">
 
-        <TextView
-            android:id="@+id/tvSoundName"
+        <SeekBar
+            android:id="@+id/soundVolumeSeek"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#FFFFFF"
-            android:textSize="13sp"
-            android:gravity="center"
-            android:singleLine="true"
-            android:ellipsize="end"
-            android:paddingTop="5dp"/>
+            android:layout_gravity="center"
+            android:layout_marginLeft="16dp"
+            android:layout_marginRight="16dp"
+            android:max="100"
+            android:progress="80"/>
 
-    </LinearLayout>
+    </FrameLayout>
 
 </FrameLayout>

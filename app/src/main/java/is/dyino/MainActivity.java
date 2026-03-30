@@ -1,18 +1,24 @@
 package is.dyino;
 
+import android.Manifest;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Vibrator;
+import android.os.VibrationEffect;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import is.dyino.service.AudioService;
 import is.dyino.ui.about.AboutFragment;
@@ -24,20 +30,22 @@ import is.dyino.util.ColorConfig;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final int PERM_NOTIF = 1001;
+
     private AudioService audioService;
     private boolean      serviceBound = false;
 
-    private TextView     navRadioText, navSoundsText, navSettingsText;
-    private FrameLayout  fragmentRadio, fragmentSounds, fragmentSettings, fragmentAbout;
+    private TextView    navRadioText, navSoundsText, navSettingsText;
+    private FrameLayout fragmentRadio, fragmentSounds, fragmentSettings, fragmentAbout;
 
     private RadioFragment    radioFragment;
     private SoundsFragment   soundsFragment;
     private SettingsFragment settingsFragment;
     private AboutFragment    aboutFragment;
 
-    private AppPrefs   prefs;
+    private AppPrefs    prefs;
     private ColorConfig colors;
-    private int        currentTab = 0;
+    private int         currentTab = 0;
 
     private final ServiceConnection conn = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName n, IBinder b) {
@@ -59,7 +67,9 @@ public class MainActivity extends AppCompatActivity {
         applyWindowColors();
         setContentView(R.layout.activity_main);
 
-        // Start & bind service
+        // Request notification permission (Android 13+)
+        requestNotifPermission();
+
         Intent svc = new Intent(this, AudioService.class);
         startService(svc);
         bindService(svc, conn, BIND_AUTO_CREATE);
@@ -85,8 +95,8 @@ public class MainActivity extends AppCompatActivity {
                 soundsFragment.refresh();
                 settingsFragment.applyTheme(settingsFragment.getView());
             }
-            @Override public void onButtonSoundChanged(boolean enabled) {
-                if (audioService != null) audioService.setButtonSoundEnabled(enabled);
+            @Override public void onButtonSoundChanged(boolean en) {
+                if (audioService != null) audioService.setButtonSoundEnabled(en);
             }
             @Override public void onAboutClicked() { showAbout(); }
         });
@@ -105,7 +115,22 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.navSettings).setOnClickListener(v -> switchTab(2));
 
         switchTab(0);
-        applyNavColors();
+    }
+
+    private void requestNotifPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.POST_NOTIFICATIONS}, PERM_NOTIF);
+            }
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int req, @NonNull String[] perms, @NonNull int[] results) {
+        super.onRequestPermissionsResult(req, perms, results);
+        // Nothing extra needed — service will use NotificationManagerCompat which handles gracefully
     }
 
     private void showAbout() {
@@ -118,6 +143,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void switchTab(int tab) {
         doHaptic();
+        doClick();
         currentTab = tab;
         fragmentRadio.setVisibility(tab == 0    ? View.VISIBLE : View.GONE);
         fragmentSounds.setVisibility(tab == 1   ? View.VISIBLE : View.GONE);
@@ -128,7 +154,6 @@ public class MainActivity extends AppCompatActivity {
         if (serviceBound && audioService != null) {
             if (tab == 0) radioFragment.setAudioService(audioService);
             if (tab == 1) soundsFragment.setAudioService(audioService);
-            if (prefs.isButtonSoundEnabled()) audioService.playClickSound();
         }
     }
 
@@ -138,14 +163,10 @@ public class MainActivity extends AppCompatActivity {
         navRadioText.setTextColor(tab == 0    ? sel : unsel);
         navSoundsText.setTextColor(tab == 1   ? sel : unsel);
         navSettingsText.setTextColor(tab == 2 ? sel : unsel);
-
-        float selSize = 13f, unselSize = 11f;
-        navRadioText.setTextSize(tab == 0    ? selSize : unselSize);
-        navSoundsText.setTextSize(tab == 1   ? selSize : unselSize);
-        navSettingsText.setTextSize(tab == 2 ? selSize : unselSize);
+        navRadioText.setTextSize(tab == 0    ? 13f : 11f);
+        navSoundsText.setTextSize(tab == 1   ? 13f : 11f);
+        navSettingsText.setTextSize(tab == 2 ? 13f : 11f);
     }
-
-    private void applyNavColors() { setNavSelected(currentTab); }
 
     private void applyWindowColors() {
         int bg = colors.bgPrimary();
@@ -164,8 +185,13 @@ public class MainActivity extends AppCompatActivity {
         Vibrator vib = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         if (vib == null || !vib.hasVibrator()) return;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            vib.vibrate(android.os.VibrationEffect.createOneShot(15, android.os.VibrationEffect.DEFAULT_AMPLITUDE));
-        else vib.vibrate(15);
+            vib.vibrate(VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE));
+        else vib.vibrate(12);
+    }
+
+    private void doClick() {
+        if (serviceBound && audioService != null && prefs.isButtonSoundEnabled())
+            audioService.playClickSound();
     }
 
     @Override
