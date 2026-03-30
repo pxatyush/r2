@@ -26,19 +26,19 @@ import is.dyino.R;
 
 public class AudioService extends Service {
 
-    private static final String TAG      = "AudioService";
-    private static final String CH_ID    = "dyino_ch";
-    private static final int    NOTIF_ID = 1001;
+    private static final String TAG     = "AudioService";
+    private static final String CH_ID   = "dyino_ch";
+    private static final int    NID     = 1001;
+    // Action sent by notification Stop button
+    public  static final String ACTION_STOP = "is.dyino.STOP_ALL";
 
-    /* ── Binder ── */
     public class LocalBinder extends Binder {
         public AudioService getService() { return AudioService.this; }
     }
     private final IBinder binder = new LocalBinder();
 
-    /* ── Radio listener interface ── */
     public interface RadioListener {
-        void onPlaybackStarted(String stationName);
+        void onPlaybackStarted(String name);
         void onPlaybackStopped();
         void onError(String msg);
         void onBuffering();
@@ -46,105 +46,89 @@ public class AudioService extends Service {
     private RadioListener radioListener;
     public void setRadioListener(RadioListener l) { this.radioListener = l; }
 
-    /* ── Radio state ── */
     private MediaPlayer radioPlayer;
-    private String currentStationName = "";
-    private boolean radioPlaying      = false;
+    private String      currentName   = "";
+    private float       radioVolume   = 0.8f;
+    private boolean     radioPlaying  = false;
 
-    /* ── Ambient sounds ── */
     private final Map<String, MediaPlayer> soundPlayers = new HashMap<>();
     private final Map<String, Float>       soundVolumes  = new HashMap<>();
 
-    /* ── Button click sound ── */
     private SoundPool clickPool;
     private int       clickId            = -1;
     private boolean   buttonSoundEnabled = true;
-    private boolean   foregroundStarted  = false;
+    private boolean   fgStarted          = false;
 
     public void setButtonSoundEnabled(boolean v) { buttonSoundEnabled = v; }
 
-    /* ════════════════════════════════════════════════
-       Lifecycle
-       ════════════════════════════════════════════════ */
-
-    @Override
-    public void onCreate() {
+    @Override public void onCreate() {
         super.onCreate();
         createChannel();
-        initClickPool();
-        // Don't call startForeground here - call it lazily when audio actually starts
-        // to avoid ForegroundServiceStartNotAllowedException on API 31+
+        initClick();
     }
-
-    @Override public IBinder onBind(Intent i)                       { return binder;       }
-    @Override public int    onStartCommand(Intent i, int f, int s)  { return START_STICKY; }
-
-    @Override
-    public void onDestroy() {
-        stopRadio();
-        stopAllSounds();
+    @Override public IBinder onBind(Intent i) { return binder; }
+    @Override public int onStartCommand(Intent intent, int f, int s) {
+        if (intent != null && ACTION_STOP.equals(intent.getAction())) {
+            stopRadio(); stopAllSounds();
+        }
+        return START_STICKY;
+    }
+    @Override public void onDestroy() {
+        stopRadio(); stopAllSounds();
         if (clickPool != null) clickPool.release();
         super.onDestroy();
     }
 
-    /** Called before any audio starts to promote service to foreground. */
-    private void ensureForeground() {
-        if (foregroundStarted) return;
-        foregroundStarted = true;
-        Notification n = buildNotification("dyino", "Playing");
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+    private void ensureFg(String title, String text) {
+        Notification n = buildNotif(title, text);
+        if (!fgStarted) {
+            fgStarted = true;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                startForeground(NID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+            else startForeground(NID, n);
         } else {
-            startForeground(NOTIF_ID, n);
+            updateNotif(title, text);
         }
     }
 
-    /* ════════════════════════════════════════════════
-       Click sound
-       ════════════════════════════════════════════════ */
-
-    private void initClickPool() {
+    /* ── Click sound ── */
+    private void initClick() {
         AudioAttributes aa = new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build();
         clickPool = new SoundPool.Builder().setMaxStreams(2).setAudioAttributes(aa).build();
         try {
             android.content.res.AssetFileDescriptor afd = getAssets().openFd("sounds/click.mp3");
-            clickId = clickPool.load(afd, 1);
-            afd.close();
-        } catch (Exception e) { Log.d(TAG, "No click.mp3 asset"); }
+            clickId = clickPool.load(afd, 1); afd.close();
+        } catch (Exception e) { Log.d(TAG, "No click.mp3"); }
     }
-
     public void playClickSound() {
         if (buttonSoundEnabled && clickPool != null && clickId != -1)
             clickPool.play(clickId, 0.5f, 0.5f, 1, 0, 1f);
     }
 
-    /* ════════════════════════════════════════════════
-       Radio
-       ════════════════════════════════════════════════ */
-
+    /* ── Radio ── */
     public void playRadio(String name, String url) {
-        ensureForeground();
+        ensureFg("dyino  ·  " + name, "Buffering…");
         stopRadioPlayer();
-        currentStationName = name;
+        currentName = name;
         if (radioListener != null) radioListener.onBuffering();
 
         radioPlayer = new MediaPlayer();
         radioPlayer.setAudioAttributes(new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
+        radioPlayer.setVolume(radioVolume, radioVolume);
         try {
             radioPlayer.setDataSource(url);
             radioPlayer.setOnPreparedListener(mp -> {
-                mp.start();
-                radioPlaying = true;
-                updateNotification(name, "Playing");
+                mp.start(); radioPlaying = true;
+                ensureFg("dyino  ·  " + name, "Radio  ▶  tap to open");
                 if (radioListener != null) radioListener.onPlaybackStarted(name);
             });
             radioPlayer.setOnErrorListener((mp, w, e) -> {
                 radioPlaying = false;
-                if (radioListener != null) radioListener.onError("Stream error " + w);
+                if (radioListener != null) radioListener.onError("Stream error");
                 return true;
             });
             radioPlayer.setOnCompletionListener(mp -> {
@@ -159,15 +143,14 @@ public class AudioService extends Service {
 
     public void stopRadio() {
         stopRadioPlayer();
-        updateNotification("dyino", "Ready");
+        if (soundPlayers.isEmpty()) stopFgIfIdle();
         if (radioListener != null) radioListener.onPlaybackStopped();
     }
 
     private void stopRadioPlayer() {
         if (radioPlayer != null) {
             try { radioPlayer.stop(); } catch (Exception ignored) {}
-            radioPlayer.release();
-            radioPlayer = null;
+            radioPlayer.release(); radioPlayer = null;
         }
         radioPlaying = false;
     }
@@ -175,25 +158,25 @@ public class AudioService extends Service {
     public void pauseResumeRadio() {
         if (radioPlayer == null) return;
         if (radioPlayer.isPlaying()) {
-            radioPlayer.pause();
-            radioPlaying = false;
-            updateNotification(currentStationName, "Paused");
+            radioPlayer.pause(); radioPlaying = false;
+            updateNotif("dyino  ·  " + currentName, "Paused");
         } else {
-            radioPlayer.start();
-            radioPlaying = true;
-            updateNotification(currentStationName, "Playing");
+            radioPlayer.start(); radioPlaying = true;
+            updateNotif("dyino  ·  " + currentName, "Radio  ▶  tap to open");
         }
     }
 
-    public boolean isRadioPlaying()        { return radioPlayer != null && radioPlayer.isPlaying(); }
-    public String  getCurrentStationName() { return currentStationName; }
+    public void setRadioVolume(float vol) {
+        radioVolume = vol;
+        if (radioPlayer != null) radioPlayer.setVolume(vol, vol);
+    }
 
-    /* ════════════════════════════════════════════════
-       Ambient sounds
-       ════════════════════════════════════════════════ */
+    public boolean isRadioPlaying() { return radioPlayer != null && radioPlayer.isPlaying(); }
+    public String  getCurrentName() { return currentName; }
 
+    /* ── Sounds ── */
     public void playSound(String fileName, float volume) {
-        ensureForeground();
+        ensureFg("dyino", buildSoundNotifText());
         if (soundPlayers.containsKey(fileName)) {
             MediaPlayer mp = soundPlayers.get(fileName);
             if (mp != null) mp.setVolume(volume, volume);
@@ -210,48 +193,60 @@ public class AudioService extends Service {
             afd.close();
             mp.setLooping(true);
             mp.setVolume(volume, volume);
-            mp.setOnPreparedListener(MediaPlayer::start);
+            // Seamless looping: prepare then immediately seek to start on completion
+            mp.setOnPreparedListener(m -> {
+                m.seekTo(0); m.start();
+                updateNotif("dyino", buildSoundNotifText());
+            });
             mp.prepareAsync();
             soundPlayers.put(fileName, mp);
             soundVolumes.put(fileName, volume);
-        } catch (Exception e) { Log.e(TAG, "playSound: " + fileName, e); }
+        } catch (Exception e) { Log.e(TAG, "playSound " + fileName, e); }
     }
 
     public void stopSound(String fileName) {
         MediaPlayer mp = soundPlayers.remove(fileName);
         if (mp != null) { try { mp.stop(); } catch (Exception ignored) {} mp.release(); }
         soundVolumes.remove(fileName);
+        if (soundPlayers.isEmpty() && !radioPlaying) stopFgIfIdle();
+        else updateNotif("dyino", buildSoundNotifText());
     }
 
-    public void setSoundVolume(String fileName, float volume) {
-        soundVolumes.put(fileName, volume);
-        MediaPlayer mp = soundPlayers.get(fileName);
-        if (mp != null) mp.setVolume(volume, volume);
+    public void setSoundVolume(String fn, float vol) {
+        soundVolumes.put(fn, vol);
+        MediaPlayer mp = soundPlayers.get(fn);
+        if (mp != null) mp.setVolume(vol, vol);
     }
 
-    public boolean isSoundPlaying(String fileName) {
-        MediaPlayer mp = soundPlayers.get(fileName);
+    public boolean isSoundPlaying(String fn) {
+        MediaPlayer mp = soundPlayers.get(fn);
         return mp != null && mp.isPlaying();
     }
 
-    public float getSoundVolume(String fileName) {
-        Float v = soundVolumes.get(fileName);
-        return v != null ? v : 0.8f;
+    public float getSoundVolume(String fn) {
+        Float v = soundVolumes.get(fn); return v != null ? v : 0.8f;
     }
 
     public void stopAllSounds() {
         for (MediaPlayer mp : soundPlayers.values()) {
-            try { mp.stop(); } catch (Exception ignored) {}
-            mp.release();
+            try { mp.stop(); } catch (Exception ignored) {} mp.release();
         }
-        soundPlayers.clear();
-        soundVolumes.clear();
+        soundPlayers.clear(); soundVolumes.clear();
+        if (!radioPlaying) stopFgIfIdle();
+        else updateNotif("dyino  ·  " + currentName, "Radio  ▶  tap to open");
     }
 
-    /* ════════════════════════════════════════════════
-       Notification
-       ════════════════════════════════════════════════ */
+    private String buildSoundNotifText() {
+        int cnt = soundPlayers.size();
+        if (cnt == 0) return radioPlaying ? "Radio  ▶  tap to open" : "Ready";
+        return cnt + " ambient sound" + (cnt > 1 ? "s" : "") + " playing  ·  tap to open";
+    }
 
+    private void stopFgIfIdle() {
+        if (fgStarted) { stopForeground(true); fgStarted = false; }
+    }
+
+    /* ── Notification ── */
     private void createChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel ch = new NotificationChannel(
@@ -262,19 +257,32 @@ public class AudioService extends Service {
         }
     }
 
-    private Notification buildNotification(String title, String text) {
-        Intent i   = new Intent(this, MainActivity.class);
-        PendingIntent pi = PendingIntent.getActivity(this, 0, i,
+    private Notification buildNotif(String title, String text) {
+        // Open app intent
+        Intent open = new Intent(this, MainActivity.class);
+        PendingIntent openPi = PendingIntent.getActivity(this, 0, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        // Stop action intent
+        Intent stop = new Intent(this, AudioService.class);
+        stop.setAction(ACTION_STOP);
+        PendingIntent stopPi = PendingIntent.getService(this, 1, stop,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
         return new NotificationCompat.Builder(this, CH_ID)
-                .setContentTitle(title).setContentText(text)
-                .setSmallIcon(R.drawable.ic_launcher_fg)
-                .setContentIntent(pi).setOngoing(true).setSilent(true).build();
+                .setContentTitle(title)
+                .setContentText(text)
+                .setSmallIcon(R.drawable.ic_note)
+                .setContentIntent(openPi)
+                .setOngoing(true)
+                .setSilent(true)
+                .addAction(android.R.drawable.ic_media_pause, "Stop", stopPi)
+                .build();
     }
 
-    private void updateNotification(String title, String text) {
-        if (!foregroundStarted) return;
+    private void updateNotif(String title, String text) {
+        if (!fgStarted) return;
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (nm != null) nm.notify(NOTIF_ID, buildNotification(title, text));
+        if (nm != null) nm.notify(NID, buildNotif(title, text));
     }
 }

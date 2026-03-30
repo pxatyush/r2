@@ -3,19 +3,21 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/bg_dark">
+    android:background="#0D0D14">
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Settings"
-        android:textColor="@color/text_primary"
-        android:textSize="22sp"
+        android:textColor="#FFFFFF"
+        android:textSize="26sp"
         android:fontFamily="sans-serif-medium"
         android:paddingLeft="16dp"
         android:paddingRight="16dp"
         android:paddingTop="20dp"
-        android:paddingBottom="12dp" />
+        android:paddingBottom="12dp"/>
+
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#22223A"/>
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -31,122 +33,46 @@
             android:paddingRight="12dp"
             android:paddingBottom="32dp">
 
-            <!-- Toggles card -->
+            <!-- Toggles -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:background="@drawable/bg_card"
                 android:padding="4dp"
+                android:layout_marginTop="12dp"
                 android:layout_marginBottom="12dp">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingLeft="16dp"
-                    android:paddingRight="12dp">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="HAPTIC FEEDBACK"
-                        android:textColor="@color/text_primary"
-                        android:textSize="12sp"
-                        android:letterSpacing="0.1"
-                        android:fontFamily="sans-serif-medium" />
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/switchHaptic"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:checked="true" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="56dp"
+                    android:orientation="horizontal" android:gravity="center_vertical"
+                    android:paddingLeft="16dp" android:paddingRight="12dp">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="HAPTIC FEEDBACK"
+                        android:textColor="#FFFFFF" android:textSize="12sp" android:letterSpacing="0.1"
+                        android:fontFamily="sans-serif-medium"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/switchHaptic"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:checked="true"/>
                 </LinearLayout>
 
                 <View android:layout_width="match_parent" android:layout_height="1dp"
-                    android:background="@color/divider"
-                    android:layout_marginLeft="16dp" />
+                    android:background="#22223A" android:layout_marginLeft="16dp"/>
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingLeft="16dp"
-                    android:paddingRight="12dp">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="BUTTON SOUND EFFECTS"
-                        android:textColor="@color/text_primary"
-                        android:textSize="12sp"
-                        android:letterSpacing="0.1"
-                        android:fontFamily="sans-serif-medium" />
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/switchButtonSound"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:checked="true" />
-                </LinearLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="1dp"
-                    android:background="@color/divider"
-                    android:layout_marginLeft="16dp" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingLeft="16dp"
-                    android:paddingRight="12dp">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="DARK MODE"
-                        android:textColor="@color/text_primary"
-                        android:textSize="12sp"
-                        android:letterSpacing="0.1"
-                        android:fontFamily="sans-serif-medium" />
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/switchDarkMode"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:checked="true" />
-                </LinearLayout>
-
-                <View android:layout_width="match_parent" android:layout_height="1dp"
-                    android:background="@color/divider"
-                    android:layout_marginLeft="16dp" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingLeft="16dp"
-                    android:paddingRight="12dp">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="SHOW GIF VISUALIZER"
-                        android:textColor="@color/text_primary"
-                        android:textSize="12sp"
-                        android:letterSpacing="0.1"
-                        android:fontFamily="sans-serif-medium" />
-                    <androidx.appcompat.widget.SwitchCompat
-                        android:id="@+id/switchGif"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:checked="true" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="56dp"
+                    android:orientation="horizontal" android:gravity="center_vertical"
+                    android:paddingLeft="16dp" android:paddingRight="12dp">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:text="BUTTON SOUND EFFECTS"
+                        android:textColor="#FFFFFF" android:textSize="12sp" android:letterSpacing="0.1"
+                        android:fontFamily="sans-serif-medium"/>
+                    <androidx.appcompat.widget.SwitchCompat android:id="@+id/switchButtonSound"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:checked="true"/>
                 </LinearLayout>
 
             </LinearLayout>
 
-            <!-- GIF Search Tag -->
+            <!-- Edit color.cfg -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -158,144 +84,123 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="GIF SEARCH TAG"
-                    android:textColor="@color/text_secondary"
+                    android:text="THEME (color.cfg)"
+                    android:textColor="#8888AA"
                     android:textSize="11sp"
                     android:letterSpacing="0.1"
-                    android:paddingBottom="8dp" />
+                    android:paddingBottom="10dp"/>
 
                 <EditText
-                    android:id="@+id/etGifTag"
+                    android:id="@+id/etColorCfg"
+                    android:layout_width="match_parent"
+                    android:layout_height="200dp"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:background="@drawable/bg_radio_item"
+                    android:padding="10dp"
+                    android:inputType="textMultiLine"
+                    android:gravity="top|left"
+                    android:fontFamily="monospace"
+                    android:scrollbars="vertical"/>
+
+                <TextView
+                    android:id="@+id/btnSaveColors"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:text="Save &amp; Restart"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp"
+                    android:gravity="center"
+                    android:paddingLeft="20dp"
+                    android:paddingRight="20dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_stop_all_btn"
+                    android:clickable="true"
+                    android:focusable="true"/>
+
+            </LinearLayout>
+
+            <!-- Add Stations -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="ADD STATIONS FROM URL"
+                    android:textColor="#8888AA"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.1"
+                    android:paddingBottom="10dp"/>
+
+                <EditText
+                    android:id="@+id/etStationUrl"
                     android:layout_width="match_parent"
                     android:layout_height="44dp"
-                    android:text="nature"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp"
                     android:background="@drawable/bg_radio_item"
                     android:paddingLeft="12dp"
                     android:paddingRight="12dp"
-                    android:hint="e.g. nature, space, water"
+                    android:hint="https://raw.github.com/.../radio.cfg"
                     android:imeOptions="actionDone"
-                    android:inputType="text" />
-
-            </LinearLayout>
-
-            <!-- Accent Color -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="@drawable/bg_card"
-                android:padding="16dp"
-                android:layout_marginBottom="12dp">
+                    android:inputType="textUri"
+                    android:singleLine="true"/>
 
                 <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="ACCENT COLOR"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="11sp"
-                    android:letterSpacing="0.1"
-                    android:paddingBottom="12dp" />
-
-                <LinearLayout
-                    android:id="@+id/accentColorRow"
-                    android:layout_width="match_parent"
+                    android:id="@+id/btnFetchStations"
+                    android:layout_width="wrap_content"
                     android:layout_height="40dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical" />
-
-            </LinearLayout>
-
-            <!-- Background Color -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="@drawable/bg_card"
-                android:padding="16dp"
-                android:layout_marginBottom="12dp">
+                    android:text="Fetch &amp; Merge"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp"
+                    android:gravity="center"
+                    android:paddingLeft="20dp"
+                    android:paddingRight="20dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_stop_all_btn"
+                    android:clickable="true"
+                    android:focusable="true"/>
 
                 <TextView
+                    android:id="@+id/tvFetchStatus"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="BACKGROUND COLOR"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="11sp"
-                    android:letterSpacing="0.1"
-                    android:paddingBottom="12dp" />
-
-                <LinearLayout
-                    android:id="@+id/bgColorRow"
-                    android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical" />
+                    android:text=""
+                    android:textColor="#8888AA"
+                    android:textSize="12sp"
+                    android:paddingTop="6dp"/>
 
             </LinearLayout>
 
-            <!-- Text Color -->
-            <LinearLayout
+            <!-- About link -->
+            <TextView
+                android:id="@+id/btnAbout"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
+                android:layout_height="56dp"
+                android:text="About dyino"
+                android:textColor="#6C63FF"
+                android:textSize="14sp"
+                android:gravity="center_vertical"
+                android:paddingLeft="16dp"
                 android:background="@drawable/bg_card"
-                android:padding="16dp"
-                android:layout_marginBottom="12dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="TEXT COLOR"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="11sp"
-                    android:letterSpacing="0.1"
-                    android:paddingBottom="12dp" />
-
-                <LinearLayout
-                    android:id="@+id/textColorRow"
-                    android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical" />
-
-            </LinearLayout>
-
-            <!-- Font Style -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="@drawable/bg_card"
-                android:padding="16dp"
-                android:layout_marginBottom="12dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="FONT STYLE"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="11sp"
-                    android:letterSpacing="0.1"
-                    android:paddingBottom="12dp" />
-
-                <LinearLayout
-                    android:id="@+id/fontStyleRow"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical" />
-
-            </LinearLayout>
+                android:clickable="true"
+                android:focusable="true"
+                android:layout_marginBottom="12dp"/>
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="dyino  v1.0"
-                android:textColor="@color/text_secondary"
+                android:textColor="#44445A"
                 android:textSize="11sp"
                 android:gravity="center"
-                android:paddingTop="8dp" />
+                android:paddingTop="8dp"/>
 
         </LinearLayout>
 

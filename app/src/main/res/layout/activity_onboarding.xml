@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="#0D0D14"
+    android:padding="32dp">
+
+    <ImageView android:layout_width="80dp" android:layout_height="80dp"
+        android:src="@drawable/ic_note" android:alpha="0.8"/>
+
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="dyino" android:textColor="#FFFFFF" android:textSize="36sp"
+        android:fontFamily="sans-serif-medium" android:layout_marginTop="16dp"/>
+
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Ambient Radio &amp; Sounds" android:textColor="#8888AA"
+        android:textSize="15sp" android:layout_marginTop="4dp"/>
+
+    <View android:layout_width="60dp" android:layout_height="2dp"
+        android:background="#6C63FF" android:layout_marginTop="24dp"
+        android:layout_marginBottom="28dp"/>
+
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textColor="#CCCCCC" android:textSize="14sp" android:lineSpacingExtra="6dp"
+        android:gravity="center"
+        android:text="🎙  Tap a radio station to stream it\n\n🔊  Tap sound buttons to layer ambient sounds\n\nLong-press + slide to control volume\n\n← Swipe left on a station to favourite it\n\n→ Swipe right to archive (hide) it\n\n🎨  Customise theme in Settings › color.cfg"/>
+
+    <TextView
+        android:id="@+id/btnGetStarted"
+        android:layout_width="200dp"
+        android:layout_height="52dp"
+        android:text="Get Started"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center"
+        android:layout_marginTop="36dp"
+        android:background="@drawable/bg_stop_all_btn"
+        android:clickable="true"
+        android:focusable="true"/>
+
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="by pxatyush" android:textColor="#44445A" android:textSize="12sp"
+        android:layout_marginTop="20dp"/>
+
+</LinearLayout>

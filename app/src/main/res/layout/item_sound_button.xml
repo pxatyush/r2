@@ -2,20 +2,22 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/soundBtnRoot"
     android:layout_width="match_parent"
-    android:layout_height="80dp"
+    android:layout_height="88dp"
     android:clickable="true"
     android:focusable="true"
     android:longClickable="true"
     android:background="@drawable/bg_sound_button">
 
+    <!-- Volume fill overlay - left aligned, width set programmatically -->
     <View
         android:id="@+id/volumeOverlay"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:background="#33FFFFFF"
+        android:background="#22FFFFFF"
         android:layout_gravity="left"
-        android:visibility="gone" />
+        android:visibility="gone"/>
 
+    <!-- Content -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -27,20 +29,19 @@
             android:id="@+id/tvSoundIcon"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="22sp"
-            android:gravity="center" />
+            android:textSize="26sp"
+            android:gravity="center"/>
 
         <TextView
             android:id="@+id/tvSoundName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/text_primary"
-            android:textSize="12sp"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
             android:gravity="center"
             android:singleLine="true"
             android:ellipsize="end"
-            android:paddingTop="4dp"
-            android:fontFamily="sans-serif-medium" />
+            android:paddingTop="5dp"/>
 
     </LinearLayout>
 

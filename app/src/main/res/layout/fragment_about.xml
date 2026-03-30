@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0D0D14">
+
+    <!-- Toolbar -->
+    <LinearLayout android:layout_width="match_parent" android:layout_height="56dp"
+        android:orientation="horizontal" android:gravity="center_vertical"
+        android:paddingLeft="4dp">
+        <ImageButton android:id="@+id/btnAboutBack"
+            android:layout_width="48dp" android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:background="@null" android:contentDescription="Back"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="About" android:textColor="#FFFFFF" android:textSize="18sp"
+            android:fontFamily="sans-serif-medium"/>
+    </LinearLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:overScrollMode="never">
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:gravity="center_horizontal"
+            android:paddingLeft="24dp" android:paddingRight="24dp" android:paddingBottom="40dp">
+
+            <!-- App icon placeholder -->
+            <ImageView android:layout_width="88dp" android:layout_height="88dp"
+                android:src="@mipmap/ic_launcher" android:layout_marginTop="24dp"
+                android:background="@drawable/bg_card" android:padding="16dp"
+                android:layout_gravity="center_horizontal"/>
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="dyino" android:textColor="#FFFFFF" android:textSize="28sp"
+                android:fontFamily="sans-serif-medium" android:layout_marginTop="12dp"/>
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Ambient Radio &amp; Sounds" android:textColor="#8888AA"
+                android:textSize="14sp" android:layout_marginTop="2dp"/>
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Version 1.0" android:textColor="#44445A"
+                android:textSize="12sp" android:layout_marginTop="4dp"/>
+
+            <!-- Divider -->
+            <View android:layout_width="match_parent" android:layout_height="1dp"
+                android:background="#22223A" android:layout_marginTop="24dp"
+                android:layout_marginBottom="16dp"/>
+
+            <!-- Author brand -->
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="pxatyush" android:textColor="#6C63FF" android:textSize="22sp"
+                android:fontFamily="sans-serif-medium"/>
+
+            <!-- Social links -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:paddingTop="12dp">
+
+                <TextView android:id="@+id/linkGithub" android:layout_width="match_parent"
+                    android:layout_height="48dp" android:gravity="center_vertical"
+                    android:text="⟫  github.com/pxatyush"
+                    android:textColor="#FFFFFF" android:textSize="14sp"
+                    android:background="@drawable/bg_card" android:paddingLeft="16dp"
+                    android:layout_marginBottom="4dp" android:clickable="true" android:focusable="true"/>
+
+                <TextView android:id="@+id/linkInstagram" android:layout_width="match_parent"
+                    android:layout_height="48dp" android:gravity="center_vertical"
+                    android:text="⟫  instagram.com/pxatyush"
+                    android:textColor="#FFFFFF" android:textSize="14sp"
+                    android:background="@drawable/bg_card" android:paddingLeft="16dp"
+                    android:layout_marginBottom="4dp" android:clickable="true" android:focusable="true"/>
+
+                <TextView android:id="@+id/linkTelegram" android:layout_width="match_parent"
+                    android:layout_height="48dp" android:gravity="center_vertical"
+                    android:text="⟫  t.me/pxatyush"
+                    android:textColor="#FFFFFF" android:textSize="14sp"
+                    android:background="@drawable/bg_card" android:paddingLeft="16dp"
+                    android:layout_marginBottom="4dp" android:clickable="true" android:focusable="true"/>
+
+                <TextView android:id="@+id/linkLinkedin" android:layout_width="match_parent"
+                    android:layout_height="48dp" android:gravity="center_vertical"
+                    android:text="⟫  linkedin.com/in/pxatyush"
+                    android:textColor="#FFFFFF" android:textSize="14sp"
+                    android:background="@drawable/bg_card" android:paddingLeft="16dp"
+                    android:layout_marginBottom="4dp" android:clickable="true" android:focusable="true"/>
+
+                <TextView android:id="@+id/linkTwitter" android:layout_width="match_parent"
+                    android:layout_height="48dp" android:gravity="center_vertical"
+                    android:text="⟫  twitter.com/pxatyush"
+                    android:textColor="#FFFFFF" android:textSize="14sp"
+                    android:background="@drawable/bg_card" android:paddingLeft="16dp"
+                    android:layout_marginBottom="4dp" android:clickable="true" android:focusable="true"/>
+
+            </LinearLayout>
+
+            <!-- Divider -->
+            <View android:layout_width="match_parent" android:layout_height="1dp"
+                android:background="#22223A" android:layout_marginTop="20dp"
+                android:layout_marginBottom="16dp"/>
+
+            <!-- Usage guide -->
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="Usage Guide" android:textColor="#FFFFFF" android:textSize="16sp"
+                android:fontFamily="sans-serif-medium" android:paddingBottom="10dp"/>
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textColor="#8888AA" android:textSize="13sp" android:lineSpacingExtra="4dp"
+                android:text="🎙  Radio\nTap any station to play.\nLong-press the play button to show the volume slider.\nSwipe LEFT on a station to add it to Favourites.\nSwipe RIGHT on a station to Archive it (hide it).\nTap &#34;Archived&#34; at the bottom to see hidden stations.\nSwipe archived stations to restore them.\n\n🔊  Sounds\nTap a sound button to toggle it on/off.\nMultiple sounds can play together.\nLong-press a button and slide left/right to set its volume.\nThe button glows purple and fills with volume level when active.\n\n🎨  Theme\nEdit color.cfg in Settings to customise every colour.\nSave and restart to apply changes.\n\n📡  Add Stations\nIn Settings, paste a raw URL pointing to a .cfg file in the same format as radio/config.cfg. Tap Fetch &amp; Merge to import."/>
+
+            <!-- Divider -->
+            <View android:layout_width="match_parent" android:layout_height="1dp"
+                android:background="#22223A" android:layout_marginTop="20dp"
+                android:layout_marginBottom="8dp"/>
+
+            <!-- Open Source -->
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="Open Source" android:textColor="#FFFFFF" android:textSize="14sp"
+                android:fontFamily="sans-serif-medium" android:gravity="center"
+                android:paddingTop="8dp" android:paddingBottom="6dp"/>
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="android-gif-drawable  ·  OkHttp  ·  Glide  ·  Gson"
+                android:textColor="#44445A" android:textSize="12sp" android:gravity="center"/>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</LinearLayout>

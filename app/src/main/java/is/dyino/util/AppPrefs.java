@@ -2,48 +2,81 @@ package is.dyino.util;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.graphics.Color;
+
+import java.util.HashSet;
+import java.util.Set;
 
 public class AppPrefs {
-    private static final String PREFS     = "dyino_prefs";
-    private static final String HAPTIC    = "haptic";
-    private static final String BTN_SND   = "btn_sound";
-    private static final String DARK      = "dark_mode";
-    private static final String GIF       = "show_gif";
-    private static final String GIF_TAG   = "gif_tag";
-    private static final String ACCENT    = "accent_color";
-    private static final String BG        = "bg_color";
-    private static final String TEXT_CLR  = "text_color";
-    private static final String FONT      = "font_style";
+    private static final String PREFS       = "dyino_prefs";
+    private static final String HAPTIC      = "haptic";
+    private static final String BTN_SND     = "btn_sound";
+    private static final String DARK        = "dark_mode";
+    private static final String GIF_TAG     = "gif_tag";
+    private static final String FAVOURITES  = "fav_stations";   // Set<String> "name||url||group"
+    private static final String ARCHIVED    = "arch_stations";  // Set<String>
+    private static final String FIRST_RUN   = "first_run";
+    private static final String STATION_URLS= "station_urls";   // Set<String> of extra config URLs
 
     private final SharedPreferences sp;
 
     public AppPrefs(Context ctx) { sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE); }
 
-    public boolean isHapticEnabled()      { return sp.getBoolean(HAPTIC,  true);  }
-    public void    setHapticEnabled(boolean v){ sp.edit().putBoolean(HAPTIC, v).apply(); }
+    public boolean isHapticEnabled()           { return sp.getBoolean(HAPTIC,  true); }
+    public void    setHapticEnabled(boolean v) { sp.edit().putBoolean(HAPTIC, v).apply(); }
 
-    public boolean isButtonSoundEnabled()     { return sp.getBoolean(BTN_SND, true); }
+    public boolean isButtonSoundEnabled()          { return sp.getBoolean(BTN_SND, true); }
     public void    setButtonSoundEnabled(boolean v){ sp.edit().putBoolean(BTN_SND, v).apply(); }
 
-    public boolean isDarkMode()           { return sp.getBoolean(DARK,    true);  }
+    public boolean isDarkMode()           { return sp.getBoolean(DARK, true); }
     public void    setDarkMode(boolean v) { sp.edit().putBoolean(DARK, v).apply(); }
 
-    public boolean isGifEnabled()         { return sp.getBoolean(GIF,     true);  }
-    public void    setGifEnabled(boolean v){ sp.edit().putBoolean(GIF, v).apply(); }
+    public String  getGifTag()            { return sp.getString(GIF_TAG, "nature"); }
+    public void    setGifTag(String t)    { sp.edit().putString(GIF_TAG, t).apply(); }
 
-    public String  getGifTag()            { return sp.getString(GIF_TAG,  "nature"); }
-    public void    setGifTag(String t)    { sp.edit().putString(GIF_TAG, t).apply();  }
+    public boolean isFirstRun()           { return sp.getBoolean(FIRST_RUN, true); }
+    public void    setFirstRunDone()      { sp.edit().putBoolean(FIRST_RUN, false).apply(); }
 
-    public int     getAccentColor()       { return sp.getInt(ACCENT, Color.parseColor("#6C63FF")); }
-    public void    setAccentColor(int c)  { sp.edit().putInt(ACCENT, c).apply(); }
+    // ── Favourites ──────────────────────────────────────────────
+    public Set<String> getFavourites()    { return new HashSet<>(sp.getStringSet(FAVOURITES, new HashSet<>())); }
 
-    public int     getBgColor()           { return sp.getInt(BG,     Color.parseColor("#0D0D14")); }
-    public void    setBgColor(int c)      { sp.edit().putInt(BG, c).apply(); }
+    public void addFavourite(String key)  {
+        Set<String> s = getFavourites(); s.add(key);
+        sp.edit().putStringSet(FAVOURITES, s).apply();
+    }
+    public void removeFavourite(String key) {
+        Set<String> s = getFavourites(); s.remove(key);
+        sp.edit().putStringSet(FAVOURITES, s).apply();
+    }
+    public boolean isFavourite(String key){ return getFavourites().contains(key); }
 
-    public int     getTextColor()         { return sp.getInt(TEXT_CLR, Color.WHITE); }
-    public void    setTextColor(int c)    { sp.edit().putInt(TEXT_CLR, c).apply(); }
+    // ── Archived ─────────────────────────────────────────────────
+    public Set<String> getArchived()      { return new HashSet<>(sp.getStringSet(ARCHIVED, new HashSet<>())); }
 
-    public int     getFontStyle()         { return sp.getInt(FONT, 0); }
-    public void    setFontStyle(int i)    { sp.edit().putInt(FONT, i).apply(); }
+    public void addArchived(String key)   {
+        Set<String> s = getArchived(); s.add(key);
+        sp.edit().putStringSet(ARCHIVED, s).apply();
+    }
+    public void removeArchived(String key){
+        Set<String> s = getArchived(); s.remove(key);
+        sp.edit().putStringSet(ARCHIVED, s).apply();
+    }
+    public boolean isArchived(String key) { return getArchived().contains(key); }
+
+    // ── Extra station config URLs ─────────────────────────────────
+    public Set<String> getStationUrls()   { return new HashSet<>(sp.getStringSet(STATION_URLS, new HashSet<>())); }
+
+    public void addStationUrl(String url)  {
+        Set<String> s = getStationUrls(); s.add(url);
+        sp.edit().putStringSet(STATION_URLS, s).apply();
+    }
+    public void removeStationUrl(String url){
+        Set<String> s = getStationUrls(); s.remove(url);
+        sp.edit().putStringSet(STATION_URLS, s).apply();
+    }
+
+    /** Serialise a station to a single storable string key */
+    public static String stationKey(String name, String url, String group){
+        return name + "||" + url + "||" + group;
+    }
+    public static String[] splitKey(String key){ return key.split("\\|\\|", 3); }
 }
