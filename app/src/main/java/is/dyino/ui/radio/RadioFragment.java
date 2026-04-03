@@ -1,16 +1,20 @@
 package is.dyino.ui.radio;
 
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Build;
 import android.os.Vibrator;
 import android.os.VibrationEffect;
-import android.os.Build;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageButton;
+import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -36,7 +40,9 @@ import is.dyino.util.RadioLoader;
 public class RadioFragment extends Fragment {
 
     private TextView      tvNowPlaying;
-    private ImageButton   btnPlayPause, btnFavourite;
+    private ImageView     btnSearch;
+    private EditText      etSearch;
+    private LinearLayout  searchBar;
     private SeekBar       radioVolumeSeek;
     private View          volumeSliderContainer;
     private RecyclerView  recycler;
@@ -47,9 +53,17 @@ public class RadioFragment extends Fragment {
     private RadioGroupAdapter adapter;
     private RadioStation  selectedStation;
 
+    private List<RadioGroup> allGroups = new ArrayList<>();
+    private String            searchQuery = "";
+
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    public void setAudioService(AudioService svc) { this.audioService = svc; }
+    public void setAudioService(AudioService svc) {
+        this.audioService = svc;
+        if (audioService != null) {
+            audioService.setRadioListener(makeListener());
+        }
+    }
 
     @Nullable @Override
     public View onCreateView(@NonNull LayoutInflater inf, @Nullable ViewGroup c, @Nullable Bundle s) {
@@ -64,28 +78,35 @@ public class RadioFragment extends Fragment {
         colors = new ColorConfig(requireContext());
 
         tvNowPlaying          = view.findViewById(R.id.tvNowPlayingTitle);
-        btnPlayPause          = view.findViewById(R.id.btnPlayPause);
-        btnFavourite          = view.findViewById(R.id.btnFavourite);
+        btnSearch             = view.findViewById(R.id.btnSearch);
+        etSearch              = view.findViewById(R.id.etSearch);
+        searchBar             = view.findViewById(R.id.searchBar);
         radioVolumeSeek       = view.findViewById(R.id.radioVolumeSeek);
         volumeSliderContainer = view.findViewById(R.id.volumeSliderContainer);
         recycler              = view.findViewById(R.id.radioRecycler);
 
         applyTheme(view);
-        refreshAdapter();
 
-        btnPlayPause.setOnClickListener(v -> {
-            haptic(); clickSound();
-            if (selectedStation == null) return;
-            if (audioService != null) audioService.pauseResumeRadio();
-            updatePlayPauseIcon();
+        // ── Search icon tap: show/hide search bar ──
+        btnSearch.setOnClickListener(v -> {
+            haptic();
+            boolean show = searchBar.getVisibility() == View.GONE;
+            searchBar.setVisibility(show ? View.VISIBLE : View.GONE);
+            if (show) etSearch.requestFocus();
+            else {
+                etSearch.setText("");
+                searchQuery = "";
+                refreshAdapter();
+            }
         });
 
-        // Long press play = volume slider
-        btnPlayPause.setOnLongClickListener(v -> {
-            haptic();
-            boolean show = volumeSliderContainer.getVisibility() == View.GONE;
-            volumeSliderContainer.setVisibility(show ? View.VISIBLE : View.GONE);
-            return true;
+        etSearch.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int st, int c2, int a) {}
+            @Override public void onTextChanged(CharSequence s, int st, int b2, int c2) {
+                searchQuery = s.toString().trim();
+                refreshAdapter();
+            }
+            @Override public void afterTextChanged(Editable s) {}
         });
 
         radioVolumeSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -96,121 +117,140 @@ public class RadioFragment extends Fragment {
             @Override public void onStopTrackingTouch(SeekBar s) {}
         });
 
-        btnFavourite.setOnClickListener(v -> {
-            haptic(); clickSound();
-            if (selectedStation == null) return;
-            String key = AppPrefs.stationKey(selectedStation.getName(),
-                    selectedStation.getUrl(), selectedStation.getGroup());
-            if (prefs.isFavourite(key)) {
-                prefs.removeFavourite(key);
-                btnFavourite.setImageResource(R.drawable.ic_fav_off);
-            } else {
-                prefs.addFavourite(key);
-                btnFavourite.setImageResource(R.drawable.ic_fav_on);
-            }
+        // On first run (no country set), ask for country
+        if (!prefs.hasRadioCountry()) {
+            showCountryDialog();
+        } else {
+            loadRadioStations();
+        }
+    }
+
+    private void showCountryDialog() {
+        EditText input = new EditText(requireContext());
+        input.setHint("e.g. India, Germany, USA");
+        input.setPadding(48, 32, 48, 16);
+
+        new AlertDialog.Builder(requireContext())
+            .setTitle("Select Radio Country")
+            .setMessage("Enter your country name to fetch local radio stations:")
+            .setView(input)
+            .setPositiveButton("Fetch", (d, w) -> {
+                String country = input.getText().toString().trim();
+                if (!country.isEmpty()) {
+                    prefs.setRadioCountry(country);
+                }
+                loadRadioStations();
+            })
+            .setNegativeButton("Skip", (d, w) -> {
+                prefs.setRadioCountry(""); // empty = general
+                loadRadioStations();
+            })
+            .setCancelable(false)
+            .show();
+    }
+
+    private void loadRadioStations() {
+        if (tvNowPlaying != null) tvNowPlaying.setText("Loading stations…");
+        RadioLoader.load(requireContext(), prefs, groups -> {
+            allGroups = groups;
             refreshAdapter();
+            if (tvNowPlaying != null) tvNowPlaying.setText("Select a station");
         });
     }
 
     private void refreshAdapter() {
         if (recycler == null) return;
-        List<RadioGroup> groups = buildGroups();
-        adapter = new RadioGroupAdapter(groups, this::onStationClicked, prefs, colors,
-                new RadioGroupAdapter.SwipeActionListener() {
-                    @Override public void onFavourite(RadioStation s) {
-                        haptic();
-                        prefs.addFavourite(AppPrefs.stationKey(s.getName(), s.getUrl(), s.getGroup()));
-                        Toast.makeText(requireContext(), "♥ Added to Favourites", Toast.LENGTH_SHORT).show();
-                        refreshAdapter();
-                    }
-                    @Override public void onArchive(RadioStation s) {
-                        haptic();
-                        prefs.addArchived(AppPrefs.stationKey(s.getName(), s.getUrl(), s.getGroup()));
-                        Toast.makeText(requireContext(), "Archived", Toast.LENGTH_SHORT).show();
-                        refreshAdapter();
-                    }
-                    @Override public void onUnarchive(String key) {
-                        haptic();
-                        prefs.removeArchived(key);
-                        refreshAdapter();
-                    }
-                });
+        List<RadioGroup> display = filterGroups(allGroups, searchQuery);
+
+        adapter = new RadioGroupAdapter(
+            display,
+            this::onStationClicked,
+            (station, isFav) -> {
+                haptic();
+                String msg = isFav ? "♥ Added to Favourites" : "Removed from Favourites";
+                Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+                refreshAdapter(); // rebuild to update home section too
+            },
+            prefs, colors,
+            new RadioGroupAdapter.SwipeActionListener() {
+                @Override public void onArchive(RadioStation s) {
+                    haptic();
+                    prefs.addArchived(AppPrefs.stationKey(s.getName(), s.getUrl(), s.getGroup()));
+                    Toast.makeText(requireContext(), "Archived", Toast.LENGTH_SHORT).show();
+                    refreshAdapter();
+                }
+                @Override public void onUnarchive(String key) {
+                    haptic();
+                    prefs.removeArchived(key);
+                    refreshAdapter();
+                }
+            });
+
         if (selectedStation != null) adapter.setActiveStation(selectedStation);
         recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
         recycler.setAdapter(adapter);
     }
 
-    private List<RadioGroup> buildGroups() {
-        // Favourites group first
-        List<RadioStation> favStations = new ArrayList<>();
-        for (String key : prefs.getFavourites()) {
-            String[] p = AppPrefs.splitKey(key);
-            if (p.length >= 3) favStations.add(new RadioStation(p[0], p[1], "Favourites"));
-        }
-
-        // All groups, filter out fully-archived ones
-        List<RadioGroup> allGroups = RadioLoader.load(requireContext());
-        List<RadioGroup> result    = new ArrayList<>();
-
-        if (!favStations.isEmpty()) result.add(new RadioGroup("Favourites ♥", favStations));
-
-        for (RadioGroup g : allGroups) {
-            // Count non-archived stations
-            long visible = g.getStations().stream().filter(s ->
-                    !prefs.isArchived(AppPrefs.stationKey(s.getName(), s.getUrl(), s.getGroup()))
-            ).count();
-            if (visible > 0) result.add(g);
-        }
-
-        // Archived section as its own group
-        if (!prefs.getArchived().isEmpty()) {
-            List<RadioStation> archived = new ArrayList<>();
-            for (String key : prefs.getArchived()) {
-                String[] p = AppPrefs.splitKey(key);
-                if (p.length >= 3) archived.add(new RadioStation(p[0] + " ↩", p[1], key));
+    /** Filter by search query — matches station name case-insensitively */
+    private List<RadioGroup> filterGroups(List<RadioGroup> groups, String query) {
+        if (query.isEmpty()) return groups;
+        String q = query.toLowerCase();
+        List<RadioGroup> result = new ArrayList<>();
+        for (RadioGroup g : groups) {
+            List<RadioStation> matching = new ArrayList<>();
+            for (RadioStation s : g.getStations()) {
+                if (s.getName().toLowerCase().contains(q)) matching.add(s);
             }
-            result.add(new RadioGroup("__ARCHIVED__", archived)); // special marker
+            if (!matching.isEmpty()) result.add(new RadioGroup(g.getName(), matching));
         }
-
         return result;
     }
 
     private void onStationClicked(RadioStation station) {
         haptic(); clickSound();
+        if (audioService == null) return;
+
+        // Single click: if already playing this station, stop it; else play it
+        if (selectedStation != null && selectedStation.getUrl().equals(station.getUrl())
+                && audioService.isRadioPlaying()) {
+            audioService.stopRadio();
+            selectedStation = null;
+            if (tvNowPlaying != null) tvNowPlaying.setText("Select a station");
+            if (adapter != null) adapter.setActiveStation(null);
+            return;
+        }
+
         selectedStation = station;
         if (tvNowPlaying != null) tvNowPlaying.setText(station.getName());
-
-        if (btnFavourite != null) {
-            String key = AppPrefs.stationKey(station.getName(), station.getUrl(), station.getGroup());
-            btnFavourite.setImageResource(prefs.isFavourite(key)
-                    ? R.drawable.ic_fav_on : R.drawable.ic_fav_off);
-        }
         if (adapter != null) adapter.setActiveStation(station);
 
-        if (audioService != null) {
-            audioService.playRadio(station.getName(), station.getUrl());
-            audioService.setRadioListener(new AudioService.RadioListener() {
-                @Override public void onPlaybackStarted(String n) {
-                    mainHandler.post(() -> {
-                        updatePlayPauseIcon();
-                        if (tvNowPlaying != null) tvNowPlaying.setText(n);
-                    });
-                }
-                @Override public void onPlaybackStopped() { mainHandler.post(() -> updatePlayPauseIcon()); }
-                @Override public void onError(String m) { mainHandler.post(() -> {
-                    if (tvNowPlaying != null) tvNowPlaying.setText("Error – " + m);
-                }); }
-                @Override public void onBuffering() { mainHandler.post(() -> {
-                    if (tvNowPlaying != null) tvNowPlaying.setText("Buffering…");
-                }); }
-            });
-        }
+        audioService.playRadio(station.getName(), station.getUrl(), station.getFaviconUrl());
+        audioService.setRadioListener(makeListener());
     }
 
-    private void updatePlayPauseIcon() {
-        if (btnPlayPause == null) return;
-        boolean playing = audioService != null && audioService.isRadioPlaying();
-        btnPlayPause.setImageResource(playing ? R.drawable.ic_pause : R.drawable.ic_play);
+    private AudioService.RadioListener makeListener() {
+        return new AudioService.RadioListener() {
+            @Override public void onPlaybackStarted(String n) {
+                mainHandler.post(() -> {
+                    if (tvNowPlaying != null) tvNowPlaying.setText(n);
+                });
+            }
+            @Override public void onPlaybackStopped() {
+                mainHandler.post(() -> {
+                    if (tvNowPlaying != null) tvNowPlaying.setText("Select a station");
+                });
+            }
+            @Override public void onError(String m) {
+                mainHandler.post(() -> {
+                    if (tvNowPlaying != null) tvNowPlaying.setText("Error – " + m);
+                });
+            }
+            @Override public void onBuffering() {
+                mainHandler.post(() -> {
+                    if (tvNowPlaying != null) tvNowPlaying.setText("Buffering…");
+                });
+            }
+        };
     }
 
     @SuppressWarnings("deprecation")
@@ -232,6 +272,10 @@ public class RadioFragment extends Fragment {
         if (root == null || colors == null) return;
         root.setBackgroundColor(colors.bgPrimary());
         if (tvNowPlaying != null) tvNowPlaying.setTextColor(colors.textSecondary());
+        if (etSearch != null) {
+            etSearch.setTextColor(colors.textPrimary());
+            etSearch.setHintTextColor(colors.textSecondary());
+        }
     }
 
     public void refresh() {
@@ -240,4 +284,7 @@ public class RadioFragment extends Fragment {
         applyTheme(getView());
         refreshAdapter();
     }
+
+    /** Expose selected station for Home screen */
+    public RadioStation getSelectedStation() { return selectedStation; }
 }

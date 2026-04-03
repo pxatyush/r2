@@ -10,8 +10,9 @@ import android.view.View;
 import android.view.animation.LinearInterpolator;
 
 /**
- * Draws a fluid wave fill that rises to `volumeFraction` height.
- * Color is set externally. Animates continuously while visible.
+ * Fluid wave fill that rises to volumeFraction of the full button height.
+ * No 50% cap — at volume 1.0 the wave fills the entire button.
+ * startWave() begins the animation immediately (no prepare delay).
  */
 public class WaveView extends View {
 
@@ -19,17 +20,17 @@ public class WaveView extends View {
     private final Paint bgPaint   = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path  path      = new Path();
 
-    private float volumeFraction = 0.5f;  // 0..1
-    private float waveOffset     = 0f;    // animated
+    private float volumeFraction = 0.5f;   // 0..1  — maps to 0..full height
+    private float waveOffset     = 0f;
     private float cornerRadius   = 0f;
-    private int   waveColor      = 0x556C63FF; // 33% opacity accent
+    private int   waveColor      = 0x556C63FF;
     private int   bgColor        = 0xFF1A1A26;
 
     private ValueAnimator animator;
 
-    public WaveView(Context ctx) { super(ctx); init(); }
-    public WaveView(Context ctx, AttributeSet a) { super(ctx, a); init(); }
-    public WaveView(Context ctx, AttributeSet a, int def) { super(ctx, a, def); init(); }
+    public WaveView(Context ctx)                              { super(ctx); init(); }
+    public WaveView(Context ctx, AttributeSet a)             { super(ctx, a); init(); }
+    public WaveView(Context ctx, AttributeSet a, int def)    { super(ctx, a, def); init(); }
 
     private void init() {
         wavePaint.setStyle(Paint.Style.FILL);
@@ -45,12 +46,18 @@ public class WaveView extends View {
         invalidate();
     }
 
+    /**
+     * Set the fill level. 0 = empty, 1 = full button height.
+     * Call this immediately when a sound is activated — before prepareAsync.
+     */
     public void setVolume(float v) {
         volumeFraction = Math.max(0f, Math.min(1f, v));
         invalidate();
     }
 
+    /** Start the wave animation immediately. Safe to call before the view is measured. */
     public void startWave() {
+        if (animator != null && animator.isRunning()) return; // already running
         stopWave();
         animator = ValueAnimator.ofFloat(0f, (float)(2 * Math.PI));
         animator.setDuration(2200);
@@ -68,6 +75,8 @@ public class WaveView extends View {
         if (animator != null) { animator.cancel(); animator = null; }
     }
 
+    public boolean isWaving() { return animator != null && animator.isRunning(); }
+
     @Override
     protected void onDraw(Canvas canvas) {
         int w = getWidth();
@@ -78,22 +87,19 @@ public class WaveView extends View {
         bgPaint.setColor(bgColor);
         canvas.drawRoundRect(0, 0, w, h, cornerRadius, cornerRadius, bgPaint);
 
-        // Wave fill — only bottom half fills (volumeFraction controls height within bottom 50%)
-        float maxFillY = h;          // fill can go from bottom up to 50% of height
-        float minFillY = h * 0.5f;  // wave top never exceeds 50% height line
-        float fillTop  = maxFillY - (maxFillY - minFillY) * volumeFraction;
+        // Wave fill — volumeFraction maps linearly from bottom (0) to top (full h)
+        // At vol=1.0 fillTop = 0 (fills everything); at vol=0 fillTop = h (fills nothing)
+        float fillTop = h - volumeFraction * h;
 
         wavePaint.setColor(waveColor);
         path.reset();
-        path.moveTo(0, fillTop);
 
-        // Two sine waves offset for fluid look
         int steps = 60;
         for (int i = 0; i <= steps; i++) {
-            float x    = w * i / (float) steps;
+            float x = w * i / (float) steps;
             float wave = (float)(
-                Math.sin(2 * Math.PI * i / steps + waveOffset) * h * 0.035 +
-                Math.sin(4 * Math.PI * i / steps + waveOffset * 1.3) * h * 0.018
+                Math.sin(2 * Math.PI * i / steps + waveOffset) * h * 0.04 +
+                Math.sin(4 * Math.PI * i / steps + waveOffset * 1.3) * h * 0.02
             );
             float y = fillTop + wave;
             if (i == 0) path.moveTo(x, y);
@@ -103,7 +109,7 @@ public class WaveView extends View {
         path.lineTo(0, h);
         path.close();
 
-        // Clip to rounded rect bounds
+        // Clip to rounded rect
         canvas.save();
         android.graphics.RectF rect = new android.graphics.RectF(0, 0, w, h);
         android.graphics.Path clip = new android.graphics.Path();

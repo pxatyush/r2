@@ -6,90 +6,76 @@
     android:orientation="horizontal"
     android:background="#0D0D14">
 
-    <!-- Left vertical nav — slim 52dp, items bottom-aligned -->
+    <!-- Left vertical nav — 52dp, items bottom-aligned -->
     <LinearLayout
         android:id="@+id/navBar"
         android:layout_width="52dp"
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:gravity="bottom|center_horizontal"
-        android:paddingBottom="32dp"
+        android:paddingBottom="28dp"
         android:background="#0D0D14">
 
-        <!-- spacer -->
         <View android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1"/>
 
-        <!-- Settings (top = furthest from thumb) -->
-        <FrameLayout
-            android:id="@+id/navSettings"
-            android:layout_width="52dp"
-            android:layout_height="72dp"
-            android:clickable="true"
-            android:focusable="true">
-            <TextView
-                android:id="@+id/navSettingsText"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:text="Settings"
-                android:textSize="11sp"
-                android:letterSpacing="0.04"
-                android:textColor="#44445A"
-                android:gravity="center"
-                android:rotation="-90"
-                android:fontFamily="sans-serif-medium"/>
+        <!-- Settings -->
+        <FrameLayout android:id="@+id/navSettings"
+            android:layout_width="52dp" android:layout_height="64dp"
+            android:clickable="true" android:focusable="true">
+            <TextView android:id="@+id/navSettingsText"
+                android:layout_width="match_parent" android:layout_height="match_parent"
+                android:text="Settings" android:textSize="11sp" android:letterSpacing="0.04"
+                android:textColor="#44445A" android:gravity="center"
+                android:rotation="-90" android:fontFamily="sans-serif-medium"/>
         </FrameLayout>
 
-        <!-- Sounds (middle) -->
-        <FrameLayout
-            android:id="@+id/navSounds"
-            android:layout_width="52dp"
-            android:layout_height="72dp"
-            android:clickable="true"
-            android:focusable="true">
-            <TextView
-                android:id="@+id/navSoundsText"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:text="Sounds"
-                android:textSize="11sp"
-                android:letterSpacing="0.04"
-                android:textColor="#44445A"
-                android:gravity="center"
-                android:rotation="-90"
-                android:fontFamily="sans-serif-medium"/>
+        <!-- Sounds -->
+        <FrameLayout android:id="@+id/navSounds"
+            android:layout_width="52dp" android:layout_height="64dp"
+            android:clickable="true" android:focusable="true">
+            <TextView android:id="@+id/navSoundsText"
+                android:layout_width="match_parent" android:layout_height="match_parent"
+                android:text="Sounds" android:textSize="11sp" android:letterSpacing="0.04"
+                android:textColor="#44445A" android:gravity="center"
+                android:rotation="-90" android:fontFamily="sans-serif-medium"/>
         </FrameLayout>
 
-        <!-- Radio (bottom = closest to thumb) -->
-        <FrameLayout
-            android:id="@+id/navRadio"
-            android:layout_width="52dp"
-            android:layout_height="72dp"
-            android:clickable="true"
-            android:focusable="true">
-            <TextView
-                android:id="@+id/navRadioText"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:text="Radio"
-                android:textSize="11sp"
-                android:letterSpacing="0.04"
-                android:textColor="#FFFFFF"
-                android:gravity="center"
-                android:rotation="-90"
-                android:fontFamily="sans-serif-medium"/>
+        <!-- Radio -->
+        <FrameLayout android:id="@+id/navRadio"
+            android:layout_width="52dp" android:layout_height="64dp"
+            android:clickable="true" android:focusable="true">
+            <TextView android:id="@+id/navRadioText"
+                android:layout_width="match_parent" android:layout_height="match_parent"
+                android:text="Radio" android:textSize="11sp" android:letterSpacing="0.04"
+                android:textColor="#44445A" android:gravity="center"
+                android:rotation="-90" android:fontFamily="sans-serif-medium"/>
+        </FrameLayout>
+
+        <!-- Home (default, bottom = thumb-closest) -->
+        <FrameLayout android:id="@+id/navHome"
+            android:layout_width="52dp" android:layout_height="64dp"
+            android:clickable="true" android:focusable="true">
+            <TextView android:id="@+id/navHomeText"
+                android:layout_width="match_parent" android:layout_height="match_parent"
+                android:text="Home" android:textSize="11sp" android:letterSpacing="0.04"
+                android:textColor="#FFFFFF" android:gravity="center"
+                android:rotation="-90" android:fontFamily="sans-serif-medium"/>
         </FrameLayout>
 
     </LinearLayout>
 
-    <!-- Content -->
+    <!-- Content area -->
     <FrameLayout
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1">
 
-        <FrameLayout android:id="@+id/fragmentRadio"
+        <FrameLayout android:id="@+id/fragmentHome"
             android:layout_width="match_parent" android:layout_height="match_parent"
             android:visibility="visible"/>
+        <FrameLayout android:id="@+id/fragmentRadio"
+            android:layout_width="match_parent" android:layout_height="match_parent"
+            android:visibility="gone"/>
         <FrameLayout android:id="@+id/fragmentSounds"
             android:layout_width="match_parent" android:layout_height="match_parent"
             android:visibility="gone"/>

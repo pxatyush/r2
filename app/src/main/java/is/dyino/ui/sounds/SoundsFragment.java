@@ -2,10 +2,12 @@ package is.dyino.ui.sounds;
 
 import android.annotation.SuppressLint;
 import android.graphics.drawable.GradientDrawable;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Vibrator;
 import android.os.VibrationEffect;
-import android.os.Build;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -13,8 +15,8 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.GridLayout;
 import android.widget.LinearLayout;
-import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -39,6 +41,12 @@ public class SoundsFragment extends Fragment {
     private ColorConfig  colors;
     private AudioService audioService;
     private List<SoundCategory> categories;
+
+    // Double-tap detection per sound file
+    private final java.util.Map<String, Long> lastTapTime = new java.util.HashMap<>();
+    private static final long DOUBLE_TAP_MS = 350;
+
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public void setAudioService(AudioService svc) { this.audioService = svc; }
 
@@ -78,8 +86,9 @@ public class SoundsFragment extends Fragment {
         int screenW  = getResources().getDisplayMetrics().widthPixels;
         int avail    = screenW - navW;
         int gap      = (int)(6 * dp);
+        // Each button gets exactly half the available width minus gaps
         int btnW     = (avail - gap * 3) / 2;
-        int btnH     = (int)(52 * dp);   // thin
+        int btnH     = (int)(56 * dp);
 
         for (SoundCategory cat : categories) {
             View catView = inf.inflate(R.layout.item_sound_category, categoriesContainer, false);
@@ -90,9 +99,13 @@ public class SoundsFragment extends Fragment {
             grid.setColumnCount(2);
             grid.removeAllViews();
 
-            for (SoundItem sound : cat.getSounds()) {
+            List<SoundItem> sounds = cat.getSounds();
+            for (int i = 0; i < sounds.size(); i++) {
+                SoundItem sound = sounds.get(i);
                 View btn = inf.inflate(R.layout.item_sound_button, null);
-                setupButton(btn, sound, btnW, btnH);
+                int col = i % 2;
+                int row = i / 2;
+                setupButton(btn, sound, btnW, btnH, col, row);
                 grid.addView(btn);
             }
             categoriesContainer.addView(catView);
@@ -100,80 +113,162 @@ public class SoundsFragment extends Fragment {
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private void setupButton(View btn, SoundItem sound, int btnW, int btnH) {
-        TextView  tvName   = btn.findViewById(R.id.tvSoundName);
-        WaveView  wave     = btn.findViewById(R.id.waveView);
-        FrameLayout volOverlay = btn.findViewById(R.id.volumeControlOverlay);
-        SeekBar   seekBar  = btn.findViewById(R.id.soundVolumeSeek);
+    private void setupButton(View btn, SoundItem sound, int btnW, int btnH, int col, int row) {
+        TextView   tvName   = btn.findViewById(R.id.tvSoundName);
+        WaveView   wave     = btn.findViewById(R.id.waveView);
+        View       volBar   = btn.findViewById(R.id.volumeBarOverlay);
+        View       volFill  = btn.findViewById(R.id.volumeBarFill);
 
         tvName.setText(sound.getName());
         tvName.setTextColor(colors.soundBtnText());
 
+        float dp = getResources().getDisplayMetrics().density;
+
+        // ── Fix GridLayout proportions: both columns equal ──
         GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
-        lp.width = btnW; lp.height = btnH;
-        lp.setMargins((int)(3*getResources().getDisplayMetrics().density),
-                      (int)(3*getResources().getDisplayMetrics().density),
-                      (int)(3*getResources().getDisplayMetrics().density),
-                      (int)(3*getResources().getDisplayMetrics().density));
+        lp.columnSpec = GridLayout.spec(col, 1, 1f);
+        lp.rowSpec    = GridLayout.spec(row);
+        lp.width      = btnW;
+        lp.height     = btnH;
+        int margin    = (int)(3 * dp);
+        lp.setMargins(margin, margin, margin, margin);
         btn.setLayoutParams(lp);
 
-        // Set corner background
         applyBtnShape(btn, sound, wave);
 
-        // SeekBar init
-        int prog = (int)(sound.getVolume() * 100);
-        seekBar.setProgress(prog);
-        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar s, int p, boolean user) {
-                if (!user) return;
-                float vol = p / 100f;
-                sound.setVolume(vol);
-                if (audioService != null) audioService.setSoundVolume(sound.getFileName(), vol);
-                if (wave != null) wave.setVolume(vol);
-            }
-            @Override public void onStartTrackingTouch(SeekBar s) {}
-            @Override public void onStopTrackingTouch(SeekBar s) {}
-        });
+        // ── Init wave volume immediately (no delay) ──
+        if (wave != null) wave.setVolume(sound.getVolume());
 
-        // Click: toggle play
-        btn.setOnClickListener(v -> {
-            haptic(); clickSound();
-            if (audioService == null) return;
-            if (audioService.isSoundPlaying(sound.getFileName())) {
-                audioService.stopSound(sound.getFileName());
-                sound.setPlaying(false);
-            } else {
-                audioService.playSound(sound.getFileName(), sound.getVolume());
-                sound.setPlaying(true);
-            }
-            applyBtnShape(btn, sound, wave);
-        });
+        // ── Long press: show horizontal iOS-style volume bar ──
+        final float[] longPressStartX = {0};
+        final float[] longPressStartVol = {sound.getVolume()};
+        final boolean[] volumeBarVisible = {false};
+        final Runnable[] autoDismiss = {null};
 
-        // Long click: show volume seek overlay
         btn.setOnLongClickListener(v -> {
             haptic();
-            boolean showing = volOverlay.getVisibility() == View.VISIBLE;
-            volOverlay.setVisibility(showing ? View.GONE : View.VISIBLE);
-            if (!showing) {
-                seekBar.setProgress((int)(sound.getVolume() * 100));
-            }
+            longPressStartVol[0] = audioService != null
+                ? audioService.getSoundVolume(sound.getFileName()) : sound.getVolume();
+            showVolumeBar(volBar, volFill, longPressStartVol[0], wave);
+            volumeBarVisible[0] = true;
+
+            // Auto-dismiss after 3 seconds
+            if (autoDismiss[0] != null) mainHandler.removeCallbacks(autoDismiss[0]);
+            autoDismiss[0] = () -> {
+                hideVolumeBar(volBar, wave, audioService != null
+                        && audioService.isSoundPlaying(sound.getFileName()));
+                volumeBarVisible[0] = false;
+            };
+            mainHandler.postDelayed(autoDismiss[0], 3000);
             return true;
         });
 
-        // Touch outside vol overlay dismisses it
         btn.setOnTouchListener((v, ev) -> {
-            if (ev.getAction() == MotionEvent.ACTION_DOWN
-                    && volOverlay.getVisibility() == View.VISIBLE) {
-                // Check touch outside seekBar area
-                int[] loc = new int[2]; seekBar.getLocationOnScreen(loc);
-                float ex = ev.getRawX(), ey = ev.getRawY();
-                boolean inSeek = ex >= loc[0] && ex <= loc[0] + seekBar.getWidth()
-                              && ey >= loc[1] && ey <= loc[1] + seekBar.getHeight();
-                if (!inSeek) {
-                    volOverlay.setVisibility(View.GONE);
-                }
+            if (!volumeBarVisible[0]) return false;
+
+            switch (ev.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    longPressStartX[0] = ev.getX();
+                    break;
+                case MotionEvent.ACTION_MOVE:
+                    float dx = ev.getX() - longPressStartX[0];
+                    float delta = dx / (float) btnW;     // -1..+1 across full width
+                    float newVol = Math.max(0f, Math.min(1f, longPressStartVol[0] + delta));
+                    sound.setVolume(newVol);
+                    if (audioService != null) audioService.setSoundVolume(sound.getFileName(), newVol);
+                    // Update fill width
+                    updateVolumeBarFill(volFill, newVol);
+                    // Reset auto-dismiss timer on interaction
+                    if (autoDismiss[0] != null) mainHandler.removeCallbacks(autoDismiss[0]);
+                    mainHandler.postDelayed(autoDismiss[0], 3000);
+                    return true;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    longPressStartVol[0] = sound.getVolume();
+                    break;
             }
             return false;
+        });
+
+        // ── Single/double tap: play/stop or toggle favourite ──
+        btn.setOnClickListener(v -> {
+            if (volumeBarVisible[0]) {
+                // Tap while volume bar is up: dismiss it
+                if (autoDismiss[0] != null) mainHandler.removeCallbacks(autoDismiss[0]);
+                hideVolumeBar(volBar, wave, audioService != null
+                        && audioService.isSoundPlaying(sound.getFileName()));
+                volumeBarVisible[0] = false;
+                return;
+            }
+
+            String fn = sound.getFileName();
+            long now = System.currentTimeMillis();
+            Long last = lastTapTime.get(fn);
+
+            if (last != null && (now - last) < DOUBLE_TAP_MS) {
+                // ── Double-tap: toggle favourite ──
+                lastTapTime.remove(fn);
+                haptic();
+                boolean isFav = prefs.isFavSound(fn);
+                if (isFav) prefs.removeFavSound(fn);
+                else       prefs.addFavSound(fn);
+                Toast.makeText(requireContext(),
+                    isFav ? "Removed from Favourites" : "♥ Added to Favourites",
+                    Toast.LENGTH_SHORT).show();
+            } else {
+                // ── Single tap: toggle play/stop ──
+                lastTapTime.put(fn, now);
+                haptic(); clickSound();
+                if (audioService == null) return;
+                if (audioService.isSoundPlaying(fn)) {
+                    audioService.stopSound(fn);
+                    sound.setPlaying(false);
+                } else {
+                    // Start wave immediately before prepareAsync
+                    sound.setPlaying(true);
+                    if (wave != null) {
+                        float wc = (colors.soundWaveColor() & 0x00FFFFFF) | 0x5A000000;
+                        wave.setColors(colors.soundBtnActiveBg(), wc);
+                        wave.setVolume(sound.getVolume());
+                        wave.setVisibility(View.VISIBLE);
+                        wave.startWave();   // instant — no prepare delay
+                    }
+                    audioService.playSound(fn, sound.getVolume());
+                }
+                applyBtnShape(btn, sound, wave);
+            }
+        });
+    }
+
+    private void showVolumeBar(View volBar, View volFill, float currentVol, WaveView wave) {
+        if (volBar == null) return;
+        // Hide wave while volume bar is showing
+        if (wave != null) {
+            wave.stopWave();
+            wave.setVisibility(View.INVISIBLE);
+        }
+        volBar.setVisibility(View.VISIBLE);
+        updateVolumeBarFill(volFill, currentVol);
+    }
+
+    private void hideVolumeBar(View volBar, WaveView wave, boolean soundIsPlaying) {
+        if (volBar == null) return;
+        volBar.setVisibility(View.GONE);
+        // Restore wave if sound still playing
+        if (wave != null && soundIsPlaying) {
+            wave.setVisibility(View.VISIBLE);
+            wave.startWave();
+        }
+    }
+
+    private void updateVolumeBarFill(View volFill, float vol) {
+        if (volFill == null || volFill.getParent() == null) return;
+        View parent = (View) volFill.getParent();
+        parent.post(() -> {
+            int parentW = parent.getWidth();
+            ViewGroup.LayoutParams lp = volFill.getLayoutParams();
+            lp.width = (int)(parentW * vol);
+            volFill.setLayoutParams(lp);
         });
     }
 
@@ -195,14 +290,13 @@ public class SoundsFragment extends Fragment {
 
         if (wave != null) {
             if (playing) {
+                float wc = (colors.soundWaveColor() & 0x00FFFFFF) | 0x5A000000;
+                wave.setColors(colors.soundBtnActiveBg(), wc);
                 float vol = audioService != null
                     ? audioService.getSoundVolume(sound.getFileName()) : sound.getVolume();
-                // wave color = accent at 35% opacity
-                int wc = (colors.soundWaveColor() & 0x00FFFFFF) | 0x5A000000;
-                wave.setColors(colors.soundBtnActiveBg(), wc);
                 wave.setVolume(vol);
                 wave.setVisibility(View.VISIBLE);
-                wave.startWave();
+                if (!wave.isWaving()) wave.startWave();
             } else {
                 wave.stopWave();
                 wave.setVisibility(View.INVISIBLE);

@@ -3,6 +3,8 @@ package is.dyino.ui.radio;
 import android.animation.ValueAnimator;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.view.LayoutInflater;
@@ -25,22 +27,28 @@ import is.dyino.util.ColorConfig;
 public class RadioGroupAdapter extends RecyclerView.Adapter<RadioGroupAdapter.VH> {
 
     public interface StationClickListener { void onStation(RadioStation s); }
-    public interface SwipeActionListener {
-        void onFavourite(RadioStation s);
+    public interface FavouriteListener    { void onFavouriteToggled(RadioStation s, boolean isFav); }
+    public interface SwipeActionListener  {
         void onArchive(RadioStation s);
         void onUnarchive(String key);
     }
 
     private final List<RadioGroup>     groups;
     private final StationClickListener clickL;
+    private final FavouriteListener    favL;
     private final AppPrefs             prefs;
     private final ColorConfig          colors;
     private final SwipeActionListener  swipeL;
     private RadioStation activeStation;
 
+    // Double-tap detection per station URL
+    private final java.util.Map<String, Long> lastTapTime = new java.util.HashMap<>();
+    private static final long DOUBLE_TAP_MS = 350;
+
     public RadioGroupAdapter(List<RadioGroup> groups, StationClickListener click,
-                             AppPrefs prefs, ColorConfig colors, SwipeActionListener swipe) {
-        this.groups = groups; this.clickL = click;
+                             FavouriteListener fav, AppPrefs prefs, ColorConfig colors,
+                             SwipeActionListener swipe) {
+        this.groups = groups; this.clickL = click; this.favL = fav;
         this.prefs = prefs; this.colors = colors; this.swipeL = swipe;
     }
 
@@ -56,20 +64,16 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RadioGroupAdapter.VH
     @Override
     public void onBindViewHolder(@NonNull VH h, int pos) {
         RadioGroup group = groups.get(pos);
-        boolean isArchivedGroup = group.getName().equals("__ARCHIVED__");
+        boolean isArchivedGroup = "__ARCHIVED__".equals(group.getName());
 
-        // Group header
-        if (isArchivedGroup) {
-            h.tvGroupName.setText("Archived ▾");
-            h.tvGroupName.setTextColor(colors.textSecondary());
-        } else {
-            h.tvGroupName.setText(group.getName());
-            h.tvGroupName.setTextColor(colors.accent());
-        }
+        h.tvGroupName.setTextColor(isArchivedGroup ? colors.textSecondary() : colors.accent());
+        h.tvGroupName.setText(isArchivedGroup ? "Archived ▾" : group.getName());
 
+        // ── Remove the shared card box behind stations ──
+        h.stationsContainer.setBackground(null);
+        h.stationsContainer.setPadding(0, 0, 0, 0);
         h.stationsContainer.removeAllViews();
 
-        // For archived group, hide by default, toggle on header click
         if (isArchivedGroup) {
             h.stationsContainer.setVisibility(View.GONE);
             h.tvGroupName.setOnClickListener(v -> {
@@ -77,24 +81,19 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RadioGroupAdapter.VH
                 h.stationsContainer.setVisibility(show ? View.VISIBLE : View.GONE);
                 h.tvGroupName.setText(show ? "Archived ▴" : "Archived ▾");
             });
-            // Build archived station rows
-            for (RadioStation station : group.getStations()) {
-                // station.getGroup() holds the original key for archived items
-                String archivedKey = station.getGroup();
-                View sv = buildStationView(h, station, true, archivedKey);
-                h.stationsContainer.addView(sv);
+            for (RadioStation s : group.getStations()) {
+                h.stationsContainer.addView(buildStationView(h, s, true, s.getGroup()));
             }
         } else {
             h.tvGroupName.setOnClickListener(null);
-            for (RadioStation station : group.getStations()) {
-                if (prefs.isArchived(AppPrefs.stationKey(station.getName(),
-                        station.getUrl(), station.getGroup()))) continue;
-                View sv = buildStationView(h, station, false, null);
-                h.stationsContainer.addView(sv);
+            for (RadioStation s : group.getStations()) {
+                if (prefs.isArchived(AppPrefs.stationKey(s.getName(), s.getUrl(), s.getGroup()))) continue;
+                h.stationsContainer.addView(buildStationView(h, s, false, null));
             }
         }
     }
 
+    @SuppressWarnings("ClickableViewAccessibility")
     private View buildStationView(VH h, RadioStation station, boolean isArchived, String archivedKey) {
         View sv = LayoutInflater.from(h.itemView.getContext())
                 .inflate(R.layout.item_radio_station, h.stationsContainer, false);
@@ -121,13 +120,30 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RadioGroupAdapter.VH
 
         if (isArchived) {
             tvName.setTextColor(colors.textSecondary());
-            // Swipe left/right to unarchive
-            attachSwipe(sv, station, isArchived, archivedKey);
+            attachSwipe(sv, station, true, archivedKey);
         } else {
             sv.setOnClickListener(v -> {
-                activeStation = station;
-                notifyDataSetChanged();
-                clickL.onStation(station);
+                String url = station.getUrl();
+                long now = System.currentTimeMillis();
+                Long last = lastTapTime.get(url);
+
+                if (last != null && (now - last) < DOUBLE_TAP_MS) {
+                    // ── Double-tap: toggle favourite ──
+                    lastTapTime.remove(url);
+                    String key = AppPrefs.stationKey(station.getName(), station.getUrl(), station.getGroup());
+                    boolean isFav = prefs.isFavourite(key);
+                    if (isFav) prefs.removeFavourite(key);
+                    else       prefs.addFavourite(key);
+                    haptic(v);
+                    if (favL != null) favL.onFavouriteToggled(station, !isFav);
+                    notifyDataSetChanged();
+                } else {
+                    // ── Single tap: play / stop station ──
+                    lastTapTime.put(url, now);
+                    activeStation = station;
+                    notifyDataSetChanged();
+                    if (clickL != null) clickL.onStation(station);
+                }
             });
             attachSwipe(sv, station, false, null);
         }
@@ -148,22 +164,24 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RadioGroupAdapter.VH
                     break;
                 case android.view.MotionEvent.ACTION_MOVE:
                     float dx = ev.getX() - startX[0];
-                    if (Math.abs(dx) > 70 && !swiped[0]) {
+                    if (Math.abs(dx) > 80 && !swiped[0]) {
                         swiped[0] = true;
+                        haptic(v);
+                        // Smooth, medium-speed swipe animation
                         float targetX = dx > 0 ? sv.getWidth() : -sv.getWidth();
-                        v.animate().translationX(targetX).alpha(0f).setDuration(200)
-                                .withEndAction(() -> {
-                                    v.setTranslationX(0); v.setAlpha(1f);
-                                    if (swipeL != null) {
-                                        if (isArchived) {
-                                            swipeL.onUnarchive(archivedKey);
-                                        } else {
-                                            if (dx < 0) swipeL.onFavourite(station);
-                                            else        swipeL.onArchive(station);
-                                        }
-                                    }
-                                    notifyDataSetChanged();
-                                }).start();
+                        v.animate()
+                         .translationX(targetX)
+                         .alpha(0f)
+                         .setDuration(320)           // medium speed
+                         .setInterpolator(new android.view.animation.DecelerateInterpolator(1.5f))
+                         .withEndAction(() -> {
+                             v.setTranslationX(0); v.setAlpha(1f);
+                             if (swipeL != null) {
+                                 if (isArchived) swipeL.onUnarchive(archivedKey);
+                                 else            swipeL.onArchive(station);
+                             }
+                             notifyDataSetChanged();
+                         }).start();
                     }
                     break;
             }
@@ -205,6 +223,17 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RadioGroupAdapter.VH
             bar.setLayoutParams(lp);
         });
         a.start();
+    }
+
+    @SuppressWarnings("deprecation")
+    private void haptic(View v) {
+        try {
+            Vibrator vib = (Vibrator) v.getContext().getSystemService(android.content.Context.VIBRATOR_SERVICE);
+            if (vib == null || !vib.hasVibrator()) return;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                vib.vibrate(VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE));
+            else vib.vibrate(12);
+        } catch (Exception ignored) {}
     }
 
     @Override public int getItemCount() { return groups.size(); }

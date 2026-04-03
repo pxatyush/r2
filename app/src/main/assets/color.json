@@ -1,0 +1,48 @@
+{
+  "global": {
+    "bg_primary": "#0D0D14",
+    "bg_card": "#16161F",
+    "bg_card2": "#1E1E2A",
+    "accent": "#6C63FF",
+    "accent_dim": "#3D3880",
+    "divider": "#22223A",
+    "text_primary": "#FFFFFF",
+    "text_secondary": "#8888AA",
+    "text_section_title": "#FFFFFF"
+  },
+  "nav": {
+    "bg": "#0D0D14",
+    "selected": "#FFFFFF",
+    "unselected": "#44445A"
+  },
+  "home": {
+    "section_title": "#FFFFFF",
+    "card_bg": "#16161F"
+  },
+  "radio": {
+    "station_bg": "#1E1E2A",
+    "station_bg_active": "#2A1E4A",
+    "station_border_active": "#6C63FF",
+    "station_text": "#FFFFFF",
+    "station_text_active": "#6C63FF",
+    "eq_bar": "#6C63FF"
+  },
+  "sounds": {
+    "btn_bg": "#1A1A26",
+    "btn_active_bg": "#28265A",
+    "btn_border_active": "#6C63FF",
+    "btn_text": "#FFFFFF",
+    "wave_color": "#6C63FF"
+  },
+  "controls": {
+    "stop_bg": "#1E1E2A",
+    "stop_border": "#6C63FF",
+    "stop_text": "#FFFFFF"
+  },
+  "settings": {
+    "card_bg": "#16161F",
+    "label_text": "#FFFFFF",
+    "hint_text": "#8888AA",
+    "version_text": "#44445A"
+  }
+}

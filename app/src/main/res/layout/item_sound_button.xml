@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Sound button: thin pill shape, name only, wave fill when active -->
+<!-- Sound button: wave fill behind text, horizontal volume bar on long-press -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/soundBtnRoot"
     android:layout_width="match_parent"
-    android:layout_height="52dp"
+    android:layout_height="56dp"
     android:clickable="true"
     android:focusable="true"
     android:longClickable="true">
@@ -28,23 +28,37 @@
         android:paddingLeft="10dp"
         android:paddingRight="10dp"/>
 
-    <!-- Volume control overlay (full height, shown on long press) -->
+    <!--
+        Horizontal volume bar — shown on long-press.
+        Looks like iOS/OneUI brightness slider:
+        a thin pill track where the fill width = current volume.
+        Wave animation is hidden while this is visible.
+    -->
     <FrameLayout
-        android:id="@+id/volumeControlOverlay"
+        android:id="@+id/volumeBarOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone"
-        android:background="#CC000000">
+        android:background="#CC000011">
 
-        <SeekBar
-            android:id="@+id/soundVolumeSeek"
+        <!-- Track (full width pill) -->
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="6dp"
             android:layout_gravity="center"
-            android:layout_marginLeft="16dp"
-            android:layout_marginRight="16dp"
-            android:max="100"
-            android:progress="80"/>
+            android:layout_marginLeft="12dp"
+            android:layout_marginRight="12dp"
+            android:background="#44FFFFFF">
+
+            <!-- Fill (expands left-to-right based on volume) -->
+            <View
+                android:id="@+id/volumeBarFill"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_gravity="start"
+                android:background="#FFFFFF"/>
+
+        </FrameLayout>
 
     </FrameLayout>
 

@@ -25,7 +25,6 @@ import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,10 +33,10 @@ import is.dyino.R;
 
 public class AudioService extends Service {
 
-    private static final String TAG        = "AudioService";
-    private static final String CH_ID      = "dyino_ch";
-    private static final int    NID        = 1001;
-    public  static final String ACTION_STOP= "is.dyino.STOP_ALL";
+    private static final String TAG         = "AudioService";
+    private static final String CH_ID       = "dyino_ch";
+    private static final int    NID         = 1001;
+    public  static final String ACTION_STOP = "is.dyino.STOP_ALL";
 
     public class LocalBinder extends Binder {
         public AudioService getService() { return AudioService.this; }
@@ -54,21 +53,25 @@ public class AudioService extends Service {
     private RadioListener radioListener;
     public void setRadioListener(RadioListener l) { this.radioListener = l; }
 
+    /* ── Now-playing state (exposed for Home screen) ── */
+    private String  currentName       = "";
+    private String  currentFaviconUrl = "";
+    private float   radioVolume       = 0.8f;
+    private boolean radioPlaying      = false;
+
     /* ── Radio ── */
     private MediaPlayer radioPlayer;
-    private String      currentName  = "";
-    private float       radioVolume  = 0.8f;
-    private boolean     radioPlaying = false;
 
-    /* ── Sounds: two players per slot for gapless looping ── */
-    private final Map<String, MediaPlayer[]> soundPlayers = new HashMap<>(); // [0]=current [1]=next
+    /* ── Sounds: gapless via setNextMediaPlayer ── */
+    // value[0] = currently playing, value[1] = pre-prepared next
+    private final Map<String, MediaPlayer[]> soundPlayers = new HashMap<>();
     private final Map<String, Float>         soundVolumes  = new HashMap<>();
 
     /* ── Click ── */
     private SoundPool clickPool;
-    private int       clickId            = -1;
-    private boolean   buttonSoundEnabled = true;
-    private boolean   fgStarted          = false;
+    private int       clickId             = -1;
+    private boolean   buttonSoundEnabled  = true;
+    private boolean   fgStarted           = false;
 
     private MediaSessionCompat mediaSession;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -114,7 +117,7 @@ public class AudioService extends Service {
         }
     }
 
-    /* ── MediaSession (for media controls on lock screen / notification) ── */
+    /* ── MediaSession ── */
     private void initMediaSession() {
         mediaSession = new MediaSessionCompat(this, "dyino");
         mediaSession.setCallback(new MediaSessionCompat.Callback() {
@@ -146,10 +149,11 @@ public class AudioService extends Service {
        RADIO
        ══════════════════════════════════════════════════════════════════ */
 
-    public void playRadio(String name, String url) {
+    public void playRadio(String name, String url, String faviconUrl) {
         ensureFg("Radio", name);
         stopRadioPlayer();
-        currentName = name;
+        currentName       = name;
+        currentFaviconUrl = faviconUrl != null ? faviconUrl : "";
         if (radioListener != null) radioListener.onBuffering();
         updateNotif("Radio", "Buffering…  " + name);
 
@@ -181,8 +185,13 @@ public class AudioService extends Service {
         }
     }
 
+    /** Convenience overload without favicon */
+    public void playRadio(String name, String url) { playRadio(name, url, ""); }
+
     public void stopRadio() {
         stopRadioPlayer();
+        currentName = "";
+        currentFaviconUrl = "";
         if (soundPlayers.isEmpty()) stopFgIfIdle();
         else updateNotif("Sounds", buildSoundText());
         if (radioListener != null) radioListener.onPlaybackStopped();
@@ -212,19 +221,19 @@ public class AudioService extends Service {
         if (radioPlayer != null) radioPlayer.setVolume(vol, vol);
     }
 
-    public boolean isRadioPlaying() { return radioPlayer != null && radioPlayer.isPlaying(); }
-    public String  getCurrentName() { return currentName; }
+    public boolean isRadioPlaying()   { return radioPlayer != null && radioPlayer.isPlaying(); }
+    public String  getCurrentName()   { return currentName; }
+    public String  getCurrentFavicon(){ return currentFaviconUrl; }
 
     /* ══════════════════════════════════════════════════════════════════
-       SOUNDS — gapless looping via dual MediaPlayer
+       SOUNDS — true gapless via setNextMediaPlayer
        ══════════════════════════════════════════════════════════════════ */
 
     public void playSound(String fileName, float volume) {
         if (soundPlayers.containsKey(fileName)) {
-            // Just update volume
-            for (MediaPlayer mp : soundPlayers.get(fileName)) {
-                if (mp != null) mp.setVolume(volume, volume);
-            }
+            // Already playing — just update volume
+            MediaPlayer[] pair = soundPlayers.get(fileName);
+            if (pair != null) for (MediaPlayer mp : pair) if (mp != null) mp.setVolume(volume, volume);
             soundVolumes.put(fileName, volume);
             return;
         }
@@ -232,62 +241,71 @@ public class AudioService extends Service {
         ensureFg("Sounds", buildSoundText());
         soundVolumes.put(fileName, volume);
 
-        // Player A — starts immediately
-        MediaPlayer mpA = createLoopPlayer(fileName, volume);
+        // Create and start player A
+        MediaPlayer mpA = createPlayer(fileName, volume);
         if (mpA == null) return;
 
         soundPlayers.put(fileName, new MediaPlayer[]{mpA, null});
 
         mpA.setOnPreparedListener(mp -> {
+            // Create player B and chain it for gapless looping
+            MediaPlayer mpB = createPlayer(fileName, soundVolumes.getOrDefault(fileName, volume));
+            if (mpB != null) {
+                mpB.setOnPreparedListener(nextMp -> {
+                    try {
+                        mp.setNextMediaPlayer(nextMp);
+                        MediaPlayer[] pair = soundPlayers.get(fileName);
+                        if (pair != null) pair[1] = nextMp;
+                    } catch (Exception e) {
+                        Log.e(TAG, "setNextMediaPlayer", e);
+                    }
+                });
+                try { mpB.prepareAsync(); } catch (Exception ignored) {}
+            }
             mp.start();
             updateNotif(radioPlaying ? "Radio  ▶" : "Sounds", buildSoundText());
         });
 
-        // When A completes, seamlessly switch to B (already prepared)
-        mpA.setOnCompletionListener(mp -> {
-            MediaPlayer[] pair = soundPlayers.get(fileName);
-            if (pair == null) return;
-            // Start next player
-            MediaPlayer next = createLoopPlayer(fileName, soundVolumes.getOrDefault(fileName, volume));
-            if (next != null) {
-                pair[1] = next;
-                next.setOnPreparedListener(n -> {
-                    n.start();
-                    pair[0] = n; pair[1] = null;
-                    mp.release();
-                    // Chain again
-                    n.setOnCompletionListener(this::onSoundComplete);
-                });
-                try { next.prepareAsync(); } catch (Exception ignored) {}
-            }
-        });
+        mpA.setOnCompletionListener(mp -> chainNext(fileName, mp));
 
         try { mpA.prepareAsync(); } catch (Exception ignored) {}
     }
 
-    private void onSoundComplete(MediaPlayer mp) {
-        // Find which file this player belongs to
-        for (Map.Entry<String, MediaPlayer[]> e : soundPlayers.entrySet()) {
-            MediaPlayer[] pair = e.getValue();
-            if (pair != null && pair[0] == mp) {
-                float vol = soundVolumes.getOrDefault(e.getKey(), 0.8f);
-                MediaPlayer next = createLoopPlayer(e.getKey(), vol);
-                if (next != null) {
-                    pair[1] = next;
-                    next.setOnPreparedListener(n -> {
-                        n.start();
-                        pair[0] = n; pair[1] = null;
-                        mp.release();
-                        n.setOnCompletionListener(this::onSoundComplete);
-                    });
-                    try { next.prepareAsync(); } catch (Exception ignored) {}
-                }
-                break;
-            }
+    /**
+     * Called when the current player finishes. The next player (B) has already started
+     * playing via setNextMediaPlayer. We now prepare a new "C" to follow B gaplessly.
+     */
+    private void chainNext(String fileName, MediaPlayer finished) {
+        MediaPlayer[] pair = soundPlayers.get(fileName);
+        if (pair == null) return;
+
+        float vol = soundVolumes.getOrDefault(fileName, 0.8f);
+
+        // pair[1] (B) is now the current; prepare pair[2] (C) = new next
+        MediaPlayer current = pair[1];
+        if (current == null) return;
+
+        pair[0] = current;
+        pair[1] = null;
+        try { finished.release(); } catch (Exception ignored) {}
+
+        // Prepare the new next player
+        MediaPlayer nextMp = createPlayer(fileName, vol);
+        if (nextMp != null) {
+            nextMp.setOnPreparedListener(np -> {
+                try {
+                    current.setNextMediaPlayer(np);
+                    MediaPlayer[] p2 = soundPlayers.get(fileName);
+                    if (p2 != null) p2[1] = np;
+                } catch (Exception e) { Log.e(TAG, "chainNext setNext", e); }
+            });
+            nextMp.setOnCompletionListener(mp2 -> chainNext(fileName, mp2));
+            current.setOnCompletionListener(mp2 -> chainNext(fileName, mp2));
+            try { nextMp.prepareAsync(); } catch (Exception ignored) {}
         }
     }
 
-    private MediaPlayer createLoopPlayer(String fileName, float volume) {
+    private MediaPlayer createPlayer(String fileName, float volume) {
         try {
             MediaPlayer mp = new MediaPlayer();
             mp.setAudioAttributes(new AudioAttributes.Builder()
@@ -297,10 +315,10 @@ public class AudioService extends Service {
             mp.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
             afd.close();
             mp.setVolume(volume, volume);
-            mp.setLooping(false); // we handle looping manually for gapless
+            mp.setLooping(false);
             return mp;
         } catch (Exception e) {
-            Log.e(TAG, "createLoopPlayer " + fileName, e);
+            Log.e(TAG, "createPlayer " + fileName, e);
             return null;
         }
     }
@@ -330,6 +348,14 @@ public class AudioService extends Service {
 
     public float getSoundVolume(String fn) {
         Float v = soundVolumes.get(fn); return v != null ? v : 0.8f;
+    }
+
+    public Map<String, Float> getAllPlayingSounds() {
+        Map<String, Float> result = new HashMap<>();
+        for (String fn : soundPlayers.keySet()) {
+            result.put(fn, getSoundVolume(fn));
+        }
+        return result;
     }
 
     public void stopAllSounds() {
