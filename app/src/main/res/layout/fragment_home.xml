@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/homeRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#0D0D14">
 
-    <!-- Header mirrors radio/sounds page style -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -44,7 +44,8 @@
     </LinearLayout>
 
     <View android:id="@+id/settingsDivider2"
-        android:layout_width="match_parent" android:layout_height="1dp"
+        android:layout_width="match_parent" 
+        android:layout_height="1dp"
         android:background="#22223A"/>
 
     <androidx.core.widget.NestedScrollView
@@ -61,7 +62,6 @@
             android:paddingRight="16dp"
             android:paddingBottom="24dp">
 
-            <!-- ── NOW PLAYING section ── -->
             <TextView
                 android:id="@+id/tvNowPlayingLabel"
                 android:layout_width="match_parent"
@@ -75,7 +75,6 @@
                 android:paddingBottom="10dp"
                 android:visibility="gone"/>
 
-            <!-- Radio now-playing card (squircle icon + name) -->
             <LinearLayout
                 android:id="@+id/nowPlayingRadioCard"
                 android:layout_width="match_parent"
@@ -88,7 +87,6 @@
                 android:focusable="true"
                 android:visibility="gone">
 
-                <!-- Squircle station icon -->
                 <ImageView
                     android:id="@+id/ivStationIcon"
                     android:layout_width="48dp"
@@ -133,14 +131,12 @@
 
             </LinearLayout>
 
-            <!-- Active sounds row (chips) -->
-            <LinearLayout
+            <com.google.android.flexbox.FlexboxLayout
                 android:id="@+id/nowPlayingSoundsContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:flexDirection="row"
-                android:flexWrap="wrap"
+                app:flexDirection="row"
+                app:flexWrap="wrap"
                 android:layout_marginBottom="4dp"/>
 
             <View
@@ -151,7 +147,6 @@
                 android:layout_marginTop="8dp"
                 android:visibility="gone"/>
 
-            <!-- ── FAVOURITES section ── -->
             <TextView
                 android:id="@+id/tvFavRadioLabel"
                 android:layout_width="match_parent"
@@ -165,7 +160,6 @@
                 android:paddingBottom="10dp"
                 android:visibility="gone"/>
 
-            <!-- Favourite radio chips (wrap) -->
             <LinearLayout
                 android:id="@+id/favRadioContainer"
                 android:layout_width="match_parent"
@@ -186,7 +180,6 @@
                 android:paddingBottom="10dp"
                 android:visibility="gone"/>
 
-            <!-- Favourite sounds chips -->
             <LinearLayout
                 android:id="@+id/favSoundsContainer"
                 android:layout_width="match_parent"
@@ -202,7 +195,6 @@
                 android:layout_marginTop="8dp"
                 android:visibility="gone"/>
 
-            <!-- Empty state -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
