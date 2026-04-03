@@ -37,9 +37,12 @@ public class HomeFragment extends Fragment {
     private LinearLayout nowPlayingRadioCard;
     private ImageView    ivStationIcon;
     private TextView     tvStationName;
-    private LinearLayout nowPlayingSoundsContainer;
-    private LinearLayout favRadioContainer;
-    private LinearLayout favSoundsContainer;
+    
+    // Changed to ViewGroup to support both LinearLayout and FlexboxLayout dynamically
+    private ViewGroup    nowPlayingSoundsContainer;
+    private ViewGroup    favRadioContainer;
+    private ViewGroup    favSoundsContainer;
+    
     private TextView     tvNowPlayingLabel;
     private TextView     tvFavRadioLabel;
     private TextView     tvFavSoundsLabel;
@@ -204,7 +207,9 @@ public class HomeFragment extends Fragment {
         tv.setTextSize(13f);
         tv.setPadding(dp(16), dp(8), dp(16), dp(8));
         tv.setBackground(makeChipDrawable(colors.soundBtnActiveBg(), colors.soundBtnActiveBorder()));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+        
+        // Changed to MarginLayoutParams to safely support FlexboxLayout and LinearLayout
+        ViewGroup.MarginLayoutParams lp = new ViewGroup.MarginLayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, 0, dp(8), dp(8));
         tv.setLayoutParams(lp);
@@ -220,7 +225,9 @@ public class HomeFragment extends Fragment {
         tv.setTextSize(13f);
         tv.setPadding(dp(16), dp(8), dp(16), dp(8));
         tv.setBackground(makeChipDrawable(colors.stationBg(), colors.stationActiveBorder()));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+        
+        // Changed to MarginLayoutParams
+        ViewGroup.MarginLayoutParams lp = new ViewGroup.MarginLayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, 0, dp(8), dp(8));
         tv.setLayoutParams(lp);
@@ -242,7 +249,9 @@ public class HomeFragment extends Fragment {
         tv.setBackground(makeChipDrawable(
             playing ? colors.soundBtnActiveBg() : colors.soundBtnBg(),
             colors.soundBtnActiveBorder()));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+            
+        // Changed to MarginLayoutParams
+        ViewGroup.MarginLayoutParams lp = new ViewGroup.MarginLayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, 0, dp(8), dp(8));
         tv.setLayoutParams(lp);
