@@ -228,7 +228,7 @@ public class SoundsFragment extends Fragment {
                     sound.setPlaying(true);
                     if (wave != null) {
                         float wc = (colors.soundWaveColor() & 0x00FFFFFF) | 0x5A000000;
-                        wave.setColors(colors.soundBtnActiveBg(), wc);
+                        wave.setColors((int) colors.soundBtnActiveBg(), (int) wc);
                         wave.setVolume(sound.getVolume());
                         wave.setVisibility(View.VISIBLE);
                         wave.startWave();   // instant — no prepare delay
@@ -291,7 +291,7 @@ public class SoundsFragment extends Fragment {
         if (wave != null) {
             if (playing) {
                 float wc = (colors.soundWaveColor() & 0x00FFFFFF) | 0x5A000000;
-                wave.setColors(colors.soundBtnActiveBg(), wc);
+                wave.setColors((int) colors.soundBtnActiveBg(), (int) wc);
                 float vol = audioService != null
                     ? audioService.getSoundVolume(sound.getFileName()) : sound.getVolume();
                 wave.setVolume(vol);
