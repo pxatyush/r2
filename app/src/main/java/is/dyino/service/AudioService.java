@@ -498,7 +498,7 @@ public class AudioService extends Service {
         NotificationCompat.Builder b = new NotificationCompat.Builder(this, CH_ID)
             .setContentTitle(title)
             .setContentText(text)
-            ..setSmallIcon(R.drawable.ic_note_vec)
+            .setSmallIcon(R.drawable.ic_note_vec)
             // setColor tints the small icon background with the accent — solid, not transparent
             .setColor(iconBgColor)
             .setColorized(true)
