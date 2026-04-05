@@ -1,24 +1,27 @@
 package is.dyino.ui.radio;
 
-import android.app.AlertDialog;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.Vibrator;
 import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.os.VibratorManager;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -42,11 +45,11 @@ public class RadioFragment extends Fragment {
     private View         volumeSliderContainer;
     private RecyclerView recycler;
 
-    private AppPrefs      prefs;
-    private ColorConfig   colors;
-    private AudioService  audioService;
+    private AppPrefs     prefs;
+    private ColorConfig  colors;
+    private AudioService audioService;
     private RadioGroupAdapter adapter;
-    private RadioStation  selectedStation;
+    private RadioStation selectedStation;
 
     private List<RadioGroup> allGroups   = new ArrayList<>();
     private String           searchQuery = "";
@@ -80,8 +83,7 @@ public class RadioFragment extends Fragment {
         etSearch.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int st, int c2, int a) {}
             @Override public void onTextChanged(CharSequence s, int st, int b, int c2) {
-                searchQuery = s.toString().trim();
-                refreshAdapter();
+                searchQuery = s.toString().trim(); refreshAdapter();
             }
             @Override public void afterTextChanged(Editable s) {}
         });
@@ -98,28 +100,114 @@ public class RadioFragment extends Fragment {
         else loadRadioStations();
     }
 
-    private void showCountryDialog() {
-        EditText input = new EditText(requireContext());
-        input.setHint("India, Germany, USA …");
-        input.setTextColor(colors.textPrimary());
-        input.setHintTextColor(colors.textSecondary());
-        input.setPadding(48, 32, 48, 16);
+    // ── Country dialog styled to match app ──────────────────────
 
-        new AlertDialog.Builder(requireContext())
-            .setTitle("Radio Country")
-            .setMessage("Enter your country to fetch local radio stations.")
-            .setView(input)
-            .setPositiveButton("Fetch", (d, w) -> {
-                String c = input.getText().toString().trim();
-                prefs.setRadioCountry(c);
-                loadRadioStations();
-            })
-            .setNegativeButton("Skip (Global)", (d, w) -> {
-                prefs.setRadioCountry("");
-                loadRadioStations();
-            })
+    private void showCountryDialog() {
+        float dp = getResources().getDisplayMetrics().density;
+
+        // Root container
+        LinearLayout container = new LinearLayout(requireContext());
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setBackgroundColor(colors.bgCard());
+        int pad = (int)(24 * dp);
+        container.setPadding(pad, pad, pad, pad);
+
+        // Title
+        TextView title = new TextView(requireContext());
+        title.setText("Radio Country");
+        title.setTextColor(colors.textPrimary());
+        title.setTextSize(20f);
+        title.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
+        container.addView(title);
+
+        // Subtitle
+        TextView sub = new TextView(requireContext());
+        sub.setText("Enter your country to fetch local stations");
+        sub.setTextColor(colors.textSecondary());
+        sub.setTextSize(13f);
+        LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        subLp.setMargins(0, (int)(6*dp), 0, (int)(20*dp));
+        sub.setLayoutParams(subLp);
+        container.addView(sub);
+
+        // Input field
+        EditText input = new EditText(requireContext());
+        input.setHint("India, Germany, USA…");
+        input.setTextColor(colors.radioSearchText());
+        input.setHintTextColor(colors.radioSearchHint());
+        input.setTextSize(15f);
+        input.setPadding((int)(14*dp), (int)(12*dp), (int)(14*dp), (int)(12*dp));
+        input.setSingleLine(true);
+        GradientDrawable inputBg = new GradientDrawable();
+        inputBg.setShape(GradientDrawable.RECTANGLE);
+        inputBg.setCornerRadius(10 * dp);
+        inputBg.setColor(colors.settingsInputBg());
+        inputBg.setStroke((int)(1*dp), colors.divider());
+        input.setBackground(inputBg);
+        LinearLayout.LayoutParams inputLp = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        inputLp.setMargins(0, 0, 0, (int)(20*dp));
+        input.setLayoutParams(inputLp);
+        container.addView(input);
+
+        // Button row
+        LinearLayout btnRow = new LinearLayout(requireContext());
+        btnRow.setOrientation(LinearLayout.HORIZONTAL);
+
+        TextView btnSkip = makeDialogBtn("Use Global", false);
+        TextView btnFetch = makeDialogBtn("Fetch", true);
+        LinearLayout.LayoutParams bpSkip = new LinearLayout.LayoutParams(0, (int)(44*dp), 1f);
+        bpSkip.setMargins(0, 0, (int)(8*dp), 0);
+        btnSkip.setLayoutParams(bpSkip);
+        btnFetch.setLayoutParams(new LinearLayout.LayoutParams(0, (int)(44*dp), 1f));
+        btnRow.addView(btnSkip);
+        btnRow.addView(btnFetch);
+        container.addView(btnRow);
+
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
+            .setView(container)
             .setCancelable(false)
-            .show();
+            .create();
+        if (dialog.getWindow() != null)
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+
+        btnSkip.setOnClickListener(v -> {
+            prefs.setRadioCountry("");
+            loadRadioStations();
+            dialog.dismiss();
+        });
+        btnFetch.setOnClickListener(v -> {
+            String c = input.getText().toString().trim();
+            prefs.setRadioCountry(c);
+            loadRadioStations();
+            dialog.dismiss();
+        });
+
+        dialog.show();
+    }
+
+    private TextView makeDialogBtn(String label, boolean primary) {
+        float dp = getResources().getDisplayMetrics().density;
+        TextView tv = new TextView(requireContext());
+        tv.setText(label);
+        tv.setGravity(android.view.Gravity.CENTER);
+        tv.setTextSize(14f);
+        GradientDrawable gd = new GradientDrawable();
+        gd.setShape(GradientDrawable.RECTANGLE);
+        gd.setCornerRadius(10 * dp);
+        if (primary) {
+            gd.setColor(colors.accent());
+            tv.setTextColor(0xFFFFFFFF);
+        } else {
+            gd.setColor(colors.bgCard2());
+            gd.setStroke((int)(1*dp), colors.divider());
+            tv.setTextColor(colors.textSecondary());
+        }
+        tv.setBackground(gd);
+        tv.setClickable(true);
+        tv.setFocusable(true);
+        return tv;
     }
 
     private void loadRadioStations() {
@@ -134,10 +222,7 @@ public class RadioFragment extends Fragment {
     private void refreshAdapter() {
         if (recycler == null) return;
         List<RadioGroup> display = filter(allGroups, searchQuery);
-
-        adapter = new RadioGroupAdapter(
-            display,
-            this::onStationClicked,
+        adapter = new RadioGroupAdapter(display, this::onStationClicked,
             (station, isFav) -> {
                 haptic();
                 Toast.makeText(requireContext(),
@@ -153,49 +238,42 @@ public class RadioFragment extends Fragment {
                     refreshAdapter();
                 }
                 @Override public void onUnarchive(String key) {
-                    haptic();
-                    prefs.removeArchived(key);
-                    refreshAdapter();
+                    haptic(); prefs.removeArchived(key); refreshAdapter();
                 }
             });
 
         if (selectedStation != null) adapter.setActiveStation(selectedStation);
         recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
         recycler.setAdapter(adapter);
-        adapter.attachToRecyclerView(recycler);   // enable long-press drag reorder
+        adapter.attachToRecyclerView(recycler);
     }
 
     private List<RadioGroup> filter(List<RadioGroup> groups, String query) {
         if (query.isEmpty()) return groups;
         String q = query.toLowerCase();
-        List<RadioGroup> result = new ArrayList<>();
+        List<RadioGroup> r = new ArrayList<>();
         for (RadioGroup g : groups) {
-            List<RadioStation> match = new ArrayList<>();
+            List<RadioStation> m = new ArrayList<>();
             for (RadioStation s : g.getStations())
-                if (s.getName().toLowerCase().contains(q)) match.add(s);
-            if (!match.isEmpty()) result.add(new RadioGroup(g.getName(), match));
+                if (s.getName().toLowerCase().contains(q)) m.add(s);
+            if (!m.isEmpty()) r.add(new RadioGroup(g.getName(), m));
         }
-        return result;
+        return r;
     }
 
     private void onStationClicked(RadioStation station) {
         haptic(); clickSound();
         if (audioService == null) return;
-
-        // Single click on playing station → stop it
         if (selectedStation != null && selectedStation.getUrl().equals(station.getUrl())
                 && audioService.isRadioPlaying()) {
-            audioService.stopRadio();
-            selectedStation = null;
+            audioService.stopRadio(); selectedStation = null;
             if (tvNowPlaying != null) tvNowPlaying.setText("Select a station");
             if (adapter != null) adapter.setActiveStation(null);
             return;
         }
-
         selectedStation = station;
         if (tvNowPlaying != null) tvNowPlaying.setText(station.getName());
         if (adapter != null) adapter.setActiveStation(station);
-
         audioService.playRadio(station.getName(), station.getUrl(), station.getFaviconUrl());
         audioService.setRadioListener(makeListener());
     }
@@ -217,15 +295,26 @@ public class RadioFragment extends Fragment {
         };
     }
 
-    @SuppressWarnings("deprecation")
     private void haptic() {
         if (prefs == null || !prefs.isHapticEnabled()) return;
-        Vibrator vib = (Vibrator) requireContext()
-            .getSystemService(android.content.Context.VIBRATOR_SERVICE);
-        if (vib == null || !vib.hasVibrator()) return;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            vib.vibrate(VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE));
-        else vib.vibrate(12);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                VibratorManager vm = (VibratorManager) requireContext()
+                    .getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE);
+                if (vm != null) {
+                    vm.getDefaultVibrator().vibrate(
+                        VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE));
+                    return;
+                }
+            }
+            @SuppressWarnings("deprecation")
+            Vibrator vib = (Vibrator) requireContext()
+                .getSystemService(android.content.Context.VIBRATOR_SERVICE);
+            if (vib == null || !vib.hasVibrator()) return;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                vib.vibrate(VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE));
+            else vib.vibrate(12);
+        } catch (Exception ignored) {}
     }
 
     private void clickSound() {
@@ -241,8 +330,8 @@ public class RadioFragment extends Fragment {
             etSearch.setTextColor(colors.radioSearchText());
             etSearch.setHintTextColor(colors.radioSearchHint());
             float dp = getResources().getDisplayMetrics().density;
-            android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
-            gd.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+            GradientDrawable gd = new GradientDrawable();
+            gd.setShape(GradientDrawable.RECTANGLE);
             gd.setCornerRadius(10 * dp);
             gd.setColor(colors.radioSearchBg());
             etSearch.setBackground(gd);

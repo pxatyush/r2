@@ -3,7 +3,10 @@ package is.dyino.util;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class AppPrefs {
@@ -21,7 +24,12 @@ public class AppPrefs {
     private static final String RADIO_CACHE_JSON = "radio_cache_json";
     private static final String RADIO_CACHE_TIME = "radio_cache_time";
     private static final String PERSISTENT_PLAY  = "persistent_playing";
+    private static final String GROUP_ORDER      = "radio_group_order";  // comma-separated names
     private static final long   CACHE_TTL_MS     = 7L * 24 * 60 * 60 * 1000;
+
+    // Asset paths for config files
+    public static final String ASSET_COLOR    = "configs/color.json";
+    public static final String ASSET_SETTINGS = "configs/settings.json";
 
     private final SharedPreferences sp;
 
@@ -42,7 +50,6 @@ public class AppPrefs {
     public boolean isFirstRun()      { return sp.getBoolean(FIRST_RUN, true); }
     public void    setFirstRunDone() { sp.edit().putBoolean(FIRST_RUN, false).apply(); }
 
-    /** When ON: keeps playing even after app removed from recents. Default OFF. */
     public boolean isPersistentPlayingEnabled()           { return sp.getBoolean(PERSISTENT_PLAY, false); }
     public void    setPersistentPlayingEnabled(boolean v) { sp.edit().putBoolean(PERSISTENT_PLAY, v).apply(); }
 
@@ -52,15 +59,27 @@ public class AppPrefs {
     public boolean hasRadioCountry()         { return !getRadioCountry().isEmpty(); }
 
     // ── Radio cache ───────────────────────────────────────────────
-    public String  getRadioCacheJson()        { return sp.getString(RADIO_CACHE_JSON, ""); }
-    public long    getRadioCacheTime()        { return sp.getLong(RADIO_CACHE_TIME, 0); }
-    public void    saveRadioCache(String json){
+    public String  getRadioCacheJson()         { return sp.getString(RADIO_CACHE_JSON, ""); }
+    public long    getRadioCacheTime()         { return sp.getLong(RADIO_CACHE_TIME, 0); }
+    public void    saveRadioCache(String json) {
         sp.edit().putString(RADIO_CACHE_JSON, json)
                  .putLong(RADIO_CACHE_TIME, System.currentTimeMillis()).apply();
     }
     public boolean isRadioCacheValid() {
         return !getRadioCacheJson().isEmpty()
             && (System.currentTimeMillis() - getRadioCacheTime()) < CACHE_TTL_MS;
+    }
+
+    // ── Radio group order ─────────────────────────────────────────
+    /** Returns saved group names in order, or empty list if none saved */
+    public List<String> getGroupOrder() {
+        String raw = sp.getString(GROUP_ORDER, "");
+        if (raw.isEmpty()) return new ArrayList<>();
+        return new ArrayList<>(Arrays.asList(raw.split("\\|\\|\\|", -1)));
+    }
+
+    public void saveGroupOrder(List<String> names) {
+        sp.edit().putString(GROUP_ORDER, android.text.TextUtils.join("|||", names)).apply();
     }
 
     // ── Favourites (radio) ────────────────────────────────────────
@@ -70,10 +89,10 @@ public class AppPrefs {
     public boolean isFavourite(String key)  { return getFavourites().contains(key); }
 
     // ── Favourites (sounds) ───────────────────────────────────────
-    public Set<String> getFavSounds()           { return new HashSet<>(sp.getStringSet(FAV_SOUNDS, new HashSet<>())); }
-    public void        addFavSound(String fn)   { Set<String> s = getFavSounds(); s.add(fn);    sp.edit().putStringSet(FAV_SOUNDS, s).apply(); }
-    public void        removeFavSound(String fn){ Set<String> s = getFavSounds(); s.remove(fn); sp.edit().putStringSet(FAV_SOUNDS, s).apply(); }
-    public boolean     isFavSound(String fn)    { return getFavSounds().contains(fn); }
+    public Set<String> getFavSounds()            { return new HashSet<>(sp.getStringSet(FAV_SOUNDS, new HashSet<>())); }
+    public void        addFavSound(String fn)    { Set<String> s = getFavSounds(); s.add(fn);    sp.edit().putStringSet(FAV_SOUNDS, s).apply(); }
+    public void        removeFavSound(String fn) { Set<String> s = getFavSounds(); s.remove(fn); sp.edit().putStringSet(FAV_SOUNDS, s).apply(); }
+    public boolean     isFavSound(String fn)     { return getFavSounds().contains(fn); }
 
     // ── Archived ─────────────────────────────────────────────────
     public Set<String> getArchived()       { return new HashSet<>(sp.getStringSet(ARCHIVED, new HashSet<>())); }
@@ -86,6 +105,6 @@ public class AppPrefs {
     public void addStationUrl(String url)    { Set<String> s = getStationUrls(); s.add(url);    sp.edit().putStringSet(STATION_URLS, s).apply(); }
     public void removeStationUrl(String url) { Set<String> s = getStationUrls(); s.remove(url); sp.edit().putStringSet(STATION_URLS, s).apply(); }
 
-    public static String   stationKey(String name, String url, String group) { return name + "||" + url + "||" + group; }
+    public static String   stationKey(String n, String u, String g) { return n + "||" + u + "||" + g; }
     public static String[] splitKey(String key) { return key.split("\\|\\|", 3); }
 }

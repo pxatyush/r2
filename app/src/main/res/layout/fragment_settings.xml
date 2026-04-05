@@ -5,41 +5,31 @@
     android:orientation="vertical"
     android:background="#0D0D14">
 
-    <!-- Header — same style as Radio / Sounds / Home -->
+    <!-- Header — same style as all other pages -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingLeft="16dp"
-        android:paddingRight="16dp"
-        android:paddingTop="20dp"
-        android:paddingBottom="12dp">
+        android:paddingLeft="16dp" android:paddingRight="16dp"
+        android:paddingTop="20dp" android:paddingBottom="12dp">
 
         <ImageView
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="48dp" android:layout_height="48dp"
             android:src="@drawable/ic_note_vec"
-            android:scaleType="fitCenter"
-            android:alpha="0.65"
+            android:scaleType="fitCenter" android:alpha="0.65"
             android:layout_gravity="center_horizontal"/>
 
         <TextView
             android:id="@+id/tvSettingsTitle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
             android:text="Settings"
-            android:textColor="#FFFFFF"
-            android:textSize="26sp"
-            android:fontFamily="sans-serif-medium"
-            android:paddingTop="8dp"/>
+            android:textColor="#FFFFFF" android:textSize="26sp"
+            android:fontFamily="sans-serif-medium" android:paddingTop="8dp"/>
 
         <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
             android:text="Customise your experience"
-            android:textColor="#8888AA"
-            android:textSize="13sp"
-            android:paddingTop="2dp"/>
+            android:textColor="#8888AA" android:textSize="13sp" android:paddingTop="2dp"/>
 
     </LinearLayout>
 
@@ -48,42 +38,26 @@
         android:background="#22223A"/>
 
     <androidx.core.widget.NestedScrollView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:overScrollMode="never">
+        android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:overScrollMode="never">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingLeft="14dp"
-            android:paddingRight="14dp"
-            android:paddingBottom="36dp">
+            android:paddingLeft="14dp" android:paddingRight="14dp" android:paddingBottom="36dp">
 
-            <!-- ── Behaviour Toggles ── -->
-            <LinearLayout
-                android:id="@+id/cardToggles"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+            <!-- ── Behaviour ── -->
+            <LinearLayout android:id="@+id/cardToggles"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:layout_marginTop="16dp"
-                android:layout_marginBottom="12dp"
+                android:layout_marginTop="16dp" android:layout_marginBottom="12dp"
                 android:padding="4dp">
 
-                <TextView
-                    android:id="@+id/tvToggleHeader"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                <TextView android:id="@+id/tvToggleHeader"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:text="BEHAVIOUR"
-                    android:textColor="#8888AA"
-                    android:textSize="11sp"
-                    android:letterSpacing="0.1"
-                    android:paddingLeft="12dp"
-                    android:paddingTop="10dp"
-                    android:paddingBottom="6dp"/>
+                    android:textColor="#8888AA" android:textSize="11sp" android:letterSpacing="0.1"
+                    android:paddingLeft="12dp" android:paddingTop="10dp" android:paddingBottom="6dp"/>
 
-                <!-- Haptic -->
                 <LinearLayout android:layout_width="match_parent" android:layout_height="56dp"
                     android:orientation="horizontal" android:gravity="center_vertical"
                     android:paddingLeft="16dp" android:paddingRight="12dp">
@@ -99,7 +73,6 @@
                 <View android:layout_width="match_parent" android:layout_height="1dp"
                     android:background="#22223A" android:layout_marginLeft="16dp"/>
 
-                <!-- Button Sounds -->
                 <LinearLayout android:layout_width="match_parent" android:layout_height="56dp"
                     android:orientation="horizontal" android:gravity="center_vertical"
                     android:paddingLeft="16dp" android:paddingRight="12dp">
@@ -115,11 +88,9 @@
                 <View android:layout_width="match_parent" android:layout_height="1dp"
                     android:background="#22223A" android:layout_marginLeft="16dp"/>
 
-                <!-- Persistent Playing -->
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:orientation="horizontal" android:gravity="center_vertical"
-                    android:paddingLeft="16dp" android:paddingRight="12dp"
-                    android:minHeight="56dp">
+                    android:paddingLeft="16dp" android:paddingRight="12dp" android:minHeight="56dp">
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
                         android:layout_weight="1" android:orientation="vertical"
                         android:paddingTop="12dp" android:paddingBottom="12dp">
@@ -127,10 +98,10 @@
                             android:layout_width="match_parent" android:layout_height="wrap_content"
                             android:text="Persistent Playing"
                             android:textColor="#FFFFFF" android:textSize="14sp"/>
-                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                            android:text="Keep playing after app removed from recents"
-                            android:textColor="#8888AA" android:textSize="12sp"
-                            android:paddingTop="2dp"/>
+                        <TextView android:id="@+id/tvPersistentSub"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:text="Keep playing when app is removed from recents"
+                            android:textColor="#8888AA" android:textSize="12sp" android:paddingTop="2dp"/>
                     </LinearLayout>
                     <androidx.appcompat.widget.SwitchCompat android:id="@+id/switchPersistent"
                         android:layout_width="wrap_content" android:layout_height="wrap_content"
@@ -140,138 +111,119 @@
             </LinearLayout>
 
             <!-- ── Radio Source ── -->
-            <LinearLayout
-                android:id="@+id/cardStations"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+            <LinearLayout android:id="@+id/cardStations"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp"
-                android:layout_marginBottom="12dp">
+                android:padding="16dp" android:layout_marginBottom="12dp">
 
-                <TextView
-                    android:id="@+id/tvCountryHeader"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                <TextView android:id="@+id/tvCountryHeader"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:text="RADIO COUNTRY"
-                    android:textColor="#8888AA"
-                    android:textSize="11sp"
-                    android:letterSpacing="0.1"
+                    android:textColor="#8888AA" android:textSize="11sp" android:letterSpacing="0.1"
                     android:paddingBottom="10dp"/>
 
-                <EditText
-                    android:id="@+id/etCountry"
-                    android:layout_width="match_parent"
-                    android:layout_height="44dp"
-                    android:textSize="14sp"
-                    android:paddingLeft="12dp" android:paddingRight="12dp"
+                <EditText android:id="@+id/etCountry"
+                    android:layout_width="match_parent" android:layout_height="44dp"
+                    android:textSize="14sp" android:paddingLeft="12dp" android:paddingRight="12dp"
                     android:hint="India, Germany, USA…"
-                    android:imeOptions="actionDone"
-                    android:inputType="textCapWords"
+                    android:imeOptions="actionDone" android:inputType="textCapWords"
                     android:singleLine="true"/>
 
-                <TextView
-                    android:id="@+id/btnSaveCountry"
-                    android:layout_width="wrap_content"
-                    android:layout_height="40dp"
-                    android:text="Save Country"
-                    android:textSize="13sp"
-                    android:gravity="center"
+                <TextView android:id="@+id/btnSaveCountry"
+                    android:layout_width="wrap_content" android:layout_height="40dp"
+                    android:text="Save Country" android:textSize="13sp" android:gravity="center"
                     android:paddingLeft="20dp" android:paddingRight="20dp"
                     android:layout_marginTop="8dp"
                     android:clickable="true" android:focusable="true"/>
 
-                <TextView
-                    android:id="@+id/tvCountryNote"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                <TextView android:id="@+id/tvCountryNote"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:text="Radio list is cached and refreshed weekly."
-                    android:textColor="#8888AA"
-                    android:textSize="12sp"
-                    android:paddingTop="6dp"/>
+                    android:textColor="#8888AA" android:textSize="12sp" android:paddingTop="6dp"/>
 
                 <View android:layout_width="match_parent" android:layout_height="1dp"
                     android:background="#22223A"
                     android:layout_marginTop="14dp" android:layout_marginBottom="14dp"/>
 
-                <TextView
-                    android:id="@+id/tvStationsHeader"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                <TextView android:id="@+id/tvStationsHeader"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:text="MERGE FROM URL"
-                    android:textColor="#8888AA"
-                    android:textSize="11sp"
-                    android:letterSpacing="0.1"
+                    android:textColor="#8888AA" android:textSize="11sp" android:letterSpacing="0.1"
                     android:paddingBottom="10dp"/>
 
-                <EditText
-                    android:id="@+id/etStationUrl"
-                    android:layout_width="match_parent"
-                    android:layout_height="44dp"
-                    android:textSize="13sp"
-                    android:paddingLeft="12dp" android:paddingRight="12dp"
+                <EditText android:id="@+id/etStationUrl"
+                    android:layout_width="match_parent" android:layout_height="44dp"
+                    android:textSize="13sp" android:paddingLeft="12dp" android:paddingRight="12dp"
                     android:hint="https://…/radio.cfg"
-                    android:imeOptions="actionDone"
-                    android:inputType="textUri"
+                    android:imeOptions="actionDone" android:inputType="textUri"
                     android:singleLine="true"/>
 
-                <TextView
-                    android:id="@+id/btnFetchStations"
-                    android:layout_width="wrap_content"
-                    android:layout_height="40dp"
-                    android:text="Fetch &amp; Merge"
-                    android:textSize="13sp"
-                    android:gravity="center"
+                <TextView android:id="@+id/btnFetchStations"
+                    android:layout_width="wrap_content" android:layout_height="40dp"
+                    android:text="Fetch &amp; Merge" android:textSize="13sp" android:gravity="center"
                     android:paddingLeft="20dp" android:paddingRight="20dp"
                     android:layout_marginTop="8dp"
                     android:clickable="true" android:focusable="true"/>
 
-                <TextView
-                    android:id="@+id/tvFetchStatus"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text=""
-                    android:textSize="12sp"
-                    android:paddingTop="6dp"/>
+                <TextView android:id="@+id/tvFetchStatus"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="" android:textSize="12sp" android:paddingTop="6dp"/>
 
             </LinearLayout>
 
-            <!-- ── Theme ── -->
-            <LinearLayout
-                android:id="@+id/cardTheme"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+            <!-- ── Theme (color.json) ── -->
+            <LinearLayout android:id="@+id/cardTheme"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp"
-                android:layout_marginBottom="12dp">
+                android:padding="16dp" android:layout_marginBottom="12dp">
 
-                <TextView
-                    android:id="@+id/tvThemeHeader"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                <TextView android:id="@+id/tvThemeHeader"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:text="THEME  (color.json)"
-                    android:textColor="#8888AA"
-                    android:textSize="11sp"
-                    android:letterSpacing="0.1"
+                    android:textColor="#8888AA" android:textSize="11sp" android:letterSpacing="0.1"
                     android:paddingBottom="10dp"/>
 
-                <EditText
-                    android:id="@+id/etColorCfg"
-                    android:layout_width="match_parent"
-                    android:layout_height="220dp"
-                    android:textSize="12sp"
-                    android:padding="10dp"
-                    android:inputType="textMultiLine"
-                    android:gravity="top|start"
-                    android:fontFamily="monospace"
-                    android:scrollbars="vertical"/>
+                <EditText android:id="@+id/etColorCfg"
+                    android:layout_width="match_parent" android:layout_height="220dp"
+                    android:textSize="12sp" android:padding="10dp"
+                    android:inputType="textMultiLine" android:gravity="top|start"
+                    android:fontFamily="monospace" android:scrollbars="vertical"/>
 
-                <TextView
-                    android:id="@+id/btnSaveColors"
-                    android:layout_width="wrap_content"
-                    android:layout_height="40dp"
-                    android:text="Save Theme"
-                    android:textSize="13sp"
-                    android:gravity="center"
+                <TextView android:id="@+id/btnSaveColors"
+                    android:layout_width="wrap_content" android:layout_height="40dp"
+                    android:text="Save Theme" android:textSize="13sp" android:gravity="center"
+                    android:paddingLeft="20dp" android:paddingRight="20dp"
+                    android:layout_marginTop="8dp"
+                    android:clickable="true" android:focusable="true"/>
+
+            </LinearLayout>
+
+            <!-- ── Advanced Settings (settings.json) ── -->
+            <LinearLayout android:id="@+id/cardAdvanced"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp" android:layout_marginBottom="12dp">
+
+                <TextView android:id="@+id/tvAdvancedHeader"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="ADVANCED SETTINGS  (settings.json)"
+                    android:textColor="#8888AA" android:textSize="11sp" android:letterSpacing="0.1"
+                    android:paddingBottom="6dp"/>
+
+                <TextView android:id="@+id/tvAdvancedNote"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="Layout, button sizes, nav style, columns, corner radius and more."
+                    android:textColor="#8888AA" android:textSize="12sp" android:paddingBottom="10dp"/>
+
+                <EditText android:id="@+id/etSettingsCfg"
+                    android:layout_width="match_parent" android:layout_height="200dp"
+                    android:textSize="12sp" android:padding="10dp"
+                    android:inputType="textMultiLine" android:gravity="top|start"
+                    android:fontFamily="monospace" android:scrollbars="vertical"/>
+
+                <TextView android:id="@+id/btnSaveSettings"
+                    android:layout_width="wrap_content" android:layout_height="40dp"
+                    android:text="Save Settings" android:textSize="13sp" android:gravity="center"
                     android:paddingLeft="20dp" android:paddingRight="20dp"
                     android:layout_marginTop="8dp"
                     android:clickable="true" android:focusable="true"/>
@@ -279,26 +231,18 @@
             </LinearLayout>
 
             <!-- About -->
-            <TextView
-                android:id="@+id/btnAbout"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
+            <TextView android:id="@+id/btnAbout"
+                android:layout_width="match_parent" android:layout_height="56dp"
                 android:text="About dyino"
-                android:textColor="#6C63FF"
-                android:textSize="14sp"
-                android:gravity="center_vertical"
-                android:paddingLeft="16dp"
+                android:textColor="#6C63FF" android:textSize="14sp"
+                android:gravity="center_vertical" android:paddingLeft="16dp"
                 android:clickable="true" android:focusable="true"
                 android:layout_marginBottom="8dp"/>
 
-            <TextView
-                android:id="@+id/tvVersion"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+            <TextView android:id="@+id/tvVersion"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:text="dyino  v1.0"
-                android:textColor="#44445A"
-                android:textSize="11sp"
-                android:gravity="center"/>
+                android:textColor="#44445A" android:textSize="11sp" android:gravity="center"/>
 
         </LinearLayout>
 

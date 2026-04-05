@@ -6,8 +6,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.Vibrator;
 import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.os.VibratorManager;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -76,8 +77,6 @@ public class SoundsFragment extends Fragment {
         });
     }
 
-    // ── Build using LinearLayout rows — reliable, no GridLayout column spec bugs ──
-
     private void buildGrid() {
         if (categoriesContainer == null || categories == null) return;
         categoriesContainer.removeAllViews();
@@ -91,7 +90,6 @@ public class SoundsFragment extends Fragment {
         int btnH    = (int)(52 * dp);
 
         for (SoundCategory cat : categories) {
-            // Category label
             TextView tvCat = new TextView(requireContext());
             tvCat.setText(cat.getName());
             tvCat.setTextColor(colors.textSectionTitle());
@@ -113,22 +111,19 @@ public class SoundsFragment extends Fragment {
                 rowLp.setMargins(gap, 0, gap, gap);
                 row.setLayoutParams(rowLp);
 
-                View btn0 = inflateBtn(sounds.get(i), btnW, btnH);
-                row.addView(btn0);
+                row.addView(inflateBtn(sounds.get(i), btnW, btnH));
 
-                View spacer = new View(requireContext());
-                spacer.setLayoutParams(new LinearLayout.LayoutParams(gap, btnH));
-                row.addView(spacer);
+                View sp = new View(requireContext());
+                sp.setLayoutParams(new LinearLayout.LayoutParams(gap, btnH));
+                row.addView(sp);
 
                 if (i + 1 < sounds.size()) {
-                    View btn1 = inflateBtn(sounds.get(i + 1), btnW, btnH);
-                    row.addView(btn1);
+                    row.addView(inflateBtn(sounds.get(i + 1), btnW, btnH));
                 } else {
-                    View placeholder = new View(requireContext());
-                    placeholder.setLayoutParams(new LinearLayout.LayoutParams(btnW, btnH));
-                    row.addView(placeholder);
+                    View ph = new View(requireContext());
+                    ph.setLayoutParams(new LinearLayout.LayoutParams(btnW, btnH));
+                    row.addView(ph);
                 }
-
                 categoriesContainer.addView(row);
             }
         }
@@ -143,73 +138,69 @@ public class SoundsFragment extends Fragment {
         View volOverlay = btn.findViewById(R.id.volumeBarOverlay);
         View volFill    = btn.findViewById(R.id.volumeBarFill);
 
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(btnW, btnH);
-        btn.setLayoutParams(lp);
-
+        btn.setLayoutParams(new LinearLayout.LayoutParams(btnW, btnH));
         tvName.setText(sound.getName());
         tvName.setTextColor(colors.soundBtnText());
 
         applyBtnShape(btn, sound, wave);
         if (wave != null) wave.setVolume(sound.getVolume());
 
-        final float[] lpStartX   = {0};
-        final float[] lpStartVol = {sound.getVolume()};
-        final boolean[] volShowing = {false};
-        final Runnable[] dismiss   = {null};
+        final float[] lpX   = {0}, lpVol = {sound.getVolume()};
+        final boolean[] volOn  = {false};
+        final Runnable[] disc  = {null};
 
         btn.setOnLongClickListener(v -> {
             haptic();
-            if (volShowing[0]) return true;
-            lpStartVol[0] = audioService != null
+            if (volOn[0]) return true;
+            lpVol[0] = audioService != null
                 ? audioService.getSoundVolume(sound.getFileName()) : sound.getVolume();
+            // Hide wave, show vol bar
             if (wave != null) { wave.stopWave(); wave.setVisibility(View.INVISIBLE); }
             if (volOverlay != null) {
                 volOverlay.setVisibility(View.VISIBLE);
-                updateVolFill(volFill, volOverlay, lpStartVol[0]);
+                updateFill(volFill, volOverlay, lpVol[0]);
             }
-            volShowing[0] = true;
-            scheduleDismiss(dismiss, volOverlay, wave, sound, volShowing);
+            volOn[0] = true;
+            schedule(disc, volOverlay, wave, sound, volOn);
             return true;
         });
 
         btn.setOnTouchListener((v, ev) -> {
-            if (!volShowing[0]) return false;
+            if (!volOn[0]) return false;
             switch (ev.getAction()) {
-                case MotionEvent.ACTION_DOWN:
-                    lpStartX[0] = ev.getX(); break;
+                case MotionEvent.ACTION_DOWN: lpX[0] = ev.getX(); break;
                 case MotionEvent.ACTION_MOVE:
-                    float delta  = (ev.getX() - lpStartX[0]) / (float) btnW;
-                    float newVol = Math.max(0f, Math.min(1f, lpStartVol[0] + delta));
-                    sound.setVolume(newVol);
-                    if (audioService != null) audioService.setSoundVolume(sound.getFileName(), newVol);
-                    updateVolFill(volFill, volOverlay, newVol);
-                    if (dismiss[0] != null) mainHandler.removeCallbacks(dismiss[0]);
-                    scheduleDismiss(dismiss, volOverlay, wave, sound, volShowing);
+                    float dv = (ev.getX() - lpX[0]) / (float) btnW;
+                    float nv = Math.max(0f, Math.min(1f, lpVol[0] + dv));
+                    sound.setVolume(nv);
+                    if (audioService != null) audioService.setSoundVolume(sound.getFileName(), nv);
+                    updateFill(volFill, volOverlay, nv);
+                    if (disc[0] != null) mainHandler.removeCallbacks(disc[0]);
+                    schedule(disc, volOverlay, wave, sound, volOn);
                     return true;
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL:
-                    lpStartVol[0] = sound.getVolume(); break;
+                case MotionEvent.ACTION_UP: case MotionEvent.ACTION_CANCEL:
+                    lpVol[0] = sound.getVolume(); break;
             }
             return false;
         });
 
         btn.setOnClickListener(v -> {
-            if (volShowing[0]) {
-                if (dismiss[0] != null) mainHandler.removeCallbacks(dismiss[0]);
-                doDismiss(volOverlay, wave, sound, volShowing);
+            if (volOn[0]) {
+                if (disc[0] != null) mainHandler.removeCallbacks(disc[0]);
+                dismiss(volOverlay, wave, sound, volOn);
                 return;
             }
             String fn  = sound.getFileName();
             long   now = System.currentTimeMillis();
-            Long   last = lastTapTime.get(fn);
+            Long   lst = lastTapTime.get(fn);
 
-            if (last != null && (now - last) < DOUBLE_TAP_MS) {
+            if (lst != null && (now - lst) < DOUBLE_TAP_MS) {
                 lastTapTime.remove(fn);
                 haptic();
-                boolean isFav = prefs.isFavSound(fn);
-                if (isFav) prefs.removeFavSound(fn); else prefs.addFavSound(fn);
+                boolean f = prefs.isFavSound(fn);
+                if (f) prefs.removeFavSound(fn); else prefs.addFavSound(fn);
                 Toast.makeText(requireContext(),
-                    isFav ? "Removed from Favourites" : "♥ Added to Favourites",
+                    f ? "Removed from Favourites" : "♥ Added to Favourites",
                     Toast.LENGTH_SHORT).show();
             } else {
                 lastTapTime.put(fn, now);
@@ -218,20 +209,21 @@ public class SoundsFragment extends Fragment {
                 if (audioService.isSoundPlaying(fn)) {
                     audioService.stopSound(fn);
                     sound.setPlaying(false);
+                    if (wave != null) { wave.stopWave(); wave.setVisibility(View.INVISIBLE); }
                 } else {
                     sound.setPlaying(true);
-                    // Instant glow + wave before audio is even prepared
-                    applyBtnShape(btn, sound, wave);
+                    // ── KEY FIX: make VISIBLE and start wave BEFORE audio prepare ──
                     if (wave != null) {
                         int wc = (colors.soundWaveColor() & 0x00FFFFFF) | 0x5A000000;
                         wave.setColors(colors.soundBtnActiveBg(), wc);
                         wave.setVolume(sound.getVolume());
-                        wave.setVisibility(View.VISIBLE);
+                        wave.setVisibility(View.VISIBLE);  // MUST be before startWave
                         wave.startWave();
                     }
+                    applyBtnShapeActive(btn);       // instant glow border
                     audioService.playSound(fn, sound.getVolume());
                 }
-                applyBtnShape(btn, sound, wave);
+                if (!sound.isPlaying()) applyBtnShape(btn, sound, wave);
                 updateActiveLabel();
             }
         });
@@ -239,27 +231,27 @@ public class SoundsFragment extends Fragment {
         return btn;
     }
 
-    private void scheduleDismiss(Runnable[] holder, View ov, WaveView wave,
-                                 SoundItem sound, boolean[] showing) {
-        holder[0] = () -> doDismiss(ov, wave, sound, showing);
-        mainHandler.postDelayed(holder[0], 3000);
+    private void schedule(Runnable[] h, View ov, WaveView wv, SoundItem s, boolean[] on) {
+        h[0] = () -> dismiss(ov, wv, s, on);
+        mainHandler.postDelayed(h[0], 3000);
     }
 
-    private void doDismiss(View ov, WaveView wave, SoundItem sound, boolean[] showing) {
+    private void dismiss(View ov, WaveView wv, SoundItem s, boolean[] on) {
         if (ov != null) ov.setVisibility(View.GONE);
-        showing[0] = false;
-        boolean p = audioService != null && audioService.isSoundPlaying(sound.getFileName());
-        if (wave != null && p) { wave.setVisibility(View.VISIBLE); if (!wave.isWaving()) wave.startWave(); }
+        on[0] = false;
+        boolean p = audioService != null && audioService.isSoundPlaying(s.getFileName());
+        if (wv != null && p) {
+            wv.setVisibility(View.VISIBLE);
+            if (!wv.isWaving()) wv.startWave();
+        }
     }
 
-    private void updateVolFill(View fill, View track, float vol) {
+    private void updateFill(View fill, View track, float vol) {
         if (fill == null || track == null) return;
         track.post(() -> {
-            int w = track.getWidth();
-            if (w == 0) return;
+            int w = track.getWidth(); if (w == 0) return;
             ViewGroup.LayoutParams lp = fill.getLayoutParams();
-            lp.width = (int)(w * vol);
-            fill.setLayoutParams(lp);
+            lp.width = (int)(w * vol); fill.setLayoutParams(lp);
         });
     }
 
@@ -293,6 +285,17 @@ public class SoundsFragment extends Fragment {
         }
     }
 
+    /** Apply active border instantly on click (before audio ready) */
+    private void applyBtnShapeActive(View btn) {
+        float dp = getResources().getDisplayMetrics().density;
+        GradientDrawable gd = new GradientDrawable();
+        gd.setShape(GradientDrawable.RECTANGLE);
+        gd.setCornerRadius(14 * dp);
+        gd.setColor(colors.soundBtnActiveBg());
+        gd.setStroke((int)(1.5f * dp), colors.soundBtnActiveBorder());
+        btn.setBackground(gd);
+    }
+
     private void refreshAllButtons() {
         if (categoriesContainer == null) return;
         for (int i = 0; i < categoriesContainer.getChildCount(); i++) {
@@ -300,7 +303,7 @@ public class SoundsFragment extends Fragment {
             if (!(child instanceof LinearLayout)) continue;
             LinearLayout row = (LinearLayout) child;
             for (int j = 0; j < row.getChildCount(); j++) {
-                View btn    = row.getChildAt(j);
+                View btn = row.getChildAt(j);
                 TextView tv = btn.findViewById(R.id.tvSoundName);
                 WaveView wv = btn.findViewById(R.id.waveView);
                 if (tv == null) continue;
@@ -313,21 +316,34 @@ public class SoundsFragment extends Fragment {
     }
 
     private void updateActiveLabel() {
-        if (tvActiveSoundsLabel == null || audioService == null) return;
-        int cnt = audioService.getAllPlayingSounds().size();
+        if (tvActiveSoundsLabel == null) return;
+        int cnt = audioService != null ? audioService.getAllPlayingSounds().size() : 0;
         tvActiveSoundsLabel.setText(
-            cnt == 0 ? "No sounds playing" : cnt + " sound" + (cnt > 1 ? "s" : "") + " playing");
+            cnt == 0 ? "No sounds playing"
+                     : cnt + " sound" + (cnt > 1 ? "s" : "") + " playing");
     }
 
-    @SuppressWarnings("deprecation")
+    // ── Vibration — works on API 31+ (VibratorManager) and older ──
     private void haptic() {
         if (prefs == null || !prefs.isHapticEnabled()) return;
-        Vibrator vib = (Vibrator) requireContext()
-            .getSystemService(android.content.Context.VIBRATOR_SERVICE);
-        if (vib == null || !vib.hasVibrator()) return;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            vib.vibrate(VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE));
-        else vib.vibrate(12);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                VibratorManager vm = (VibratorManager) requireContext()
+                    .getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE);
+                if (vm != null) {
+                    vm.getDefaultVibrator().vibrate(
+                        VibrationEffect.createOneShot(14, VibrationEffect.DEFAULT_AMPLITUDE));
+                    return;
+                }
+            }
+            @SuppressWarnings("deprecation")
+            Vibrator vib = (Vibrator) requireContext()
+                .getSystemService(android.content.Context.VIBRATOR_SERVICE);
+            if (vib == null || !vib.hasVibrator()) return;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                vib.vibrate(VibrationEffect.createOneShot(14, VibrationEffect.DEFAULT_AMPLITUDE));
+            else vib.vibrate(14);
+        } catch (Exception ignored) {}
     }
 
     private void clickSound() {

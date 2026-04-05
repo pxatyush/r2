@@ -9,8 +9,9 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.os.Vibrator;
 import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.os.VibratorManager;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.TextView;
@@ -47,7 +48,7 @@ public class MainActivity extends AppCompatActivity {
 
     private AppPrefs    prefs;
     private ColorConfig colors;
-    private int         currentTab = 0; // 0=Home, 1=Radio, 2=Sounds, 3=Settings
+    private int         currentTab = 0;
 
     private final ServiceConnection conn = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName n, IBinder b) {
@@ -95,7 +96,9 @@ public class MainActivity extends AppCompatActivity {
         settingsFragment.setListener(new SettingsFragment.OnSettingsChanged() {
             @Override public void onThemeChanged() {
                 colors = new ColorConfig(MainActivity.this);
+                // Re-apply everything including nav colors
                 applyWindowColors();
+                applyNavColors();              // ← FIX: was missing
                 homeFragment.refreshTheme();
                 radioFragment.refresh();
                 soundsFragment.refresh();
@@ -122,7 +125,7 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.navSounds).setOnClickListener(v   -> { doHaptic(); doClick(); switchTab(2); });
         findViewById(R.id.navSettings).setOnClickListener(v -> { doHaptic(); doClick(); switchTab(3); });
 
-        switchTab(0); // Home is default
+        switchTab(0);
     }
 
     private void requestNotifPermission() {
@@ -136,8 +139,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int req, @NonNull String[] perms, @NonNull int[] results) {
-        super.onRequestPermissionsResult(req, perms, results);
+    public void onRequestPermissionsResult(int req, @NonNull String[] perms, @NonNull int[] res) {
+        super.onRequestPermissionsResult(req, perms, res);
     }
 
     private void showAbout() {
@@ -158,7 +161,6 @@ public class MainActivity extends AppCompatActivity {
         fragmentAbout.setVisibility(View.GONE);
         setNavSelected(tab);
 
-        // Refresh Home whenever switching to it (picks up new now-playing state)
         if (tab == 0 && serviceBound && audioService != null) {
             homeFragment.setAudioService(audioService);
             homeFragment.refresh();
@@ -172,39 +174,49 @@ public class MainActivity extends AppCompatActivity {
     private void setNavSelected(int tab) {
         int sel   = colors.navSelected();
         int unsel = colors.navUnselected();
-        navHomeText.setTextColor(tab == 0     ? sel : unsel);
-        navRadioText.setTextColor(tab == 1    ? sel : unsel);
-        navSoundsText.setTextColor(tab == 2   ? sel : unsel);
-        navSettingsText.setTextColor(tab == 3 ? sel : unsel);
-        navHomeText.setTextSize(tab == 0     ? 13f : 11f);
-        navRadioText.setTextSize(tab == 1    ? 13f : 11f);
-        navSoundsText.setTextSize(tab == 2   ? 13f : 11f);
-        navSettingsText.setTextSize(tab == 3 ? 13f : 11f);
+        if (navHomeText     != null) { navHomeText.setTextColor(tab==0 ? sel:unsel);     navHomeText.setTextSize(tab==0 ? 13f:11f); }
+        if (navRadioText    != null) { navRadioText.setTextColor(tab==1 ? sel:unsel);    navRadioText.setTextSize(tab==1 ? 13f:11f); }
+        if (navSoundsText   != null) { navSoundsText.setTextColor(tab==2 ? sel:unsel);   navSoundsText.setTextSize(tab==2 ? 13f:11f); }
+        if (navSettingsText != null) { navSettingsText.setTextColor(tab==3 ? sel:unsel); navSettingsText.setTextSize(tab==3 ? 13f:11f); }
+    }
+
+    /** Called separately from applyWindowColors so nav is always re-tinted after theme change */
+    private void applyNavColors() {
+        setNavSelected(currentTab);
+        View nav = findViewById(R.id.navBar);
+        if (nav != null) nav.setBackgroundColor(colors.bgNav());
     }
 
     private void applyWindowColors() {
-        // Status bar and nav bar: always dark, not tied to theme bg
-        // so system UI never changes unexpectedly
-        int statusBarColor = 0xFF0D0D14;
-        getWindow().setStatusBarColor(statusBarColor);
-        getWindow().setNavigationBarColor(statusBarColor);
+        // Status/nav bars: fixed dark — never follow theme bg
+        int statusBar = 0xFF0D0D14;
+        getWindow().setStatusBarColor(statusBar);
+        getWindow().setNavigationBarColor(statusBar);
 
         int bg = colors.bgPrimary();
         getWindow().getDecorView().setBackgroundColor(bg);
         View root = findViewById(R.id.rootLayout);
         if (root != null) root.setBackgroundColor(bg);
-        View nav = findViewById(R.id.navBar);
-        if (nav != null) nav.setBackgroundColor(colors.bgNav());
     }
 
-    @SuppressWarnings("deprecation")
     private void doHaptic() {
         if (!prefs.isHapticEnabled()) return;
-        Vibrator vib = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-        if (vib == null || !vib.hasVibrator()) return;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            vib.vibrate(VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE));
-        else vib.vibrate(12);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                VibratorManager vm = (VibratorManager) getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
+                if (vm != null) {
+                    vm.getDefaultVibrator().vibrate(
+                        VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE));
+                    return;
+                }
+            }
+            @SuppressWarnings("deprecation")
+            Vibrator vib = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            if (vib == null || !vib.hasVibrator()) return;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                vib.vibrate(VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE));
+            else vib.vibrate(12);
+        } catch (Exception ignored) {}
     }
 
     private void doClick() {

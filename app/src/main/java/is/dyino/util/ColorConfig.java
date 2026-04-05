@@ -13,8 +13,9 @@ import java.io.FileWriter;
 import java.io.InputStreamReader;
 
 public class ColorConfig {
-    private static final String TAG  = "ColorConfig";
-    private static final String FILE = "color.json";
+    private static final String TAG      = "ColorConfig";
+    private static final String FILE     = "color.json";          // internal storage name
+    private static final String ASSET    = "configs/color.json";  // asset path
 
     private JSONObject root;
     private final Context ctx;
@@ -54,48 +55,51 @@ public class ColorConfig {
     public int navUnselected()    { return color("nav","unselected","#44445A"); }
 
     // ── Home ─────────────────────────────────────────────────────
-    public int homeSectionTitle() { return color("home","section_title",     "#FFFFFF"); }
-    public int homeCardBg()       { return color("home","card_bg",           "#16161F"); }
-    public int homeChipPlayBg()   { return color("home","chip_playing_bg",   "#28265A"); }
+    public int homeSectionTitle() { return color("home","section_title",      "#FFFFFF"); }
+    public int homeCardBg()       { return color("home","card_bg",            "#16161F"); }
+    public int homeChipPlayBg()   { return color("home","chip_playing_bg",    "#28265A"); }
     public int homeChipBorder()   { return color("home","chip_playing_border","#6C63FF"); }
-    public int homeChipText()     { return color("home","chip_text",         "#FFFFFF"); }
-    public int homeEmptyText()    { return color("home","empty_text",        "#44445A"); }
+    public int homeChipText()     { return color("home","chip_text",          "#FFFFFF"); }
+    public int homeEmptyText()    { return color("home","empty_text",         "#44445A"); }
+    public int homePageTitle()    { return color("home","page_title",         "#FFFFFF"); }
 
     // ── Radio ────────────────────────────────────────────────────
-    public int stationBg()             { return color("radio","station_bg",              "#1E1E2A"); }
-    public int stationActiveBg()       { return color("radio","station_bg_active",       "#2A1E4A"); }
-    public int stationActiveBorder()   { return color("radio","station_border_active",   "#6C63FF"); }
-    public int stationClickGlow()      { return color("radio","station_click_glow",      "#6C63FF"); }
-    public int stationText()           { return color("radio","station_text",            "#FFFFFF"); }
-    public int stationTextActive()     { return color("radio","station_text_active",     "#6C63FF"); }
-    public int eqBar()                 { return color("radio","eq_bar",                  "#6C63FF"); }
-    public int radioGroupNameText()    { return color("radio","group_name_text",         "#6C63FF"); }
-    public int radioGroupCollapsed()   { return color("radio","group_name_collapsed_text","#8888AA"); }
-    public int radioSearchBg()         { return color("radio","search_bg",               "#1E1E2A"); }
-    public int radioSearchText()       { return color("radio","search_text",             "#FFFFFF"); }
-    public int radioSearchHint()       { return color("radio","search_hint",             "#8888AA"); }
+    public int stationBg()           { return color("radio","station_bg",              "#1E1E2A"); }
+    public int stationActiveBg()     { return color("radio","station_bg_active",       "#2A1E4A"); }
+    public int stationActiveBorder() { return color("radio","station_border_active",   "#6C63FF"); }
+    public int stationClickGlow()    { return color("radio","station_click_glow",      "#6C63FF"); }
+    public int stationText()         { return color("radio","station_text",            "#FFFFFF"); }
+    public int stationTextActive()   { return color("radio","station_text_active",     "#6C63FF"); }
+    public int eqBar()               { return color("radio","eq_bar",                  "#6C63FF"); }
+    public int radioGroupNameText()  { return color("radio","group_name_text",         "#6C63FF"); }
+    public int radioGroupCollapsed() { return color("radio","group_name_collapsed_text","#8888AA"); }
+    public int radioSearchBg()       { return color("radio","search_bg",               "#1E1E2A"); }
+    public int radioSearchText()     { return color("radio","search_text",             "#FFFFFF"); }
+    public int radioSearchHint()     { return color("radio","search_hint",             "#8888AA"); }
+    public int radioPageTitle()      { return color("radio","page_title",              "#FFFFFF"); }
     // aliases
-    public int textStationActive()     { return stationTextActive(); }
-    public int textAboutBrand()        { return accent(); }
-    public int textLink()              { return textPrimary(); }
+    public int textStationActive()   { return stationTextActive(); }
+    public int textAboutBrand()      { return accent(); }
+    public int textLink()            { return textPrimary(); }
 
     // ── Sounds ───────────────────────────────────────────────────
-    public int soundBtnBg()            { return color("sounds","btn_bg",          "#1A1A26"); }
-    public int soundBtnActiveBg()      { return color("sounds","btn_active_bg",   "#28265A"); }
-    public int soundBtnActiveBorder()  { return color("sounds","btn_border_active","#6C63FF"); }
-    public int soundBtnClickGlow()     { return color("sounds","btn_click_glow",  "#6C63FF"); }
-    public int soundBtnText()          { return color("sounds","btn_text",        "#FFFFFF"); }
-    public int soundWaveColor()        { return color("sounds","wave_color",      "#6C63FF"); }
-    public int soundVolBarTrack()      { return color("sounds","vol_bar_track",   "#44FFFFFF"); }
-    public int soundVolBarFill()       { return color("sounds","vol_bar_fill",    "#FFFFFF"); }
-    public int stopAllBg()             { return color("sounds","stop_all_bg",     "#1E1E2A"); }
-    public int stopAllBorder()         { return color("sounds","stop_all_border", "#6C63FF"); }
-    public int stopAllText()           { return color("sounds","stop_all_text",   "#FFFFFF"); }
+    public int soundBtnBg()           { return color("sounds","btn_bg",          "#1A1A26"); }
+    public int soundBtnActiveBg()     { return color("sounds","btn_active_bg",   "#28265A"); }
+    public int soundBtnActiveBorder() { return color("sounds","btn_border_active","#6C63FF"); }
+    public int soundBtnClickGlow()    { return color("sounds","btn_click_glow",  "#6C63FF"); }
+    public int soundBtnText()         { return color("sounds","btn_text",        "#FFFFFF"); }
+    public int soundWaveColor()       { return color("sounds","wave_color",      "#6C63FF"); }
+    public int soundVolBarTrack()     { return color("sounds","vol_bar_track",   "#44FFFFFF"); }
+    public int soundVolBarFill()      { return color("sounds","vol_bar_fill",    "#FFFFFF"); }
+    public int stopAllBg()            { return color("sounds","stop_all_bg",     "#1E1E2A"); }
+    public int stopAllBorder()        { return color("sounds","stop_all_border", "#6C63FF"); }
+    public int stopAllText()          { return color("sounds","stop_all_text",   "#FFFFFF"); }
+    public int soundsPageTitle()      { return color("sounds","page_title",      "#FFFFFF"); }
 
     // ── Controls ─────────────────────────────────────────────────
-    public int btnStopBg()        { return color("controls","stop_bg",    "#1E1E2A"); }
-    public int btnStopBorder()    { return color("controls","stop_border","#6C63FF"); }
-    public int btnStopText()      { return color("controls","stop_text",  "#FFFFFF"); }
+    public int btnStopBg()     { return color("controls","stop_bg",    "#1E1E2A"); }
+    public int btnStopBorder() { return color("controls","stop_border","#6C63FF"); }
+    public int btnStopText()   { return color("controls","stop_text",  "#FFFFFF"); }
 
     // ── Settings ─────────────────────────────────────────────────
     public int bgSettingsCard()      { return color("settings","card_bg",     "#16161F"); }
@@ -112,11 +116,24 @@ public class ColorConfig {
     public int settingsBtnText()     { return color("settings","btn_text",    "#FFFFFF"); }
     public int settingsAboutText()   { return color("settings","about_text",  "#6C63FF"); }
     public int settingsDivider()     { return color("settings","divider",     "#22223A"); }
+    public int settingsPageTitle()   { return color("settings","page_title",  "#FFFFFF"); }
+    public int settingsSwitchThumb() { return color("settings","switch_thumb","#6C63FF"); }
+    public int settingsSwitchTrack() { return color("settings","switch_track","#3D3880"); }
+
+    // ── About ─────────────────────────────────────────────────────
+    public int aboutBg()          { return color("about","bg",          "#0D0D14"); }
+    public int aboutTitle()       { return color("about","title",       "#FFFFFF"); }
+    public int aboutText()        { return color("about","text",        "#CCCCCC"); }
+    public int aboutAccent()      { return color("about","accent",      "#6C63FF"); }
+
+    // ── Notification ─────────────────────────────────────────────
+    public int notifBg()          { return color("notification","bg",   "#1A1A26"); }
+    public int notifIconBg()      { return color("notification","icon_bg","#6C63FF"); }
 
     // ── Persist ──────────────────────────────────────────────────
     public void saveRaw(String raw) {
         try {
-            new JSONObject(raw); // validate
+            new JSONObject(raw);
             FileWriter fw = new FileWriter(new File(ctx.getFilesDir(), FILE));
             fw.write(raw); fw.close();
         } catch (Exception e) { Log.e(TAG, "saveRaw", e); }
@@ -127,7 +144,7 @@ public class ColorConfig {
         try {
             BufferedReader br = f.exists()
                 ? new BufferedReader(new FileReader(f))
-                : new BufferedReader(new InputStreamReader(ctx.getAssets().open(FILE)));
+                : new BufferedReader(new InputStreamReader(ctx.getAssets().open(ASSET)));
             StringBuilder sb = new StringBuilder();
             String line;
             while ((line = br.readLine()) != null) sb.append(line).append('\n');
