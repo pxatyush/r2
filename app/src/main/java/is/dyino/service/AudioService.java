@@ -539,7 +539,7 @@ public class AudioService extends Service {
         NotificationCompat.Builder b = new NotificationCompat.Builder(this, CH_ID)
                 .setContentTitle(title)
                 .setContentText(text)
-                .setSmallIcon(R.drawable.ic_note)
+                .setSmallIcon(R.drawable.ic_note_vec)
                 .setLargeIcon(icon)
                 .setContentIntent(openPi)
                 .setOngoing(true)       // can't swipe while playing
