@@ -12,10 +12,6 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.InputStreamReader;
 
-/**
- * Reads theme colors from color.json (assets or internal storage).
- * JSON structure is nested by section (nav, radio, sounds, settings, …).
- */
 public class ColorConfig {
     private static final String TAG  = "ColorConfig";
     private static final String FILE = "color.json";
@@ -23,95 +19,104 @@ public class ColorConfig {
     private JSONObject root;
     private final Context ctx;
 
-    public ColorConfig(Context ctx) {
-        this.ctx = ctx;
-        load();
-    }
+    public ColorConfig(Context ctx) { this.ctx = ctx; load(); }
 
     private void load() {
-        try {
-            String raw = readRaw();
-            root = new JSONObject(raw);
-        } catch (Exception e) {
-            Log.e(TAG, "load", e);
-            root = new JSONObject();
-        }
-    }
-
-    private String c(String section, String key, String fallback) {
-        try {
-            JSONObject sec = root.optJSONObject(section);
-            if (sec != null) {
-                String v = sec.optString(key, null);
-                if (v != null && !v.isEmpty()) return v;
-            }
-            return fallback;
-        } catch (Exception e) { return fallback; }
+        try { root = new JSONObject(readRaw()); }
+        catch (Exception e) { Log.e(TAG, "load", e); root = new JSONObject(); }
     }
 
     private int color(String section, String key, String fallback) {
-        try { return Color.parseColor(c(section, key, fallback)); }
-        catch (Exception e) {
-            try { return Color.parseColor(fallback); }
-            catch (Exception ex) { return Color.WHITE; }
+        try {
+            JSONObject sec = root.optJSONObject(section);
+            String v = sec != null ? sec.optString(key, null) : null;
+            return Color.parseColor(v != null && !v.isEmpty() ? v : fallback);
+        } catch (Exception e) {
+            try { return Color.parseColor(fallback); } catch (Exception ex) { return Color.WHITE; }
         }
     }
 
-    // ── Global backgrounds ────────────────────────────────────────
-    public int bgPrimary()       { return color("global", "bg_primary",  "#0D0D14"); }
-    public int bgCard()          { return color("global", "bg_card",     "#16161F"); }
-    public int bgCard2()         { return color("global", "bg_card2",    "#1E1E2A"); }
-    public int accent()          { return color("global", "accent",      "#6C63FF"); }
-    public int accentDim()       { return color("global", "accent_dim",  "#3D3880"); }
-    public int divider()         { return color("global", "divider",     "#22223A"); }
+    // ── Global ───────────────────────────────────────────────────
+    public int bgPrimary()        { return color("global","bg_primary",      "#0D0D14"); }
+    public int bgCard()           { return color("global","bg_card",         "#16161F"); }
+    public int bgCard2()          { return color("global","bg_card2",        "#1E1E2A"); }
+    public int accent()           { return color("global","accent",          "#6C63FF"); }
+    public int accentDim()        { return color("global","accent_dim",      "#3D3880"); }
+    public int divider()          { return color("global","divider",         "#22223A"); }
+    public int textPrimary()      { return color("global","text_primary",    "#FFFFFF"); }
+    public int textSecondary()    { return color("global","text_secondary",  "#8888AA"); }
+    public int textSectionTitle() { return color("global","text_section_title","#FFFFFF"); }
+    public int iconNoteColor()    { return color("global","icon_note_color", "#6C63FF"); }
 
-    // ── Text (global) ────────────────────────────────────────────
-    public int textPrimary()     { return color("global", "text_primary",   "#FFFFFF"); }
-    public int textSecondary()   { return color("global", "text_secondary",  "#8888AA"); }
-    public int textSectionTitle(){ return color("global", "text_section_title","#FFFFFF"); }
+    // ── Nav ──────────────────────────────────────────────────────
+    public int bgNav()            { return color("nav","bg",        "#0D0D14"); }
+    public int navSelected()      { return color("nav","selected",  "#FFFFFF"); }
+    public int navUnselected()    { return color("nav","unselected","#44445A"); }
 
-    // ── Navigation bar ────────────────────────────────────────────
-    public int bgNav()           { return color("nav", "bg",        "#0D0D14"); }
-    public int navSelected()     { return color("nav", "selected",  "#FFFFFF"); }
-    public int navUnselected()   { return color("nav", "unselected","#44445A"); }
+    // ── Home ─────────────────────────────────────────────────────
+    public int homeSectionTitle() { return color("home","section_title",     "#FFFFFF"); }
+    public int homeCardBg()       { return color("home","card_bg",           "#16161F"); }
+    public int homeChipPlayBg()   { return color("home","chip_playing_bg",   "#28265A"); }
+    public int homeChipBorder()   { return color("home","chip_playing_border","#6C63FF"); }
+    public int homeChipText()     { return color("home","chip_text",         "#FFFFFF"); }
+    public int homeEmptyText()    { return color("home","empty_text",        "#44445A"); }
 
-    // ── Home screen ───────────────────────────────────────────────
-    public int homeSectionTitle(){ return color("home", "section_title","#FFFFFF"); }
-    public int homeCardBg()      { return color("home", "card_bg",     "#16161F"); }
+    // ── Radio ────────────────────────────────────────────────────
+    public int stationBg()             { return color("radio","station_bg",              "#1E1E2A"); }
+    public int stationActiveBg()       { return color("radio","station_bg_active",       "#2A1E4A"); }
+    public int stationActiveBorder()   { return color("radio","station_border_active",   "#6C63FF"); }
+    public int stationClickGlow()      { return color("radio","station_click_glow",      "#6C63FF"); }
+    public int stationText()           { return color("radio","station_text",            "#FFFFFF"); }
+    public int stationTextActive()     { return color("radio","station_text_active",     "#6C63FF"); }
+    public int eqBar()                 { return color("radio","eq_bar",                  "#6C63FF"); }
+    public int radioGroupNameText()    { return color("radio","group_name_text",         "#6C63FF"); }
+    public int radioGroupCollapsed()   { return color("radio","group_name_collapsed_text","#8888AA"); }
+    public int radioSearchBg()         { return color("radio","search_bg",               "#1E1E2A"); }
+    public int radioSearchText()       { return color("radio","search_text",             "#FFFFFF"); }
+    public int radioSearchHint()       { return color("radio","search_hint",             "#8888AA"); }
+    // aliases
+    public int textStationActive()     { return stationTextActive(); }
+    public int textAboutBrand()        { return accent(); }
+    public int textLink()              { return textPrimary(); }
 
-    // ── Radio page ────────────────────────────────────────────────
-    public int stationBg()            { return color("radio", "station_bg",          "#1E1E2A"); }
-    public int stationActiveBg()      { return color("radio", "station_bg_active",   "#2A1E4A"); }
-    public int stationActiveBorder()  { return color("radio", "station_border_active","#6C63FF"); }
-    public int stationText()          { return color("radio", "station_text",         "#FFFFFF"); }
-    public int stationTextActive()    { return color("radio", "station_text_active",  "#6C63FF"); }
-    public int eqBar()                { return color("radio", "eq_bar",              "#6C63FF"); }
-    public int textStationActive()    { return color("radio", "station_text_active",  "#6C63FF"); }
-    public int textAboutBrand()       { return color("global", "accent",             "#6C63FF"); }
-    public int textLink()             { return color("global", "text_primary",       "#FFFFFF"); }
+    // ── Sounds ───────────────────────────────────────────────────
+    public int soundBtnBg()            { return color("sounds","btn_bg",          "#1A1A26"); }
+    public int soundBtnActiveBg()      { return color("sounds","btn_active_bg",   "#28265A"); }
+    public int soundBtnActiveBorder()  { return color("sounds","btn_border_active","#6C63FF"); }
+    public int soundBtnClickGlow()     { return color("sounds","btn_click_glow",  "#6C63FF"); }
+    public int soundBtnText()          { return color("sounds","btn_text",        "#FFFFFF"); }
+    public int soundWaveColor()        { return color("sounds","wave_color",      "#6C63FF"); }
+    public int soundVolBarTrack()      { return color("sounds","vol_bar_track",   "#44FFFFFF"); }
+    public int soundVolBarFill()       { return color("sounds","vol_bar_fill",    "#FFFFFF"); }
+    public int stopAllBg()             { return color("sounds","stop_all_bg",     "#1E1E2A"); }
+    public int stopAllBorder()         { return color("sounds","stop_all_border", "#6C63FF"); }
+    public int stopAllText()           { return color("sounds","stop_all_text",   "#FFFFFF"); }
 
-    // ── Sounds page ───────────────────────────────────────────────
-    public int soundBtnBg()           { return color("sounds", "btn_bg",           "#1A1A26"); }
-    public int soundBtnActiveBg()     { return color("sounds", "btn_active_bg",    "#28265A"); }
-    public int soundBtnActiveBorder() { return color("sounds", "btn_border_active","#6C63FF"); }
-    public int soundBtnText()         { return color("sounds", "btn_text",         "#FFFFFF"); }
-    public int soundWaveColor()       { return color("sounds", "wave_color",       "#6C63FF"); }
+    // ── Controls ─────────────────────────────────────────────────
+    public int btnStopBg()        { return color("controls","stop_bg",    "#1E1E2A"); }
+    public int btnStopBorder()    { return color("controls","stop_border","#6C63FF"); }
+    public int btnStopText()      { return color("controls","stop_text",  "#FFFFFF"); }
 
-    // ── Controls / buttons ────────────────────────────────────────
-    public int btnStopBg()       { return color("controls", "stop_bg",    "#1E1E2A"); }
-    public int btnStopBorder()   { return color("controls", "stop_border","#6C63FF"); }
-    public int btnStopText()     { return color("controls", "stop_text",  "#FFFFFF"); }
+    // ── Settings ─────────────────────────────────────────────────
+    public int bgSettingsCard()      { return color("settings","card_bg",     "#16161F"); }
+    public int settingsCardBorder()  { return color("settings","card_border", "#22223A"); }
+    public int textSettingsLabel()   { return color("settings","label_text",  "#FFFFFF"); }
+    public int textSettingsHeader()  { return color("settings","header_text", "#8888AA"); }
+    public int textSettingsHint()    { return color("settings","hint_text",   "#8888AA"); }
+    public int textSettingsVersion() { return color("settings","version_text","#44445A"); }
+    public int settingsInputBg()     { return color("settings","input_bg",    "#1E1E2A"); }
+    public int settingsInputBorder() { return color("settings","input_border","#22223A"); }
+    public int settingsInputText()   { return color("settings","input_text",  "#FFFFFF"); }
+    public int settingsBtnBg()       { return color("settings","btn_bg",      "#1E1E2A"); }
+    public int settingsBtnBorder()   { return color("settings","btn_border",  "#6C63FF"); }
+    public int settingsBtnText()     { return color("settings","btn_text",    "#FFFFFF"); }
+    public int settingsAboutText()   { return color("settings","about_text",  "#6C63FF"); }
+    public int settingsDivider()     { return color("settings","divider",     "#22223A"); }
 
-    // ── Settings page ─────────────────────────────────────────────
-    public int bgSettingsCard()      { return color("settings", "card_bg",    "#16161F"); }
-    public int textSettingsLabel()   { return color("settings", "label_text", "#FFFFFF"); }
-    public int textSettingsHint()    { return color("settings", "hint_text",  "#8888AA"); }
-    public int textSettingsVersion() { return color("settings", "version_text","#44445A"); }
-
-    // ── Persist / read raw ────────────────────────────────────────
+    // ── Persist ──────────────────────────────────────────────────
     public void saveRaw(String raw) {
         try {
-            new JSONObject(raw); // validate JSON
+            new JSONObject(raw); // validate
             FileWriter fw = new FileWriter(new File(ctx.getFilesDir(), FILE));
             fw.write(raw); fw.close();
         } catch (Exception e) { Log.e(TAG, "saveRaw", e); }
@@ -128,60 +133,6 @@ public class ColorConfig {
             while ((line = br.readLine()) != null) sb.append(line).append('\n');
             br.close();
             return sb.toString();
-        } catch (Exception e) {
-            Log.e(TAG, "readRaw", e);
-            return getDefaultJson();
-        }
-    }
-
-    public static String getDefaultJson() {
-        return "{\n" +
-            "  \"global\": {\n" +
-            "    \"bg_primary\": \"#0D0D14\",\n" +
-            "    \"bg_card\": \"#16161F\",\n" +
-            "    \"bg_card2\": \"#1E1E2A\",\n" +
-            "    \"accent\": \"#6C63FF\",\n" +
-            "    \"accent_dim\": \"#3D3880\",\n" +
-            "    \"divider\": \"#22223A\",\n" +
-            "    \"text_primary\": \"#FFFFFF\",\n" +
-            "    \"text_secondary\": \"#8888AA\",\n" +
-            "    \"text_section_title\": \"#FFFFFF\"\n" +
-            "  },\n" +
-            "  \"nav\": {\n" +
-            "    \"bg\": \"#0D0D14\",\n" +
-            "    \"selected\": \"#FFFFFF\",\n" +
-            "    \"unselected\": \"#44445A\"\n" +
-            "  },\n" +
-            "  \"home\": {\n" +
-            "    \"section_title\": \"#FFFFFF\",\n" +
-            "    \"card_bg\": \"#16161F\"\n" +
-            "  },\n" +
-            "  \"radio\": {\n" +
-            "    \"station_bg\": \"#1E1E2A\",\n" +
-            "    \"station_bg_active\": \"#2A1E4A\",\n" +
-            "    \"station_border_active\": \"#6C63FF\",\n" +
-            "    \"station_text\": \"#FFFFFF\",\n" +
-            "    \"station_text_active\": \"#6C63FF\",\n" +
-            "    \"eq_bar\": \"#6C63FF\"\n" +
-            "  },\n" +
-            "  \"sounds\": {\n" +
-            "    \"btn_bg\": \"#1A1A26\",\n" +
-            "    \"btn_active_bg\": \"#28265A\",\n" +
-            "    \"btn_border_active\": \"#6C63FF\",\n" +
-            "    \"btn_text\": \"#FFFFFF\",\n" +
-            "    \"wave_color\": \"#6C63FF\"\n" +
-            "  },\n" +
-            "  \"controls\": {\n" +
-            "    \"stop_bg\": \"#1E1E2A\",\n" +
-            "    \"stop_border\": \"#6C63FF\",\n" +
-            "    \"stop_text\": \"#FFFFFF\"\n" +
-            "  },\n" +
-            "  \"settings\": {\n" +
-            "    \"card_bg\": \"#16161F\",\n" +
-            "    \"label_text\": \"#FFFFFF\",\n" +
-            "    \"hint_text\": \"#8888AA\",\n" +
-            "    \"version_text\": \"#44445A\"\n" +
-            "  }\n" +
-            "}";
+        } catch (Exception e) { Log.e(TAG, "readRaw", e); return "{}"; }
     }
 }

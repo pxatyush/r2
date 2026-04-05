@@ -19,7 +19,7 @@
         <ImageView
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:src="@drawable/ic_note"
+            android:src="@drawable/ic_note_vec"
             android:scaleType="fitCenter"
             android:alpha="0.65"
             android:layout_gravity="center_horizontal"/>

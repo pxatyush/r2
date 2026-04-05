@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/homeRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#0D0D14">
 
+    <!-- Header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -19,7 +19,7 @@
         <ImageView
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:src="@drawable/ic_note"
+            android:src="@drawable/ic_note_vec"
             android:scaleType="fitCenter"
             android:alpha="0.65"
             android:layout_gravity="center_horizontal"/>
@@ -43,9 +43,7 @@
 
     </LinearLayout>
 
-    <View android:id="@+id/settingsDivider2"
-        android:layout_width="match_parent" 
-        android:layout_height="1dp"
+    <View android:layout_width="match_parent" android:layout_height="1dp"
         android:background="#22223A"/>
 
     <androidx.core.widget.NestedScrollView
@@ -62,6 +60,7 @@
             android:paddingRight="16dp"
             android:paddingBottom="24dp">
 
+            <!-- ── NOW PLAYING ── -->
             <TextView
                 android:id="@+id/tvNowPlayingLabel"
                 android:layout_width="match_parent"
@@ -75,6 +74,7 @@
                 android:paddingBottom="10dp"
                 android:visibility="gone"/>
 
+            <!-- Radio card -->
             <LinearLayout
                 android:id="@+id/nowPlayingRadioCard"
                 android:layout_width="match_parent"
@@ -91,7 +91,7 @@
                     android:id="@+id/ivStationIcon"
                     android:layout_width="48dp"
                     android:layout_height="48dp"
-                    android:src="@drawable/ic_note"
+                    android:src="@drawable/ic_app_icon"
                     android:scaleType="centerCrop"
                     android:layout_marginRight="14dp"/>
 
@@ -112,7 +112,7 @@
                         android:id="@+id/tvNowPlayingStation"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Station name"
+                        android:text=""
                         android:textColor="#FFFFFF"
                         android:textSize="15sp"
                         android:fontFamily="sans-serif-medium"
@@ -131,12 +131,15 @@
 
             </LinearLayout>
 
-            <com.google.android.flexbox.FlexboxLayout
+            <!--
+                Active sounds chips — vertical container.
+                HomeFragment adds rows of chips (3 per row) into this.
+            -->
+            <LinearLayout
                 android:id="@+id/nowPlayingSoundsContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:flexDirection="row"
-                app:flexWrap="wrap"
+                android:orientation="vertical"
                 android:layout_marginBottom="4dp"/>
 
             <View
@@ -147,6 +150,7 @@
                 android:layout_marginTop="8dp"
                 android:visibility="gone"/>
 
+            <!-- ── FAVOURITES ── -->
             <TextView
                 android:id="@+id/tvFavRadioLabel"
                 android:layout_width="match_parent"
@@ -160,11 +164,12 @@
                 android:paddingBottom="10dp"
                 android:visibility="gone"/>
 
+            <!-- Wrapping vertical container — rows of 3 chips each -->
             <LinearLayout
                 android:id="@+id/favRadioContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:orientation="vertical"
                 android:layout_marginBottom="4dp"/>
 
             <TextView
@@ -184,7 +189,7 @@
                 android:id="@+id/favSoundsContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:orientation="vertical"
                 android:layout_marginBottom="4dp"/>
 
             <View
@@ -195,14 +200,16 @@
                 android:layout_marginTop="8dp"
                 android:visibility="gone"/>
 
+            <!-- Empty state — hidden when anything is playing or favourited -->
             <TextView
+                android:id="@+id/tvEmpty"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Nothing playing yet.\n\nTap a radio station or a sound button to get started.\n\nDouble-tap any station or sound to add it to Favourites here."
+                android:text="Nothing playing yet.\n\nTap a radio station or sound to begin.\nDouble-tap to add to Favourites."
                 android:textColor="#44445A"
                 android:textSize="13sp"
                 android:lineSpacingExtra="4dp"
-                android:paddingTop="40dp"
+                android:paddingTop="48dp"
                 android:gravity="center"/>
 
         </LinearLayout>

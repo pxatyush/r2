@@ -8,15 +8,21 @@ import android.os.Looper;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import is.dyino.R;
 import is.dyino.model.RadioGroup;
@@ -41,15 +47,60 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RadioGroupAdapter.VH
     private final SwipeActionListener  swipeL;
     private RadioStation activeStation;
 
-    // Double-tap detection per station URL
-    private final java.util.Map<String, Long> lastTapTime = new java.util.HashMap<>();
+    // Expanded/collapsed state per group (default: collapsed)
+    private final Map<String, Boolean> expandedMap = new HashMap<>();
+
+    // Double-tap detection
+    private final Map<String, Long> lastTapTime = new HashMap<>();
     private static final long DOUBLE_TAP_MS = 350;
+
+    // ItemTouchHelper for long-press drag reorder
+    private ItemTouchHelper touchHelper;
 
     public RadioGroupAdapter(List<RadioGroup> groups, StationClickListener click,
                              FavouriteListener fav, AppPrefs prefs, ColorConfig colors,
                              SwipeActionListener swipe) {
         this.groups = groups; this.clickL = click; this.favL = fav;
-        this.prefs = prefs; this.colors = colors; this.swipeL = swipe;
+        this.prefs  = prefs;  this.colors = colors; this.swipeL = swipe;
+    }
+
+    public void attachToRecyclerView(RecyclerView rv) {
+        touchHelper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(
+                ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
+
+            private int dragFrom = -1;
+            private int dragTo   = -1;
+
+            @Override
+            public boolean isLongPressDragEnabled() { return true; }
+
+            @Override
+            public boolean onMove(@NonNull RecyclerView rv2,
+                                  @NonNull RecyclerView.ViewHolder from,
+                                  @NonNull RecyclerView.ViewHolder to) {
+                int f = from.getAdapterPosition();
+                int t = to.getAdapterPosition();
+                if (dragFrom == -1) dragFrom = f;
+                dragTo = t;
+                // Only allow drag when group is collapsed
+                String gName = groups.get(f).getName();
+                Boolean exp  = expandedMap.get(gName);
+                if (exp != null && exp) return false; // expanded: no move
+                Collections.swap(groups, f, t);
+                notifyItemMoved(f, t);
+                return true;
+            }
+
+            @Override
+            public void clearView(@NonNull RecyclerView rv2,
+                                  @NonNull RecyclerView.ViewHolder vh) {
+                super.clearView(rv2, vh);
+                dragFrom = dragTo = -1;
+            }
+
+            @Override public void onSwiped(@NonNull RecyclerView.ViewHolder vh, int dir) {}
+        });
+        touchHelper.attachToRecyclerView(rv);
     }
 
     public void setActiveStation(RadioStation s) { activeStation = s; notifyDataSetChanged(); }
@@ -64,84 +115,101 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RadioGroupAdapter.VH
     @Override
     public void onBindViewHolder(@NonNull VH h, int pos) {
         RadioGroup group = groups.get(pos);
-        boolean isArchivedGroup = "__ARCHIVED__".equals(group.getName());
+        String gName     = group.getName();
+        boolean isArchived = "__ARCHIVED__".equals(gName);
 
-        h.tvGroupName.setTextColor(isArchivedGroup ? colors.textSecondary() : colors.accent());
-        h.tvGroupName.setText(isArchivedGroup ? "Archived ▾" : group.getName());
+        boolean expanded = Boolean.TRUE.equals(expandedMap.get(gName));
 
-        // ── Remove the shared card box behind stations ──
+        // Group header styling
+        if (isArchived) {
+            h.tvGroupName.setText(expanded ? "Archived ▴" : "Archived ▾");
+            h.tvGroupName.setTextColor(colors.textSecondary());
+            h.tvGroupName.setTextSize(13f);
+        } else {
+            h.tvGroupName.setText(gName + (expanded ? " ▴" : " ▾"));
+            h.tvGroupName.setTextColor(expanded ? colors.radioGroupNameText()
+                                                : colors.radioGroupCollapsed());
+            h.tvGroupName.setTextSize(15f);
+        }
+
+        // Remove shared card background from container
         h.stationsContainer.setBackground(null);
         h.stationsContainer.setPadding(0, 0, 0, 0);
         h.stationsContainer.removeAllViews();
+        h.stationsContainer.setVisibility(expanded ? View.VISIBLE : View.GONE);
 
-        if (isArchivedGroup) {
-            h.stationsContainer.setVisibility(View.GONE);
-            h.tvGroupName.setOnClickListener(v -> {
-                boolean show = h.stationsContainer.getVisibility() == View.GONE;
-                h.stationsContainer.setVisibility(show ? View.VISIBLE : View.GONE);
-                h.tvGroupName.setText(show ? "Archived ▴" : "Archived ▾");
-            });
-            for (RadioStation s : group.getStations()) {
-                h.stationsContainer.addView(buildStationView(h, s, true, s.getGroup()));
-            }
-        } else {
-            h.tvGroupName.setOnClickListener(null);
-            for (RadioStation s : group.getStations()) {
-                if (prefs.isArchived(AppPrefs.stationKey(s.getName(), s.getUrl(), s.getGroup()))) continue;
-                h.stationsContainer.addView(buildStationView(h, s, false, null));
+        // Toggle expand on header click
+        h.tvGroupName.setOnClickListener(v -> {
+            haptic(v);
+            boolean nowExpanded = !Boolean.TRUE.equals(expandedMap.get(gName));
+            expandedMap.put(gName, nowExpanded);
+            notifyItemChanged(pos);
+        });
+
+        if (expanded) {
+            if (isArchived) {
+                for (RadioStation s : group.getStations())
+                    h.stationsContainer.addView(buildStationView(h, s, true, s.getGroup()));
+            } else {
+                for (RadioStation s : group.getStations()) {
+                    if (prefs.isArchived(AppPrefs.stationKey(s.getName(), s.getUrl(), s.getGroup()))) continue;
+                    h.stationsContainer.addView(buildStationView(h, s, false, null));
+                }
             }
         }
     }
 
     @SuppressWarnings("ClickableViewAccessibility")
     private View buildStationView(VH h, RadioStation station, boolean isArchived, String archivedKey) {
-        View sv = LayoutInflater.from(h.itemView.getContext())
-                .inflate(R.layout.item_radio_station, h.stationsContainer, false);
+        View sv     = LayoutInflater.from(h.itemView.getContext())
+                        .inflate(R.layout.item_radio_station, h.stationsContainer, false);
+        TextView tv = sv.findViewById(R.id.tvStationName);
+        View eq     = sv.findViewById(R.id.equalizerView);
+        View root   = sv.findViewById(R.id.stationRoot);
 
-        TextView tvName = sv.findViewById(R.id.tvStationName);
-        View eqView     = sv.findViewById(R.id.equalizerView);
-        View root       = sv.findViewById(R.id.stationRoot);
-
-        tvName.setText(station.getName());
+        tv.setText(station.getName());
 
         boolean active = !isArchived && activeStation != null
                 && activeStation.getUrl().equals(station.getUrl());
 
         if (active) {
-            applyActive(root, tvName);
-            eqView.setVisibility(View.VISIBLE);
+            applyActive(root, tv);
+            eq.setVisibility(View.VISIBLE);
             animEq(sv.findViewById(R.id.eq1), 400, 4, 14);
             animEq(sv.findViewById(R.id.eq2), 600, 8, 18);
             animEq(sv.findViewById(R.id.eq3), 500, 3, 12);
         } else {
-            applyInactive(root, tvName);
-            eqView.setVisibility(View.GONE);
+            applyInactive(root, tv);
+            eq.setVisibility(View.GONE);
         }
 
         if (isArchived) {
-            tvName.setTextColor(colors.textSecondary());
+            tv.setTextColor(colors.textSecondary());
             attachSwipe(sv, station, true, archivedKey);
         } else {
             sv.setOnClickListener(v -> {
                 String url = station.getUrl();
-                long now = System.currentTimeMillis();
-                Long last = lastTapTime.get(url);
+                long   now = System.currentTimeMillis();
+                Long   last = lastTapTime.get(url);
 
                 if (last != null && (now - last) < DOUBLE_TAP_MS) {
-                    // ── Double-tap: toggle favourite ──
+                    // Double-tap → favourite
                     lastTapTime.remove(url);
-                    String key = AppPrefs.stationKey(station.getName(), station.getUrl(), station.getGroup());
-                    boolean isFav = prefs.isFavourite(key);
-                    if (isFav) prefs.removeFavourite(key);
-                    else       prefs.addFavourite(key);
                     haptic(v);
-                    if (favL != null) favL.onFavouriteToggled(station, !isFav);
+                    String key  = AppPrefs.stationKey(station.getName(), station.getUrl(), station.getGroup());
+                    boolean fav = prefs.isFavourite(key);
+                    if (fav) prefs.removeFavourite(key); else prefs.addFavourite(key);
+                    if (favL != null) favL.onFavouriteToggled(station, !fav);
                     notifyDataSetChanged();
                 } else {
-                    // ── Single tap: play / stop station ──
+                    // Single tap → play / stop
                     lastTapTime.put(url, now);
-                    activeStation = station;
-                    notifyDataSetChanged();
+                    // Instant glow feedback
+                    applyClickGlow(root, tv);
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                        activeStation = station;
+                        notifyDataSetChanged();
+                    }, 80);
                     if (clickL != null) clickL.onStation(station);
                 }
             });
@@ -158,22 +226,18 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RadioGroupAdapter.VH
 
         sv.setOnTouchListener((v, ev) -> {
             switch (ev.getAction()) {
-                case android.view.MotionEvent.ACTION_DOWN:
-                    startX[0] = ev.getX();
-                    swiped[0] = false;
-                    break;
-                case android.view.MotionEvent.ACTION_MOVE:
+                case MotionEvent.ACTION_DOWN:
+                    startX[0] = ev.getX(); swiped[0] = false; break;
+                case MotionEvent.ACTION_MOVE:
                     float dx = ev.getX() - startX[0];
-                    if (Math.abs(dx) > 80 && !swiped[0]) {
+                    if (Math.abs(dx) > 90 && !swiped[0]) {
                         swiped[0] = true;
                         haptic(v);
-                        // Smooth, medium-speed swipe animation
-                        float targetX = dx > 0 ? sv.getWidth() : -sv.getWidth();
+                        float target = dx > 0 ? sv.getWidth() : -sv.getWidth();
                         v.animate()
-                         .translationX(targetX)
-                         .alpha(0f)
-                         .setDuration(320)           // medium speed
-                         .setInterpolator(new android.view.animation.DecelerateInterpolator(1.5f))
+                         .translationX(target).alpha(0f)
+                         .setDuration(400)
+                         .setInterpolator(new DecelerateInterpolator(2f))
                          .withEndAction(() -> {
                              v.setTranslationX(0); v.setAlpha(1f);
                              if (swipeL != null) {
@@ -189,25 +253,37 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RadioGroupAdapter.VH
         });
     }
 
-    private void applyActive(View root, TextView tvName) {
-        float dp = root.getContext().getResources().getDisplayMetrics().density;
+    private void applyActive(View root, TextView tv) {
+        float dp = dp(root);
         GradientDrawable gd = new GradientDrawable();
         gd.setShape(GradientDrawable.RECTANGLE);
         gd.setCornerRadius(12 * dp);
         gd.setColor(colors.stationActiveBg());
         gd.setStroke((int)(1.5f * dp), colors.stationActiveBorder());
         root.setBackground(gd);
-        tvName.setTextColor(colors.stationTextActive());
+        tv.setTextColor(colors.stationTextActive());
     }
 
-    private void applyInactive(View root, TextView tvName) {
-        float dp = root.getContext().getResources().getDisplayMetrics().density;
+    private void applyInactive(View root, TextView tv) {
+        float dp = dp(root);
         GradientDrawable gd = new GradientDrawable();
         gd.setShape(GradientDrawable.RECTANGLE);
         gd.setCornerRadius(12 * dp);
         gd.setColor(colors.stationBg());
         root.setBackground(gd);
-        tvName.setTextColor(colors.stationText());
+        tv.setTextColor(colors.stationText());
+    }
+
+    /** Instant click glow — shown for ~80ms before full selection applies */
+    private void applyClickGlow(View root, TextView tv) {
+        float dp = dp(root);
+        GradientDrawable gd = new GradientDrawable();
+        gd.setShape(GradientDrawable.RECTANGLE);
+        gd.setCornerRadius(12 * dp);
+        gd.setColor(colors.stationActiveBg());
+        gd.setStroke((int)(2f * dp), colors.stationClickGlow());
+        root.setBackground(gd);
+        tv.setTextColor(colors.stationTextActive());
     }
 
     private void animEq(View bar, long dur, int minDp, int maxDp) {
@@ -228,12 +304,17 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RadioGroupAdapter.VH
     @SuppressWarnings("deprecation")
     private void haptic(View v) {
         try {
-            Vibrator vib = (Vibrator) v.getContext().getSystemService(android.content.Context.VIBRATOR_SERVICE);
+            Vibrator vib = (Vibrator) v.getContext()
+                .getSystemService(android.content.Context.VIBRATOR_SERVICE);
             if (vib == null || !vib.hasVibrator()) return;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 vib.vibrate(VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE));
             else vib.vibrate(12);
         } catch (Exception ignored) {}
+    }
+
+    private float dp(View v) {
+        return v.getContext().getResources().getDisplayMetrics().density;
     }
 
     @Override public int getItemCount() { return groups.size(); }

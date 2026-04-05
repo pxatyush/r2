@@ -14,40 +14,17 @@
         android:paddingLeft="16dp"
         android:paddingRight="16dp"
         android:paddingTop="20dp"
-        android:paddingBottom="12dp">
+        android:paddingBottom="10dp">
 
-        <!-- Icon row: note icon (left) + search icon (right) -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <ImageView
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:src="@drawable/ic_note"
-                android:scaleType="fitCenter"
-                android:alpha="0.65"/>
-
-            <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1"/>
-
-            <!-- 🔍 Search icon — tap to reveal search bar -->
-            <ImageView
-                android:id="@+id/btnSearch"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:src="@android:drawable/ic_menu_search"
-                android:scaleType="fitCenter"
-                android:alpha="0.6"
-                android:clickable="true"
-                android:focusable="true"
-                android:contentDescription="Search"/>
-
-        </LinearLayout>
+        <ImageView
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_note_vec"
+            android:scaleType="fitCenter"
+            android:alpha="0.65"
+            android:layout_gravity="center_horizontal"/>
 
         <TextView
-            android:id="@+id/tvSectionLabel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Radio"
@@ -68,7 +45,7 @@
             android:ellipsize="marquee"
             android:marqueeRepeatLimit="marquee_forever"/>
 
-        <!-- Volume slider (hidden by default, long-press play to show) -->
+        <!-- Volume slider (long press play to reveal) -->
         <LinearLayout
             android:id="@+id/volumeSliderContainer"
             android:layout_width="match_parent"
@@ -77,14 +54,12 @@
             android:gravity="center_vertical"
             android:paddingTop="8dp"
             android:visibility="gone">
-
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Vol"
                 android:textColor="#8888AA"
                 android:textSize="11sp"/>
-
             <SeekBar
                 android:id="@+id/radioVolumeSeek"
                 android:layout_width="0dp"
@@ -93,34 +68,22 @@
                 android:layout_marginLeft="10dp"
                 android:max="100"
                 android:progress="80"/>
-
         </LinearLayout>
 
-        <!-- Search bar (hidden by default) -->
-        <LinearLayout
-            android:id="@+id/searchBar"
+        <!-- Search bar — always visible -->
+        <EditText
+            android:id="@+id/etSearch"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingTop="10dp"
-            android:visibility="gone">
-
-            <EditText
-                android:id="@+id/etSearch"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:hint="Search stations…"
-                android:textSize="14sp"
-                android:singleLine="true"
-                android:paddingLeft="14dp"
-                android:paddingRight="14dp"
-                android:inputType="text"
-                android:imeOptions="actionSearch"
-                android:background="#1E1E2A"/>
-
-        </LinearLayout>
+            android:layout_height="40dp"
+            android:layout_marginTop="10dp"
+            android:hint="Search stations…"
+            android:textSize="14sp"
+            android:singleLine="true"
+            android:paddingLeft="14dp"
+            android:paddingRight="14dp"
+            android:inputType="text"
+            android:imeOptions="actionSearch"
+            android:background="#1E1E2A"/>
 
     </LinearLayout>
 
@@ -134,7 +97,7 @@
         android:layout_weight="1"
         android:paddingLeft="12dp"
         android:paddingRight="12dp"
-        android:paddingTop="8dp"
+        android:paddingTop="4dp"
         android:paddingBottom="16dp"
         android:clipToPadding="false"
         android:overScrollMode="never"/>
