@@ -14,10 +14,11 @@
   "nav": {
     "bg": "#0D0D14",
     "selected": "#FFFFFF",
-    "unselected": "#44445A"
+    "unselected": "#44445A",
+    "label_selected": "#FFFFFF",
+    "label_unselected": "#44445A"
   },
   "home": {
-    "page_title": "#FFFFFF",
     "section_title": "#FFFFFF",
     "card_bg": "#16161F",
     "chip_playing_bg": "#28265A",
@@ -26,13 +27,12 @@
     "empty_text": "#44445A"
   },
   "radio": {
-    "page_title": "#FFFFFF",
     "station_bg": "#1E1E2A",
     "station_bg_active": "#2A1E4A",
     "station_border_active": "#6C63FF",
-    "station_click_glow": "#6C63FF",
     "station_text": "#FFFFFF",
     "station_text_active": "#6C63FF",
+    "station_click_glow": "#6C63FF",
     "eq_bar": "#6C63FF",
     "group_name_text": "#6C63FF",
     "group_name_collapsed_text": "#8888AA",
@@ -41,13 +41,13 @@
     "search_hint": "#8888AA"
   },
   "sounds": {
-    "page_title": "#FFFFFF",
     "btn_bg": "#1A1A26",
     "btn_active_bg": "#28265A",
     "btn_border_active": "#6C63FF",
     "btn_click_glow": "#6C63FF",
     "btn_text": "#FFFFFF",
     "wave_color": "#6C63FF",
+    "wave_opacity_hex": "5A",
     "vol_bar_track": "#44FFFFFF",
     "vol_bar_fill": "#FFFFFF",
     "stop_all_bg": "#1E1E2A",
@@ -60,7 +60,6 @@
     "stop_text": "#FFFFFF"
   },
   "settings": {
-    "page_title": "#FFFFFF",
     "card_bg": "#16161F",
     "card_border": "#22223A",
     "label_text": "#FFFFFF",
@@ -75,17 +74,17 @@
     "btn_text": "#FFFFFF",
     "about_text": "#6C63FF",
     "divider": "#22223A",
-    "switch_thumb": "#6C63FF",
-    "switch_track": "#3D3880"
+    "made_by_text": "#44445A",
+    "made_by_brand": "#6C63FF"
   },
-  "about": {
+  "onboarding": {
     "bg": "#0D0D14",
-    "title": "#FFFFFF",
-    "text": "#CCCCCC",
-    "accent": "#6C63FF"
-  },
-  "notification": {
-    "bg": "#1A1A26",
-    "icon_bg": "#6C63FF"
+    "title_text": "#FFFFFF",
+    "subtitle_text": "#8888AA",
+    "body_text": "#CCCCCC",
+    "btn_bg": "#6C63FF",
+    "btn_text": "#FFFFFF",
+    "accent_line": "#6C63FF",
+    "credit_text": "#44445A"
   }
 }

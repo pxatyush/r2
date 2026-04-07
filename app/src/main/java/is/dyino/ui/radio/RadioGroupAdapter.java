@@ -158,25 +158,38 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RadioGroupAdapter.VH
         boolean    isArch   = "__ARCHIVED__".equals(gName);
         boolean    expanded = Boolean.TRUE.equals(expandedMap.get(gName));
 
-        // Group header
+        // Label
         if (isArch) {
-            h.tvGroupName.setText(expanded ? "Archived ▴" : "Archived ▾");
-            h.tvGroupName.setTextColor(colors.textSecondary());
+            h.tvGroupLabel.setText("Archived");
+            h.tvGroupLabel.setTextColor(colors.textSecondary());
+            h.tvGroupLabel.setLetterSpacing(0.08f);
         } else {
-            h.tvGroupName.setText(gName + (expanded ? "  ▴" : "  ▾"));
-            h.tvGroupName.setTextColor(expanded
+            h.tvGroupLabel.setText(gName.toUpperCase());
+            h.tvGroupLabel.setTextColor(expanded
                 ? colors.radioGroupNameText() : colors.radioGroupCollapsed());
+            h.tvGroupLabel.setLetterSpacing(0.10f);
         }
-        h.tvGroupName.setTextSize(15f);
+        h.tvGroupLabel.setTextSize(11f);
+
+        // Arrow rotates to indicate expand state
+        if (h.tvGroupArrow != null) {
+            h.tvGroupArrow.setText("›");
+            h.tvGroupArrow.setRotation(expanded ? 90f : 0f);
+            h.tvGroupArrow.setTextColor(expanded ? colors.radioGroupNameText() : colors.radioGroupCollapsed());
+        }
 
         h.stationsContainer.setBackground(null);
         h.stationsContainer.setPadding(0, 0, 0, 0);
         h.stationsContainer.removeAllViews();
         h.stationsContainer.setVisibility(expanded ? View.VISIBLE : View.GONE);
 
-        h.tvGroupName.setOnClickListener(v -> {
+        h.headerRow.setOnClickListener(v -> {
             haptic(v);
-            expandedMap.put(gName, !Boolean.TRUE.equals(expandedMap.get(gName)));
+            boolean nowExpanded = !Boolean.TRUE.equals(expandedMap.get(gName));
+            expandedMap.put(gName, nowExpanded);
+            // Animate arrow
+            if (h.tvGroupArrow != null)
+                h.tvGroupArrow.animate().rotation(nowExpanded ? 90f : 0f).setDuration(180).start();
             notifyItemChanged(pos);
         });
 
@@ -317,8 +330,7 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RadioGroupAdapter.VH
                 VibratorManager vm = (VibratorManager) v.getContext()
                     .getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE);
                 if (vm != null) {
-                    vm.getDefaultVibrator().vibrate(
-                        VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE));
+                    vm.getDefaultVibrator().vibrate(VibrationEffect.createOneShot(18, 200));
                     return;
                 }
             }
@@ -327,8 +339,8 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RadioGroupAdapter.VH
                 .getSystemService(android.content.Context.VIBRATOR_SERVICE);
             if (vib == null || !vib.hasVibrator()) return;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                vib.vibrate(VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE));
-            else vib.vibrate(12);
+                vib.vibrate(VibrationEffect.createOneShot(18, 200));
+            else vib.vibrate(18);
         } catch (Exception ignored) {}
     }
 
@@ -337,7 +349,15 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RadioGroupAdapter.VH
     @Override public int getItemCount() { return groups.size(); }
 
     static class VH extends RecyclerView.ViewHolder {
-        TextView tvGroupName; LinearLayout stationsContainer;
-        VH(View v) { super(v); tvGroupName=v.findViewById(R.id.tvGroupName); stationsContainer=v.findViewById(R.id.stationsContainer); }
+        View         headerRow;
+        TextView     tvGroupLabel, tvGroupArrow;
+        LinearLayout stationsContainer;
+        VH(View v) {
+            super(v);
+            headerRow        = v.findViewById(R.id.tvGroupName);  // the clickable LinearLayout
+            tvGroupLabel     = v.findViewById(R.id.tvGroupLabel);
+            tvGroupArrow     = v.findViewById(R.id.tvGroupArrow);
+            stationsContainer= v.findViewById(R.id.stationsContainer);
+        }
     }
 }

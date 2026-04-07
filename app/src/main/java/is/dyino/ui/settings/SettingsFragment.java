@@ -20,7 +20,6 @@ import java.io.IOException;
 import is.dyino.R;
 import is.dyino.util.AppPrefs;
 import is.dyino.util.ColorConfig;
-import is.dyino.util.SettingsConfig;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.OkHttpClient;
@@ -29,24 +28,21 @@ import okhttp3.Response;
 
 public class SettingsFragment extends Fragment {
 
-    private AppPrefs       prefs;
-    private ColorConfig    colors;
-    private SettingsConfig cfg;
+    private AppPrefs    prefs;
+    private ColorConfig colors;
 
     public interface OnSettingsChanged {
         void onThemeChanged();
         void onButtonSoundChanged(boolean enabled);
-        void onAboutClicked();
     }
     private OnSettingsChanged listener;
     public void setListener(OnSettingsChanged l) { this.listener = l; }
 
-    private View         rootView;
     private SwitchCompat swHaptic, swBtnSound, swPersistent;
-    private EditText     etColorCfg, etSettingsCfg, etStationUrl, etCountry;
-    private TextView     btnSaveColor, btnSaveSettings, btnFetch, tvFetchStatus, btnSaveCountry;
-    private TextView     tvCountryNote, btnAbout, tvVersion;
-    private LinearLayout cardToggles, cardTheme, cardAdvanced, cardStations;
+    private EditText     etColorCfg, etStationUrl, etCountry;
+    private TextView     btnSaveColor, btnFetch, tvFetchStatus, btnSaveCountry;
+    private TextView     tvCountryNote, tvVersion, tvMadeBy;
+    private LinearLayout cardToggles, cardTheme, cardStations;
     private View         dividerSettings;
     private TextView     tvSettingsTitle;
 
@@ -58,39 +54,32 @@ public class SettingsFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        rootView = view;
-        prefs    = new AppPrefs(requireContext());
-        colors   = new ColorConfig(requireContext());
-        cfg      = new SettingsConfig(requireContext());
+        prefs  = new AppPrefs(requireContext());
+        colors = new ColorConfig(requireContext());
 
         tvSettingsTitle = view.findViewById(R.id.tvSettingsTitle);
         dividerSettings = view.findViewById(R.id.settingsDivider);
         cardToggles     = view.findViewById(R.id.cardToggles);
         cardTheme       = view.findViewById(R.id.cardTheme);
-        cardAdvanced    = view.findViewById(R.id.cardAdvanced);
         cardStations    = view.findViewById(R.id.cardStations);
         swHaptic        = view.findViewById(R.id.switchHaptic);
         swBtnSound      = view.findViewById(R.id.switchButtonSound);
         swPersistent    = view.findViewById(R.id.switchPersistent);
         etColorCfg      = view.findViewById(R.id.etColorCfg);
         btnSaveColor    = view.findViewById(R.id.btnSaveColors);
-        etSettingsCfg   = view.findViewById(R.id.etSettingsCfg);
-        btnSaveSettings = view.findViewById(R.id.btnSaveSettings);
         etCountry       = view.findViewById(R.id.etCountry);
         btnSaveCountry  = view.findViewById(R.id.btnSaveCountry);
         tvCountryNote   = view.findViewById(R.id.tvCountryNote);
         etStationUrl    = view.findViewById(R.id.etStationUrl);
         btnFetch        = view.findViewById(R.id.btnFetchStations);
         tvFetchStatus   = view.findViewById(R.id.tvFetchStatus);
-        btnAbout        = view.findViewById(R.id.btnAbout);
+        tvMadeBy        = view.findViewById(R.id.tvMadeBy);
         tvVersion       = view.findViewById(R.id.tvVersion);
 
-        // Init
         swHaptic.setChecked(prefs.isHapticEnabled());
         swBtnSound.setChecked(prefs.isButtonSoundEnabled());
         swPersistent.setChecked(prefs.isPersistentPlayingEnabled());
         etColorCfg.setText(colors.readRaw());
-        etSettingsCfg.setText(cfg.readRaw());
         etCountry.setText(prefs.getRadioCountry());
 
         swHaptic.setOnCheckedChangeListener((b, v) -> prefs.setHapticEnabled(v));
@@ -104,11 +93,6 @@ public class SettingsFragment extends Fragment {
             colors.saveRaw(etColorCfg.getText().toString());
             if (listener != null) listener.onThemeChanged();
             Toast.makeText(requireContext(), "Theme saved", Toast.LENGTH_SHORT).show();
-        });
-
-        btnSaveSettings.setOnClickListener(v -> {
-            cfg.saveRaw(etSettingsCfg.getText().toString());
-            Toast.makeText(requireContext(), "Layout settings saved — restart to apply", Toast.LENGTH_SHORT).show();
         });
 
         btnSaveCountry.setOnClickListener(v -> {
@@ -126,8 +110,6 @@ public class SettingsFragment extends Fragment {
             tvFetchStatus.setText("Fetching…");
             fetchAndMerge(url);
         });
-
-        btnAbout.setOnClickListener(v -> { if (listener != null) listener.onAboutClicked(); });
 
         applyTheme(view);
     }
@@ -162,7 +144,6 @@ public class SettingsFragment extends Fragment {
 
         styleCard(cardToggles);
         styleCard(cardTheme);
-        styleCard(cardAdvanced);
         styleCard(cardStations);
 
         lbl(root.findViewById(R.id.tvToggleHeader));
@@ -171,24 +152,20 @@ public class SettingsFragment extends Fragment {
         lbl(root.findViewById(R.id.tvPersistentLabel));
         sub(root.findViewById(R.id.tvPersistentSub));
         lbl(root.findViewById(R.id.tvThemeHeader));
-        lbl(root.findViewById(R.id.tvAdvancedHeader));
-        lbl(root.findViewById(R.id.tvAdvancedNote));
         lbl(root.findViewById(R.id.tvCountryHeader));
         lbl(root.findViewById(R.id.tvCountryNote));
         lbl(root.findViewById(R.id.tvStationsHeader));
 
         styleInput(etColorCfg);
-        styleInput(etSettingsCfg);
         styleInput(etCountry);
         styleInput(etStationUrl);
         styleBtn(btnSaveColor);
-        styleBtn(btnSaveSettings);
         styleBtn(btnSaveCountry);
         styleBtn(btnFetch);
 
         if (tvFetchStatus != null) tvFetchStatus.setTextColor(colors.textSettingsHint());
-        if (btnAbout      != null) btnAbout.setTextColor(colors.settingsAboutText());
         if (tvVersion     != null) tvVersion.setTextColor(colors.textSettingsVersion());
+        if (tvMadeBy      != null) applyMadeByColors();
     }
 
     private void styleCard(View card) {
@@ -225,6 +202,16 @@ public class SettingsFragment extends Fragment {
     }
     private void sub(View v) {
         if (v instanceof TextView) ((TextView)v).setTextColor(colors.textSettingsHint());
+    }
+
+    private void applyMadeByColors() {
+        if (tvMadeBy == null) return;
+        android.text.SpannableString ss = new android.text.SpannableString("Made by pxatyush");
+        ss.setSpan(new android.text.style.ForegroundColorSpan(colors.settingsMadeByText()),
+                   0, 8, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        ss.setSpan(new android.text.style.ForegroundColorSpan(colors.settingsMadeByBrand()),
+                   8, ss.length(), android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        tvMadeBy.setText(ss);
     }
 
     private float density() { return getResources().getDisplayMetrics().density; }

@@ -53,6 +53,8 @@ public class ColorConfig {
     public int bgNav()            { return color("nav","bg",        "#0D0D14"); }
     public int navSelected()      { return color("nav","selected",  "#FFFFFF"); }
     public int navUnselected()    { return color("nav","unselected","#44445A"); }
+    public int navLabelSelected() { return color("nav","label_selected","#FFFFFF"); }
+    public int navLabelUnselected(){ return color("nav","label_unselected","#44445A"); }
 
     // ── Home ─────────────────────────────────────────────────────
     public int homeSectionTitle() { return color("home","section_title",      "#FFFFFF"); }
@@ -119,6 +121,8 @@ public class ColorConfig {
     public int settingsPageTitle()   { return color("settings","page_title",  "#FFFFFF"); }
     public int settingsSwitchThumb() { return color("settings","switch_thumb","#6C63FF"); }
     public int settingsSwitchTrack() { return color("settings","switch_track","#3D3880"); }
+    public int settingsMadeByText()  { return color("settings","made_by_text","#44445A"); }
+    public int settingsMadeByBrand() { return color("settings","made_by_brand","#6C63FF"); }
 
     // ── About ─────────────────────────────────────────────────────
     public int aboutBg()          { return color("about","bg",          "#0D0D14"); }

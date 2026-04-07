@@ -198,51 +198,21 @@
 
             </LinearLayout>
 
-            <!-- ── Advanced Settings (settings.json) ── -->
-            <LinearLayout android:id="@+id/cardAdvanced"
+            <!-- Made by -->
+            <TextView android:id="@+id/tvMadeBy"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp" android:layout_marginBottom="12dp">
-
-                <TextView android:id="@+id/tvAdvancedHeader"
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="ADVANCED SETTINGS  (settings.json)"
-                    android:textColor="#8888AA" android:textSize="11sp" android:letterSpacing="0.1"
-                    android:paddingBottom="6dp"/>
-
-                <TextView android:id="@+id/tvAdvancedNote"
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Layout, button sizes, nav style, columns, corner radius and more."
-                    android:textColor="#8888AA" android:textSize="12sp" android:paddingBottom="10dp"/>
-
-                <EditText android:id="@+id/etSettingsCfg"
-                    android:layout_width="match_parent" android:layout_height="200dp"
-                    android:textSize="12sp" android:padding="10dp"
-                    android:inputType="textMultiLine" android:gravity="top|start"
-                    android:fontFamily="monospace" android:scrollbars="vertical"/>
-
-                <TextView android:id="@+id/btnSaveSettings"
-                    android:layout_width="wrap_content" android:layout_height="40dp"
-                    android:text="Save Settings" android:textSize="13sp" android:gravity="center"
-                    android:paddingLeft="20dp" android:paddingRight="20dp"
-                    android:layout_marginTop="8dp"
-                    android:clickable="true" android:focusable="true"/>
-
-            </LinearLayout>
-
-            <!-- About -->
-            <TextView android:id="@+id/btnAbout"
-                android:layout_width="match_parent" android:layout_height="56dp"
-                android:text="About dyino"
-                android:textColor="#6C63FF" android:textSize="14sp"
-                android:gravity="center_vertical" android:paddingLeft="16dp"
-                android:clickable="true" android:focusable="true"
-                android:layout_marginBottom="8dp"/>
+                android:text="Made by pxatyush"
+                android:textSize="13sp"
+                android:gravity="center"
+                android:paddingTop="8dp"
+                android:paddingBottom="4dp"
+                android:layout_marginBottom="4dp"/>
 
             <TextView android:id="@+id/tvVersion"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:text="dyino  v1.0"
-                android:textColor="#44445A" android:textSize="11sp" android:gravity="center"/>
+                android:textColor="#44445A" android:textSize="11sp" android:gravity="center"
+                android:paddingBottom="8dp"/>
 
         </LinearLayout>
 

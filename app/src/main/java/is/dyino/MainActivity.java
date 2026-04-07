@@ -22,7 +22,6 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import is.dyino.service.AudioService;
-import is.dyino.ui.about.AboutFragment;
 import is.dyino.ui.home.HomeFragment;
 import is.dyino.ui.radio.RadioFragment;
 import is.dyino.ui.settings.SettingsFragment;
@@ -38,13 +37,12 @@ public class MainActivity extends AppCompatActivity {
     private boolean      serviceBound = false;
 
     private TextView    navHomeText, navRadioText, navSoundsText, navSettingsText;
-    private FrameLayout fragmentHome, fragmentRadio, fragmentSounds, fragmentSettings, fragmentAbout;
+    private FrameLayout fragmentHome, fragmentRadio, fragmentSounds, fragmentSettings;
 
     private HomeFragment     homeFragment;
     private RadioFragment    radioFragment;
     private SoundsFragment   soundsFragment;
     private SettingsFragment settingsFragment;
-    private AboutFragment    aboutFragment;
 
     private AppPrefs    prefs;
     private ColorConfig colors;
@@ -85,20 +83,17 @@ public class MainActivity extends AppCompatActivity {
         fragmentRadio   = findViewById(R.id.fragmentRadio);
         fragmentSounds  = findViewById(R.id.fragmentSounds);
         fragmentSettings= findViewById(R.id.fragmentSettings);
-        fragmentAbout   = findViewById(R.id.fragmentAbout);
 
         homeFragment     = new HomeFragment();
         radioFragment    = new RadioFragment();
         soundsFragment   = new SoundsFragment();
         settingsFragment = new SettingsFragment();
-        aboutFragment    = new AboutFragment();
 
         settingsFragment.setListener(new SettingsFragment.OnSettingsChanged() {
             @Override public void onThemeChanged() {
                 colors = new ColorConfig(MainActivity.this);
-                // Re-apply everything including nav colors
                 applyWindowColors();
-                applyNavColors();              // ← FIX: was missing
+                applyNavColors();
                 homeFragment.refreshTheme();
                 radioFragment.refresh();
                 soundsFragment.refresh();
@@ -107,17 +102,13 @@ public class MainActivity extends AppCompatActivity {
             @Override public void onButtonSoundChanged(boolean en) {
                 if (audioService != null) audioService.setButtonSoundEnabled(en);
             }
-            @Override public void onAboutClicked() { showAbout(); }
         });
-
-        aboutFragment.setOnBackListener(() -> switchTab(currentTab));
 
         getSupportFragmentManager().beginTransaction()
                 .add(R.id.fragmentHome,     homeFragment)
                 .add(R.id.fragmentRadio,    radioFragment)
                 .add(R.id.fragmentSounds,   soundsFragment)
                 .add(R.id.fragmentSettings, settingsFragment)
-                .add(R.id.fragmentAbout,    aboutFragment)
                 .commit();
 
         findViewById(R.id.navHome).setOnClickListener(v     -> { doHaptic(); doClick(); switchTab(0); });
@@ -125,6 +116,7 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.navSounds).setOnClickListener(v   -> { doHaptic(); doClick(); switchTab(2); });
         findViewById(R.id.navSettings).setOnClickListener(v -> { doHaptic(); doClick(); switchTab(3); });
 
+        applyNavColors();   // ← persist nav colors on every cold start
         switchTab(0);
     }
 
@@ -143,22 +135,12 @@ public class MainActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(req, perms, res);
     }
 
-    private void showAbout() {
-        fragmentHome.setVisibility(View.GONE);
-        fragmentRadio.setVisibility(View.GONE);
-        fragmentSounds.setVisibility(View.GONE);
-        fragmentSettings.setVisibility(View.GONE);
-        fragmentAbout.setVisibility(View.VISIBLE);
-        setNavSelected(-1);
-    }
-
     private void switchTab(int tab) {
         currentTab = tab;
         fragmentHome.setVisibility(tab == 0     ? View.VISIBLE : View.GONE);
         fragmentRadio.setVisibility(tab == 1    ? View.VISIBLE : View.GONE);
         fragmentSounds.setVisibility(tab == 2   ? View.VISIBLE : View.GONE);
         fragmentSettings.setVisibility(tab == 3 ? View.VISIBLE : View.GONE);
-        fragmentAbout.setVisibility(View.GONE);
         setNavSelected(tab);
 
         if (tab == 0 && serviceBound && audioService != null) {
@@ -172,8 +154,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setNavSelected(int tab) {
-        int sel   = colors.navSelected();
-        int unsel = colors.navUnselected();
+        int sel   = colors.navLabelSelected();
+        int unsel = colors.navLabelUnselected();
         if (navHomeText     != null) { navHomeText.setTextColor(tab==0 ? sel:unsel);     navHomeText.setTextSize(tab==0 ? 13f:11f); }
         if (navRadioText    != null) { navRadioText.setTextColor(tab==1 ? sel:unsel);    navRadioText.setTextSize(tab==1 ? 13f:11f); }
         if (navSoundsText   != null) { navSoundsText.setTextColor(tab==2 ? sel:unsel);   navSoundsText.setTextSize(tab==2 ? 13f:11f); }
@@ -205,8 +187,7 @@ public class MainActivity extends AppCompatActivity {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 VibratorManager vm = (VibratorManager) getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
                 if (vm != null) {
-                    vm.getDefaultVibrator().vibrate(
-                        VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE));
+                    vm.getDefaultVibrator().vibrate(VibrationEffect.createOneShot(18, 200));
                     return;
                 }
             }
@@ -214,8 +195,8 @@ public class MainActivity extends AppCompatActivity {
             Vibrator vib = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
             if (vib == null || !vib.hasVibrator()) return;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                vib.vibrate(VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE));
-            else vib.vibrate(12);
+                vib.vibrate(VibrationEffect.createOneShot(18, 200));
+            else vib.vibrate(18);
         } catch (Exception ignored) {}
     }
 

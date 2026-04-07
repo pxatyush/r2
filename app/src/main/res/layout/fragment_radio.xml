@@ -70,20 +70,41 @@
                 android:progress="80"/>
         </LinearLayout>
 
-        <!-- Search bar — always visible -->
-        <EditText
-            android:id="@+id/etSearch"
+        <!-- Search + filter button row -->
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="40dp"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
             android:layout_marginTop="10dp"
-            android:hint="Search stations…"
-            android:textSize="14sp"
-            android:singleLine="true"
-            android:paddingLeft="14dp"
-            android:paddingRight="14dp"
-            android:inputType="text"
-            android:imeOptions="actionSearch"
-            android:background="#1E1E2A"/>
+            android:gravity="center_vertical">
+
+            <EditText
+                android:id="@+id/etSearch"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:hint="Search stations…"
+                android:textSize="14sp"
+                android:singleLine="true"
+                android:paddingLeft="14dp"
+                android:paddingRight="14dp"
+                android:inputType="text"
+                android:imeOptions="actionSearch"
+                android:background="#1E1E2A"/>
+
+            <TextView
+                android:id="@+id/btnCategoryFilter"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:text="⋮"
+                android:textSize="22sp"
+                android:gravity="center"
+                android:layout_marginStart="8dp"
+                android:textColor="#8888AA"
+                android:clickable="true"
+                android:focusable="true"/>
+
+        </LinearLayout>
 
     </LinearLayout>
 

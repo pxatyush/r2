@@ -175,6 +175,8 @@ public class SoundsFragment extends Fragment {
                     sound.setVolume(nv);
                     if (audioService != null) audioService.setSoundVolume(sound.getFileName(), nv);
                     updateFill(volFill, volOverlay, nv);
+                    // Live-update the wave fill behind the overlay
+                    if (wave != null && wave.isWaving()) wave.setVolume(nv);
                     if (disc[0] != null) mainHandler.removeCallbacks(disc[0]);
                     schedule(disc, volOverlay, wave, sound, volOn);
                     return true;
@@ -331,8 +333,7 @@ public class SoundsFragment extends Fragment {
                 VibratorManager vm = (VibratorManager) requireContext()
                     .getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE);
                 if (vm != null) {
-                    vm.getDefaultVibrator().vibrate(
-                        VibrationEffect.createOneShot(14, VibrationEffect.DEFAULT_AMPLITUDE));
+                    vm.getDefaultVibrator().vibrate(VibrationEffect.createOneShot(18, 200));
                     return;
                 }
             }
@@ -341,8 +342,8 @@ public class SoundsFragment extends Fragment {
                 .getSystemService(android.content.Context.VIBRATOR_SERVICE);
             if (vib == null || !vib.hasVibrator()) return;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                vib.vibrate(VibrationEffect.createOneShot(14, VibrationEffect.DEFAULT_AMPLITUDE));
-            else vib.vibrate(14);
+                vib.vibrate(VibrationEffect.createOneShot(18, 200));
+            else vib.vibrate(18);
         } catch (Exception ignored) {}
     }
 

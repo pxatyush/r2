@@ -25,6 +25,7 @@ public class AppPrefs {
     private static final String RADIO_CACHE_TIME = "radio_cache_time";
     private static final String PERSISTENT_PLAY  = "persistent_playing";
     private static final String GROUP_ORDER      = "radio_group_order";  // comma-separated names
+    private static final String HIDDEN_CATS      = "hidden_categories";
     private static final long   CACHE_TTL_MS     = 7L * 24 * 60 * 60 * 1000;
 
     // Asset paths for config files
@@ -107,4 +108,9 @@ public class AppPrefs {
 
     public static String   stationKey(String n, String u, String g) { return n + "||" + u + "||" + g; }
     public static String[] splitKey(String key) { return key.split("\\|\\|", 3); }
+
+    // ── Hidden categories ─────────────────────────────────────────
+    public Set<String> getHiddenCategories()          { return new HashSet<>(sp.getStringSet(HIDDEN_CATS, new HashSet<>())); }
+    public void setHiddenCategories(Set<String> cats) { sp.edit().putStringSet(HIDDEN_CATS, cats).apply(); }
+    public boolean isCategoryHidden(String name)      { return getHiddenCategories().contains(name); }
 }
