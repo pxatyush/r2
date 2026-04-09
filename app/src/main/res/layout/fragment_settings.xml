@@ -18,7 +18,7 @@
             android:id="@+id/ivSettingsIcon"
             android:layout_width="36dp" android:layout_height="36dp"
             android:src="@drawable/ic_note_vec"
-            android:scaleType="fitCenter" android:alpha="0.70"
+            android:scaleType="fitCenter" android:alpha="0.80"
             android:layout_marginEnd="12dp"/>
 
         <LinearLayout
@@ -38,7 +38,6 @@
                 android:textColor="#8888AA" android:textSize="13sp" android:paddingTop="2dp"/>
 
         </LinearLayout>
-
     </LinearLayout>
 
     <View android:id="@+id/settingsDivider"
@@ -130,41 +129,50 @@
                     android:textColor="#8888AA" android:textSize="11sp" android:letterSpacing="0.1"
                     android:paddingBottom="10dp"/>
 
-                <!-- Horizontal scrollable preset buttons -->
+                <!-- Horizontally scrollable preset buttons row -->
                 <HorizontalScrollView
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:scrollbars="none" android:overScrollMode="never">
+                    android:scrollbars="none" android:overScrollMode="never"
+                    android:paddingBottom="2dp">
 
                     <LinearLayout
                         android:id="@+id/themePresetsContainer"
                         android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:paddingBottom="2dp"/>
+                        android:orientation="horizontal"/>
 
                 </HorizontalScrollView>
 
-                <View android:layout_width="match_parent" android:layout_height="1dp"
-                    android:background="#22223A"
-                    android:layout_marginTop="12dp" android:layout_marginBottom="12dp"/>
-
-                <TextView android:id="@+id/tvThemeHeader"
+                <!-- Custom JSON editor — hidden until "Custom ✎" is tapped -->
+                <LinearLayout
+                    android:id="@+id/customEditorWrap"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="THEME  (color.json)"
-                    android:textColor="#8888AA" android:textSize="11sp" android:letterSpacing="0.1"
-                    android:paddingBottom="10dp"/>
+                    android:orientation="vertical"
+                    android:visibility="gone">
 
-                <EditText android:id="@+id/etColorCfg"
-                    android:layout_width="match_parent" android:layout_height="220dp"
-                    android:textSize="12sp" android:padding="10dp"
-                    android:inputType="textMultiLine" android:gravity="top|start"
-                    android:fontFamily="monospace" android:scrollbars="vertical"/>
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:background="#22223A"
+                        android:layout_marginTop="12dp" android:layout_marginBottom="12dp"/>
 
-                <TextView android:id="@+id/btnSaveColors"
-                    android:layout_width="wrap_content" android:layout_height="40dp"
-                    android:text="Save Theme" android:textSize="13sp" android:gravity="center"
-                    android:paddingLeft="20dp" android:paddingRight="20dp"
-                    android:layout_marginTop="8dp"
-                    android:clickable="true" android:focusable="true"/>
+                    <TextView android:id="@+id/tvThemeHeader"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:text="CUSTOM  (color.json)"
+                        android:textColor="#8888AA" android:textSize="11sp" android:letterSpacing="0.1"
+                        android:paddingBottom="10dp"/>
+
+                    <EditText android:id="@+id/etColorCfg"
+                        android:layout_width="match_parent" android:layout_height="220dp"
+                        android:textSize="12sp" android:padding="10dp"
+                        android:inputType="textMultiLine" android:gravity="top|start"
+                        android:fontFamily="monospace" android:scrollbars="vertical"/>
+
+                    <TextView android:id="@+id/btnSaveColors"
+                        android:layout_width="wrap_content" android:layout_height="40dp"
+                        android:text="Save Custom Theme" android:textSize="13sp" android:gravity="center"
+                        android:paddingLeft="20dp" android:paddingRight="20dp"
+                        android:layout_marginTop="8dp"
+                        android:clickable="true" android:focusable="true"/>
+
+                </LinearLayout>
 
             </LinearLayout>
 
@@ -201,7 +209,7 @@
 
             </LinearLayout>
 
-            <!-- ── Advanced (Merge URL) ── -->
+            <!-- ── Advanced ── -->
             <LinearLayout android:id="@+id/cardAdvanced"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="vertical"
@@ -239,7 +247,7 @@
 
             </LinearLayout>
 
-            <!-- Made by -->
+            <!-- Made by / version -->
             <TextView android:id="@+id/tvMadeBy"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:text="Made by pxatyush"
@@ -253,7 +261,6 @@
                 android:paddingBottom="8dp"/>
 
         </LinearLayout>
-
     </androidx.core.widget.NestedScrollView>
 
 </LinearLayout>

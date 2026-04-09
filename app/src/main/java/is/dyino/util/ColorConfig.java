@@ -48,6 +48,8 @@ public class ColorConfig {
     public int textSecondary()    { return color("global","text_secondary",  "#8888AA"); }
     public int textSectionTitle() { return color("global","text_section_title","#FFFFFF"); }
     public int iconNoteColor()    { return color("global","icon_note_color", "#6C63FF"); }
+    /** Tint applied to ic_note_vec vector drawable everywhere */
+    public int iconNoteVecTint()  { return color("global","icon_note_vec_tint","#6C63FF"); }
 
     // ── Nav ──────────────────────────────────────────────────────
     public int bgNav()             { return color("nav","bg",                "#0D0D14"); }
@@ -57,14 +59,18 @@ public class ColorConfig {
     public int navLabelUnselected(){ return color("nav","label_unselected",  "#44445A"); }
 
     // ── Home ─────────────────────────────────────────────────────
-    public int homeSectionTitle() { return color("home","section_title",      "#FFFFFF"); }
-    public int homeCardBg()       { return color("home","card_bg",            "#16161F"); }
-    public int homeChipPlayBg()   { return color("home","chip_playing_bg",    "#28265A"); }
-    public int homeChipBorder()   { return color("home","chip_playing_border","#6C63FF"); }
-    public int homeChipText()     { return color("home","chip_text",          "#FFFFFF"); }
-    public int homeEmptyText()    { return color("home","empty_text",         "#44445A"); }
-    public int homePageTitle()    { return color("home","page_title",         "#FFFFFF"); }
-    public int nowPlayingAnimColor(){ return color("home","now_playing_anim", "#6C63FF"); }
+    public int homeSectionTitle()     { return color("home","section_title",          "#FFFFFF"); }
+    public int homeCardBg()           { return color("home","card_bg",                "#16161F"); }
+    public int homeChipPlayBg()       { return color("home","chip_playing_bg",        "#28265A"); }
+    public int homeChipBorder()       { return color("home","chip_playing_border",    "#6C63FF"); }
+    public int homeChipText()         { return color("home","chip_text",              "#FFFFFF"); }
+    public int homeEmptyText()        { return color("home","empty_text",             "#44445A"); }
+    public int homePageTitle()        { return color("home","page_title",             "#FFFFFF"); }
+    public int nowPlayingAnimColor()  { return color("home","now_playing_anim",       "#6C63FF"); }
+    public int nowPlayingCardBg()     { return color("home","now_playing_card_bg",    "#1E1A3A"); }
+    public int nowPlayingCardBorder() { return color("home","now_playing_card_border","#6C63FF"); }
+    public int nowPlayingIconBg()     { return color("home","now_playing_icon_bg",    "#28265A"); }
+    public int nowPlayingIconTint()   { return color("home","now_playing_icon_tint",  "#6C63FF"); }
 
     // ── Radio ────────────────────────────────────────────────────
     public int stationBg()           { return color("radio","station_bg",              "#1E1E2A"); }
@@ -81,7 +87,6 @@ public class ColorConfig {
     public int radioSearchHint()     { return color("radio","search_hint",             "#8888AA"); }
     public int radioPageTitle()      { return color("radio","page_title",              "#FFFFFF"); }
     public int radioCheckboxColor()  { return color("radio","checkbox_color",          "#6C63FF"); }
-    // aliases
     public int textStationActive()   { return stationTextActive(); }
     public int textAboutBrand()      { return accent(); }
     public int textLink()            { return textPrimary(); }
@@ -106,36 +111,30 @@ public class ColorConfig {
     public int btnStopText()   { return color("controls","stop_text",  "#FFFFFF"); }
 
     // ── Settings ─────────────────────────────────────────────────
-    public int bgSettingsCard()      { return color("settings","card_bg",        "#16161F"); }
-    public int settingsCardBorder()  { return color("settings","card_border",    "#22223A"); }
-    public int textSettingsLabel()   { return color("settings","label_text",     "#FFFFFF"); }
-    public int textSettingsHeader()  { return color("settings","header_text",    "#8888AA"); }
-    public int textSettingsHint()    { return color("settings","hint_text",      "#8888AA"); }
-    public int textSettingsVersion() { return color("settings","version_text",   "#44445A"); }
-    public int settingsInputBg()     { return color("settings","input_bg",       "#1E1E2A"); }
-    public int settingsInputBorder() { return color("settings","input_border",   "#22223A"); }
-    public int settingsInputText()   { return color("settings","input_text",     "#FFFFFF"); }
-    public int settingsBtnBg()       { return color("settings","btn_bg",         "#1E1E2A"); }
-    public int settingsBtnBorder()   { return color("settings","btn_border",     "#6C63FF"); }
-    public int settingsBtnText()     { return color("settings","btn_text",       "#FFFFFF"); }
-    public int settingsAboutText()   { return color("settings","about_text",     "#6C63FF"); }
-    public int settingsDivider()     { return color("settings","divider",        "#22223A"); }
-    public int settingsPageTitle()   { return color("settings","page_title",     "#FFFFFF"); }
-    /** Switch thumb when ON */
+    public int bgSettingsCard()       { return color("settings","card_bg",        "#16161F"); }
+    public int settingsCardBorder()   { return color("settings","card_border",    "#22223A"); }
+    public int textSettingsLabel()    { return color("settings","label_text",     "#FFFFFF"); }
+    public int textSettingsHeader()   { return color("settings","header_text",    "#8888AA"); }
+    public int textSettingsHint()     { return color("settings","hint_text",      "#8888AA"); }
+    public int textSettingsVersion()  { return color("settings","version_text",   "#44445A"); }
+    public int settingsInputBg()      { return color("settings","input_bg",       "#1E1E2A"); }
+    public int settingsInputBorder()  { return color("settings","input_border",   "#22223A"); }
+    public int settingsInputText()    { return color("settings","input_text",     "#FFFFFF"); }
+    public int settingsBtnBg()        { return color("settings","btn_bg",         "#1E1E2A"); }
+    public int settingsBtnBorder()    { return color("settings","btn_border",     "#6C63FF"); }
+    public int settingsBtnText()      { return color("settings","btn_text",       "#FFFFFF"); }
+    public int settingsAboutText()    { return color("settings","about_text",     "#6C63FF"); }
+    public int settingsDivider()      { return color("settings","divider",        "#22223A"); }
+    public int settingsPageTitle()    { return color("settings","page_title",     "#FFFFFF"); }
     public int settingsSwitchThumbOn()  { return color("settings","switch_thumb_on",  "#6C63FF"); }
-    /** Switch track when ON */
     public int settingsSwitchTrackOn()  { return color("settings","switch_track_on",  "#3D3880"); }
-    /** Switch thumb when OFF */
     public int settingsSwitchThumbOff() { return color("settings","switch_thumb_off", "#8888AA"); }
-    /** Switch track when OFF */
     public int settingsSwitchTrackOff() { return color("settings","switch_track_off", "#2A2A3A"); }
-    // keep legacy aliases
-    public int settingsSwitchThumb() { return settingsSwitchThumbOn(); }
-    public int settingsSwitchTrack() { return settingsSwitchTrackOn(); }
-    public int settingsMadeByText()  { return color("settings","made_by_text", "#44445A"); }
-    public int settingsMadeByBrand() { return color("settings","made_by_brand","#6C63FF"); }
-    /** Tune/note icon tint color */
-    public int tuneIconColor()       { return color("settings","tune_icon_color","#6C63FF"); }
+    public int settingsSwitchThumb()    { return settingsSwitchThumbOn(); }
+    public int settingsSwitchTrack()    { return settingsSwitchTrackOn(); }
+    public int settingsMadeByText()     { return color("settings","made_by_text",  "#44445A"); }
+    public int settingsMadeByBrand()    { return color("settings","made_by_brand", "#6C63FF"); }
+    public int tuneIconColor()          { return color("settings","tune_icon_color","#6C63FF"); }
 
     // ── About ─────────────────────────────────────────────────────
     public int aboutBg()     { return color("about","bg",     "#0D0D14"); }
@@ -150,7 +149,7 @@ public class ColorConfig {
     // ── Persist ──────────────────────────────────────────────────
     public void saveRaw(String raw) {
         try {
-            new JSONObject(raw); // validate
+            new JSONObject(raw);
             FileWriter fw = new FileWriter(new File(ctx.getFilesDir(), FILE));
             fw.write(raw); fw.close();
         } catch (Exception e) { Log.e(TAG, "saveRaw", e); }

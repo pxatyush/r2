@@ -9,7 +9,8 @@
     "text_primary": "#FFFFFF",
     "text_secondary": "#8888AA",
     "text_section_title": "#FFFFFF",
-    "icon_note_color": "#6C63FF"
+    "icon_note_color": "#6C63FF",
+    "icon_note_vec_tint": "#6C63FF"
   },
   "nav": {
     "bg": "#0D0D14",
@@ -26,7 +27,11 @@
     "chip_text": "#FFFFFF",
     "empty_text": "#44445A",
     "page_title": "#FFFFFF",
-    "now_playing_anim": "#6C63FF"
+    "now_playing_anim": "#6C63FF",
+    "now_playing_card_bg": "#1E1A3A",
+    "now_playing_card_border": "#6C63FF",
+    "now_playing_icon_bg": "#28265A",
+    "now_playing_icon_tint": "#6C63FF"
   },
   "radio": {
     "station_bg": "#1E1E2A",

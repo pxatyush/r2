@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.graphics.PorterDuff;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -14,6 +15,7 @@ import android.os.Vibrator;
 import android.os.VibratorManager;
 import android.view.View;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -49,8 +51,7 @@ public class MainActivity extends AppCompatActivity {
     private int         currentTab = 0;
 
     private final ServiceConnection conn = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName n, IBinder b) {
+        @Override public void onServiceConnected(ComponentName n, IBinder b) {
             audioService = ((AudioService.LocalBinder) b).getService();
             serviceBound  = true;
             homeFragment.setAudioService(audioService);
@@ -58,8 +59,7 @@ public class MainActivity extends AppCompatActivity {
             soundsFragment.setAudioService(audioService);
             audioService.setButtonSoundEnabled(prefs.isButtonSoundEnabled());
         }
-        @Override
-        public void onServiceDisconnected(ComponentName n) { serviceBound = false; }
+        @Override public void onServiceDisconnected(ComponentName n) { serviceBound = false; }
     };
 
     @Override
@@ -92,8 +92,7 @@ public class MainActivity extends AppCompatActivity {
         settingsFragment = new SettingsFragment();
 
         settingsFragment.setListener(new SettingsFragment.OnSettingsChanged() {
-            @Override
-            public void onThemeChanged() {
+            @Override public void onThemeChanged() {
                 colors = new ColorConfig(MainActivity.this);
                 applyWindowColors();
                 applyNavColors();
@@ -102,8 +101,7 @@ public class MainActivity extends AppCompatActivity {
                 soundsFragment.refresh();
                 settingsFragment.applyTheme(settingsFragment.getView());
             }
-            @Override
-            public void onButtonSoundChanged(boolean en) {
+            @Override public void onButtonSoundChanged(boolean en) {
                 if (audioService != null) audioService.setButtonSoundEnabled(en);
             }
         });
@@ -135,8 +133,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int req, @NonNull String[] perms,
-                                           @NonNull int[] res) {
+    public void onRequestPermissionsResult(int req, @NonNull String[] perms, @NonNull int[] res) {
         super.onRequestPermissionsResult(req, perms, res);
     }
 
@@ -161,10 +158,10 @@ public class MainActivity extends AppCompatActivity {
     private void setNavSelected(int tab) {
         int sel   = colors.navLabelSelected();
         int unsel = colors.navLabelUnselected();
-        if (navHomeText     != null) { navHomeText.setTextColor(tab==0 ? sel:unsel);     navHomeText.setTextSize(tab==0 ? 13f:11f); }
-        if (navRadioText    != null) { navRadioText.setTextColor(tab==1 ? sel:unsel);    navRadioText.setTextSize(tab==1 ? 13f:11f); }
-        if (navSoundsText   != null) { navSoundsText.setTextColor(tab==2 ? sel:unsel);   navSoundsText.setTextSize(tab==2 ? 13f:11f); }
-        if (navSettingsText != null) { navSettingsText.setTextColor(tab==3 ? sel:unsel); navSettingsText.setTextSize(tab==3 ? 13f:11f); }
+        if (navHomeText     != null) { navHomeText.setTextColor(tab==0?sel:unsel);     navHomeText.setTextSize(tab==0?13f:11f); }
+        if (navRadioText    != null) { navRadioText.setTextColor(tab==1?sel:unsel);    navRadioText.setTextSize(tab==1?13f:11f); }
+        if (navSoundsText   != null) { navSoundsText.setTextColor(tab==2?sel:unsel);   navSoundsText.setTextSize(tab==2?13f:11f); }
+        if (navSettingsText != null) { navSettingsText.setTextColor(tab==3?sel:unsel); navSettingsText.setTextSize(tab==3?13f:11f); }
     }
 
     private void applyNavColors() {
@@ -174,25 +171,22 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applyWindowColors() {
-        int statusBar = 0xFF0D0D14;
+        int statusBar = colors.bgPrimary();
         getWindow().setStatusBarColor(statusBar);
         getWindow().setNavigationBarColor(statusBar);
-        int bg = colors.bgPrimary();
-        getWindow().getDecorView().setBackgroundColor(bg);
+        getWindow().getDecorView().setBackgroundColor(statusBar);
         View root = findViewById(R.id.rootLayout);
-        if (root != null) root.setBackgroundColor(bg);
+        if (root != null) root.setBackgroundColor(statusBar);
     }
 
-    /** Stronger haptic: 35 ms / amplitude 255 */
+    /** Maximum-intensity haptic: 50 ms / amplitude 255 — clearly felt for nav changes */
     private void doHaptic() {
         if (!prefs.isHapticEnabled()) return;
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                VibratorManager vm = (VibratorManager)
-                        getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
+                VibratorManager vm = (VibratorManager) getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
                 if (vm != null) {
-                    vm.getDefaultVibrator().vibrate(
-                            VibrationEffect.createOneShot(35, 255));
+                    vm.getDefaultVibrator().vibrate(VibrationEffect.createOneShot(50, 255));
                     return;
                 }
             }
@@ -200,9 +194,9 @@ public class MainActivity extends AppCompatActivity {
             Vibrator vib = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
             if (vib == null || !vib.hasVibrator()) return;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                vib.vibrate(VibrationEffect.createOneShot(35, 255));
+                vib.vibrate(VibrationEffect.createOneShot(50, 255));
             else
-                vib.vibrate(35);
+                vib.vibrate(50);
         } catch (Exception ignored) {}
     }
 

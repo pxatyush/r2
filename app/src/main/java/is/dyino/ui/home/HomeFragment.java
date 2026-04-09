@@ -1,5 +1,10 @@
 package is.dyino.ui.home;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.graphics.PorterDuff;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
@@ -14,6 +19,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.bumptech.glide.Glide;
@@ -39,7 +45,7 @@ public class HomeFragment extends Fragment {
     // ── Views ─────────────────────────────────────────────────────
     private LinearLayout nowPlayingRadioCard;
     private ImageView    ivStationIcon;
-    private TextView     tvStationName, tvBuffering, tvNowPlayingToggle, tvNowPlayingStop;
+    private TextView     tvStationName, tvBuffering, tvNowPlayingStop;
     private LinearLayout nowPlayingSoundsWrap;
     private LinearLayout favRadioWrap, favSoundsWrap, lastPlayedWrap;
     private TextView     tvNowPlayingLabel, tvFavRadioLabel, tvFavSoundsLabel, tvLastPlayedLabel;
@@ -47,15 +53,21 @@ public class HomeFragment extends Fragment {
     private TextView     tvEmpty;
 
     // ── Dependencies ──────────────────────────────────────────────
-    private AppPrefs      prefs;
-    private ColorConfig   colors;
+    private AppPrefs       prefs;
+    private ColorConfig    colors;
     private SettingsConfig cfg;
-    private AudioService  audioService;
+    private AudioService   audioService;
 
-    // Double-tap detection
     private final Map<String, Long> lastTapTime = new java.util.HashMap<>();
     private static final long DOUBLE_TAP_MS = 350;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
+    /** Receives BROADCAST_STATE from AudioService whenever playback changes (incl. from notification) */
+    private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context c, Intent i) {
+            mainHandler.post(HomeFragment.this::refresh);
+        }
+    };
 
     // ── Service connection ────────────────────────────────────────
     public void setAudioService(AudioService svc) {
@@ -86,7 +98,6 @@ public class HomeFragment extends Fragment {
         ivStationIcon         = view.findViewById(R.id.ivStationIcon);
         tvStationName         = view.findViewById(R.id.tvNowPlayingStation);
         tvBuffering           = view.findViewById(R.id.tvBuffering);
-        tvNowPlayingToggle    = view.findViewById(R.id.tvNowPlayingToggle);
         tvNowPlayingStop      = view.findViewById(R.id.tvNowPlayingStop);
         nowPlayingSoundsWrap  = view.findViewById(R.id.nowPlayingSoundsContainer);
         favRadioWrap          = view.findViewById(R.id.favRadioContainer);
@@ -105,6 +116,21 @@ public class HomeFragment extends Fragment {
         refresh();
     }
 
+    @Override
+    public void onStart() {
+        super.onStart();
+        // Register for service state broadcasts (notification actions, etc.)
+        IntentFilter filter = new IntentFilter(AudioService.BROADCAST_STATE);
+        ContextCompat.registerReceiver(requireContext(), stateReceiver, filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED);
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        try { requireContext().unregisterReceiver(stateReceiver); } catch (Exception ignored) {}
+    }
+
     @Override public void onResume() { super.onResume(); refresh(); }
 
     public void refresh() {
@@ -119,7 +145,6 @@ public class HomeFragment extends Fragment {
     // ═══════════════════════════════════════════════════════════════
 
     private void buildNowPlaying() {
-        // Show card as soon as a station is selected (even during buffering)
         boolean radioSelected = audioService != null && audioService.isRadioSelected();
         boolean radioPlaying  = audioService != null && audioService.isRadioPlaying();
         boolean radioPaused   = audioService != null && audioService.isRadioPaused();
@@ -133,60 +158,44 @@ public class HomeFragment extends Fragment {
             String favicon = audioService.getCurrentFavicon();
             tvStationName.setText(name.isEmpty() ? "Radio" : name);
 
-            // Buffering indicator
+            // Buffering sub-label
             if (tvBuffering != null) {
                 tvBuffering.setVisibility(!radioPlaying && !radioPaused ? View.VISIBLE : View.GONE);
+                tvBuffering.setTextColor(colors.nowPlayingAnimColor());
             }
 
-            // Toggle icon: ▶ when paused, ⏸ when playing/buffering
-            if (tvNowPlayingToggle != null) {
-                tvNowPlayingToggle.setText(radioPlaying ? "⏸" : "▶");
-            }
-
-            // Favicon
-            int cornerPx = dp(20);
-            if (favicon != null && !favicon.isEmpty()) {
+            // Station art: favicon → ic_note_vec fallback (tinted)
+            boolean hasFavicon = favicon != null && !favicon.isEmpty();
+            if (hasFavicon) {
                 Glide.with(this).load(favicon)
-                        .apply(RequestOptions.bitmapTransform(new RoundedCorners(cornerPx))
-                               .placeholder(R.drawable.ic_app_icon)
-                               .error(R.drawable.ic_app_icon))
+                        .apply(RequestOptions.bitmapTransform(new RoundedCorners(dp(16)))
+                               .placeholder(R.drawable.ic_note_vec)
+                               .error(R.drawable.ic_note_vec))
                         .into(ivStationIcon);
             } else {
-                ivStationIcon.setImageResource(R.drawable.ic_app_icon);
+                ivStationIcon.setImageResource(R.drawable.ic_note_vec);
+                // Tint the note icon with the configured color
+                ivStationIcon.setColorFilter(colors.nowPlayingIconTint(), PorterDuff.Mode.SRC_IN);
+                ivStationIcon.setBackgroundColor(android.graphics.Color.TRANSPARENT);
             }
 
-            // Card tap = toggle pause/resume (NOT stop)
+            // Card style — active border when playing, dimmer when paused/buffering
+            styleNowPlayingCard(nowPlayingRadioCard, radioPlaying);
+
+            // Card single tap = toggle pause / resume; double tap = favourite
             nowPlayingRadioCard.setOnClickListener(v -> {
                 long now = System.currentTimeMillis();
                 Long lst = lastTapTime.get("__now_playing__");
                 if (lst != null && (now - lst) < DOUBLE_TAP_MS) {
-                    // Double tap → favourite
                     lastTapTime.remove("__now_playing__");
-                    if (audioService != null) {
-                        String key = AppPrefs.stationKey(
-                                audioService.getCurrentName(),
-                                audioService.getCurrentRadioUrl(), "");
-                        if (prefs.isFavourite(key)) {
-                            prefs.removeFavourite(key);
-                            Toast.makeText(requireContext(), "Removed from Favourites", Toast.LENGTH_SHORT).show();
-                        } else {
-                            prefs.addFavourite(key);
-                            Toast.makeText(requireContext(), "♥ Added to Favourites", Toast.LENGTH_SHORT).show();
-                        }
-                        refresh();
-                    }
+                    toggleFavFromNowPlaying();
                 } else {
                     lastTapTime.put("__now_playing__", now);
                     toggleRadio();
                 }
             });
 
-            // Toggle button
-            if (tvNowPlayingToggle != null) {
-                tvNowPlayingToggle.setOnClickListener(v -> toggleRadio());
-            }
-
-            // Stop button (✕)
+            // Stop (✕) button
             if (tvNowPlayingStop != null) {
                 tvNowPlayingStop.setOnClickListener(v -> {
                     if (audioService != null) audioService.stopRadio();
@@ -194,17 +203,17 @@ public class HomeFragment extends Fragment {
                 });
             }
 
-            styleCard(nowPlayingRadioCard, radioPlaying);
         } else {
             nowPlayingRadioCard.setVisibility(View.GONE);
         }
 
-        // Active sound chips
+        // Active sound chips (no play/pause icons — just name + ✕)
         nowPlayingSoundsWrap.removeAllViews();
         List<SoundCategory> allSounds = SoundLoader.load(requireContext());
         if (soundsPlaying) {
             for (Map.Entry<String, Float> e : activeSounds.entrySet()) {
                 String fn  = e.getKey();
+                // Display name only — no state icon
                 String lbl = soundDisplayName(fn, allSounds) + "  ✕";
                 addChip(nowPlayingSoundsWrap, lbl,
                         colors.homeChipPlayBg(), colors.homeChipBorder(),
@@ -219,11 +228,27 @@ public class HomeFragment extends Fragment {
         tvNowPlayingLabel.setVisibility(anyPlaying ? View.VISIBLE : View.GONE);
         dividerNowPlaying.setVisibility(anyPlaying ? View.VISIBLE : View.GONE);
 
-        Set<String> fav  = prefs.getFavourites();
-        Set<String> favS = prefs.getFavSounds();
+        Set<String>  fav        = prefs.getFavourites();
+        Set<String>  favS       = prefs.getFavSounds();
         List<String> lastPlayed = prefs.getLastPlayed();
         boolean anything = anyPlaying || !fav.isEmpty() || !favS.isEmpty() || !lastPlayed.isEmpty();
         tvEmpty.setVisibility(anything ? View.GONE : View.VISIBLE);
+    }
+
+    private void toggleFavFromNowPlaying() {
+        if (audioService == null) return;
+        String name = audioService.getCurrentName();
+        String url  = audioService.getCurrentRadioUrl();
+        if (url.isEmpty()) return;
+        String key  = AppPrefs.stationKey(name, url, "");
+        if (prefs.isFavourite(key)) {
+            prefs.removeFavourite(key);
+            Toast.makeText(requireContext(), "Removed from Favourites", Toast.LENGTH_SHORT).show();
+        } else {
+            prefs.addFavourite(key);
+            Toast.makeText(requireContext(), "♥ Added to Favourites", Toast.LENGTH_SHORT).show();
+        }
+        refresh();
     }
 
     private void toggleRadio() {
@@ -241,20 +266,16 @@ public class HomeFragment extends Fragment {
         List<SoundCategory> allSounds = SoundLoader.load(requireContext());
         int   perRow = cfg.favRadioPerRow();
         int   chipH  = cfg.chipHeightDp() + 8;
-        float chipR  = 20f; // squircle
+        float chipR  = 20f;
 
-        // ── Favourite Radio ──
         favRadioWrap.removeAllViews();
         Set<String>  favRadio  = prefs.getFavourites();
-        List<String> radioKeys = new ArrayList<>(favRadio);
-        buildStationRows(favRadioWrap, radioKeys, perRow, chipH, chipR, false);
+        buildStationRows(favRadioWrap, new ArrayList<>(favRadio), perRow, chipH, chipR, false);
         tvFavRadioLabel.setVisibility(favRadio.isEmpty() ? View.GONE : View.VISIBLE);
 
-        // ── Favourite Sounds ──
         favSoundsWrap.removeAllViews();
         Set<String>  favSounds = prefs.getFavSounds();
-        List<String> soundFns  = new ArrayList<>(favSounds);
-        buildSoundRows(favSoundsWrap, soundFns, allSounds, 3, chipH, chipR);
+        buildSoundRows(favSoundsWrap, new ArrayList<>(favSounds), allSounds, 3, chipH, chipR);
         tvFavSoundsLabel.setVisibility(favSounds.isEmpty() ? View.GONE : View.VISIBLE);
 
         boolean anyFavs = !favRadio.isEmpty() || !favSounds.isEmpty();
@@ -273,46 +294,30 @@ public class HomeFragment extends Fragment {
             dividerLastPlayed.setVisibility(View.GONE);
             return;
         }
-
         tvLastPlayedLabel.setVisibility(View.VISIBLE);
-        int   perRow = cfg.favRadioPerRow();
-        int   chipH  = cfg.chipHeightDp() + 8;
-        float chipR  = 20f;
-        buildStationRows(lastPlayedWrap, lastPlayed, perRow, chipH, chipR, true);
+        buildStationRows(lastPlayedWrap, lastPlayed, cfg.favRadioPerRow(),
+                cfg.chipHeightDp() + 8, 20f, true);
         dividerLastPlayed.setVisibility(View.VISIBLE);
     }
 
-    // ── Station row builder (shared by Favs & Last Played) ────────
+    // ── Station row builder ───────────────────────────────────────
     private void buildStationRows(LinearLayout container, List<String> keys,
                                   int perRow, int chipH, float chipR, boolean isLastPlayed) {
         for (int i = 0; i < keys.size(); i += perRow) {
             LinearLayout row = makeRow();
             for (int j = 0; j < perRow && i + j < keys.size(); j++) {
-                String   key  = keys.get(i + j);
-                String[] p    = AppPrefs.splitKey(key);
+                String   key = keys.get(i + j);
+                String[] p   = AppPrefs.splitKey(key);
                 if (p.length < 2) continue;
                 String name = p[0], url = p[1];
-                final String fkey = key;
-
-                View chip = makeStationChip(name, url, fkey, chipH, chipR, isLastPlayed);
-                LinearLayout.LayoutParams lp =
-                        new LinearLayout.LayoutParams(0, dp(chipH), 1f);
+                View chip = makeStationChip(name, url, key, chipH, chipR);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(chipH), 1f);
                 lp.setMargins(0, 0, j < perRow - 1 ? dp(6) : 0, 0);
                 chip.setLayoutParams(lp);
                 row.addView(chip);
             }
-            // pad last row
-            int rem = keys.size() % perRow;
-            if (rem != 0 && i + perRow > keys.size()) {
-                for (int k = rem; k < perRow; k++) {
-                    View ph = new View(requireContext());
-                    LinearLayout.LayoutParams plp =
-                            new LinearLayout.LayoutParams(0, dp(chipH), 1f);
-                    plp.setMargins(0, 0, dp(6), 0);
-                    ph.setLayoutParams(plp);
-                    row.addView(ph);
-                }
-            }
+            // pad last row if needed
+            padRow(row, keys.size(), i, perRow, chipH);
             LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             rowLp.setMargins(0, 0, 0, dp(8));
@@ -321,22 +326,31 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    private View makeStationChip(String name, String url, String key,
-                                 int heightDp, float cornerDp, boolean isLastPlayed) {
-        boolean isCurrentlyPlaying = audioService != null
-                && audioService.isRadioPlaying()
-                && url.equals(audioService.getCurrentRadioUrl());
-        boolean isCurrentlyPaused  = audioService != null
-                && audioService.isRadioPaused()
-                && url.equals(audioService.getCurrentRadioUrl());
+    private void padRow(LinearLayout row, int total, int i, int perRow, int chipH) {
+        int rem = total % perRow;
+        if (rem != 0 && i + perRow > total) {
+            for (int k = rem; k < perRow; k++) {
+                View ph = new View(requireContext());
+                LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(0, dp(chipH), 1f);
+                plp.setMargins(0, 0, dp(6), 0);
+                ph.setLayoutParams(plp);
+                row.addView(ph);
+            }
+        }
+    }
 
-        int bg     = isCurrentlyPlaying ? colors.stationActiveBg()     : colors.stationBg();
-        int border = isCurrentlyPlaying ? colors.stationActiveBorder() : colors.divider();
-        String label = name + (isCurrentlyPlaying ? " ▶" : isCurrentlyPaused ? " ⏸" : "");
+    /** Station chip — no ▶/⏸ icon; just name. Single tap = play/pause, double = fav */
+    private View makeStationChip(String name, String url, String key, int heightDp, float cornerDp) {
+        String curUrl = audioService != null ? audioService.getCurrentRadioUrl() : "";
+        boolean isCurrent = curUrl.equals(url);
+        boolean isPlaying = isCurrent && audioService != null && audioService.isRadioPlaying();
+
+        int bg     = isPlaying ? colors.stationActiveBg()     : colors.stationBg();
+        int border = isPlaying ? colors.stationActiveBorder() : colors.divider();
 
         TextView tv = new TextView(requireContext());
-        tv.setText(label);
-        tv.setTextColor(isCurrentlyPlaying ? colors.stationTextActive() : colors.stationText());
+        tv.setText(name); // no icon suffix
+        tv.setTextColor(isPlaying ? colors.stationTextActive() : colors.stationText());
         tv.setTextSize(13f);
         tv.setGravity(android.view.Gravity.CENTER);
         tv.setSingleLine(true);
@@ -348,7 +362,6 @@ public class HomeFragment extends Fragment {
             long now = System.currentTimeMillis();
             Long lst = lastTapTime.get(key);
             if (lst != null && (now - lst) < DOUBLE_TAP_MS) {
-                // Double tap → toggle favourite
                 lastTapTime.remove(key);
                 if (prefs.isFavourite(key)) {
                     prefs.removeFavourite(key);
@@ -359,17 +372,12 @@ public class HomeFragment extends Fragment {
                 }
                 refresh();
             } else {
-                // Single tap → toggle play / pause for this station
                 lastTapTime.put(key, now);
                 if (audioService == null) return;
-
-                String curUrl = audioService.getCurrentRadioUrl();
-                if (curUrl.equals(url)) {
-                    // Same station → toggle pause/resume
+                if (audioService.getCurrentRadioUrl().equals(url)) {
                     if (audioService.isRadioPlaying()) audioService.pauseAll();
                     else                               audioService.resumeAll();
                 } else {
-                    // Different station → play it & record in last played
                     prefs.addLastPlayed(key);
                     audioService.playRadio(name, url);
                 }
@@ -379,20 +387,19 @@ public class HomeFragment extends Fragment {
         return tv;
     }
 
-    // ── Sound row builder ─────────────────────────────────────────
+    // ── Sound rows ────────────────────────────────────────────────
     private void buildSoundRows(LinearLayout container, List<String> fns,
-                                List<SoundCategory> allSounds, int perRow,
-                                int chipH, float chipR) {
+                                List<SoundCategory> allSounds, int perRow, int chipH, float chipR) {
         for (int i = 0; i < fns.size(); i += perRow) {
             LinearLayout row = makeRow();
             for (int j = 0; j < perRow && i + j < fns.size(); j++) {
-                String fn      = fns.get(i + j);
-                String lbl     = soundDisplayName(fn, allSounds);
-                boolean playing= audioService != null && audioService.isSoundPlaying(fn);
+                String  fn      = fns.get(i + j);
+                String  lbl     = soundDisplayName(fn, allSounds);
+                boolean playing = audioService != null && audioService.isSoundPlaying(fn);
                 final String ffn = fn;
 
                 TextView chip = new TextView(requireContext());
-                chip.setText(lbl + (playing ? " ▶" : ""));
+                chip.setText(lbl); // no ▶ suffix
                 chip.setTextColor(colors.soundBtnText());
                 chip.setTextSize(13f);
                 chip.setGravity(android.view.Gravity.CENTER);
@@ -420,24 +427,12 @@ public class HomeFragment extends Fragment {
                     }
                 });
 
-                LinearLayout.LayoutParams lp =
-                        new LinearLayout.LayoutParams(0, dp(chipH), 1f);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(chipH), 1f);
                 lp.setMargins(0, 0, j < perRow - 1 ? dp(6) : 0, 0);
                 chip.setLayoutParams(lp);
                 row.addView(chip);
             }
-            // pad
-            int rem = fns.size() % perRow;
-            if (rem != 0 && i + perRow > fns.size()) {
-                for (int k = rem; k < perRow; k++) {
-                    View ph = new View(requireContext());
-                    LinearLayout.LayoutParams plp =
-                            new LinearLayout.LayoutParams(0, dp(chipH), 1f);
-                    plp.setMargins(0, 0, dp(6), 0);
-                    ph.setLayoutParams(plp);
-                    row.addView(ph);
-                }
-            }
+            padRow(row, fns.size(), i, perRow, chipH);
             LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             rowLp.setMargins(0, 0, 0, dp(8));
@@ -446,7 +441,7 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    // ── Chip factory ──────────────────────────────────────────────
+    // ── Now Playing active-sound chips ────────────────────────────
     private void addChip(LinearLayout wrap, String label, int bg, int border, int textColor,
                          int heightDp, float cornerDp, View.OnClickListener click) {
         TextView chip = new TextView(requireContext());
@@ -474,7 +469,6 @@ public class HomeFragment extends Fragment {
 
     // ── Drawing helpers ───────────────────────────────────────────
 
-    /** Squircle background (large corner radius ≈ squircle feel) */
     private GradientDrawable squircleBg(int bg, int border, float cornerDp) {
         GradientDrawable gd = new GradientDrawable();
         gd.setShape(GradientDrawable.RECTANGLE);
@@ -484,21 +478,20 @@ public class HomeFragment extends Fragment {
         return gd;
     }
 
-    private void styleCard(View card, boolean active) {
+    private void styleNowPlayingCard(View card, boolean active) {
         GradientDrawable gd = new GradientDrawable();
         gd.setShape(GradientDrawable.RECTANGLE);
         gd.setCornerRadius(dp(18));
-        gd.setColor(active ? colors.stationActiveBg() : colors.bgCard());
-        if (active) gd.setStroke(dp(1), colors.stationActiveBorder());
+        gd.setColor(active ? colors.nowPlayingCardBg() : colors.bgCard());
+        gd.setStroke(dp(1), active ? colors.nowPlayingCardBorder() : colors.divider());
         card.setBackground(gd);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────
     private String soundDisplayName(String fn, List<SoundCategory> cats) {
         for (SoundCategory cat : cats)
             for (SoundItem s : cat.getSounds())
                 if (s.getFileName().equals(fn)) return s.getName();
-        return fn.replaceAll("\\.(mp3|ogg)$", "").replace("_", " ");
+        return fn.replaceAll("\\.(mp3|ogg|wav)$", "").replace("_", " ");
     }
 
     private int dp(float v) {
@@ -515,7 +508,6 @@ public class HomeFragment extends Fragment {
         if (tvLastPlayedLabel != null) tvLastPlayedLabel.setTextColor(colors.homeSectionTitle());
         if (tvStationName     != null) tvStationName.setTextColor(colors.textPrimary());
         if (tvBuffering       != null) tvBuffering.setTextColor(colors.nowPlayingAnimColor());
-        if (tvNowPlayingToggle!= null) tvNowPlayingToggle.setTextColor(colors.textSecondary());
         if (tvNowPlayingStop  != null) tvNowPlayingStop.setTextColor(colors.textSecondary());
         if (dividerNowPlaying != null) dividerNowPlaying.setBackgroundColor(colors.divider());
         if (dividerFav        != null) dividerFav.setBackgroundColor(colors.divider());
