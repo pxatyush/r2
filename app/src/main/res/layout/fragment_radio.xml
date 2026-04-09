@@ -6,109 +6,127 @@
     android:orientation="vertical"
     android:background="#0D0D14">
 
-    <!-- Header -->
+    <!-- Header: icon left-aligned with title -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
         android:paddingLeft="16dp"
         android:paddingRight="16dp"
         android:paddingTop="20dp"
         android:paddingBottom="10dp">
 
         <ImageView
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:id="@+id/ivRadioIcon"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
             android:src="@drawable/ic_note_vec"
             android:scaleType="fitCenter"
-            android:alpha="0.65"
-            android:layout_gravity="center_horizontal"/>
+            android:alpha="0.70"
+            android:layout_marginEnd="12dp"/>
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Radio"
-            android:textColor="#FFFFFF"
-            android:textSize="26sp"
-            android:fontFamily="sans-serif-medium"
-            android:paddingTop="8dp"/>
-
-        <TextView
-            android:id="@+id/tvNowPlayingTitle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Select a station"
-            android:textColor="#8888AA"
-            android:textSize="13sp"
-            android:paddingTop="2dp"
-            android:singleLine="true"
-            android:ellipsize="marquee"
-            android:marqueeRepeatLimit="marquee_forever"/>
-
-        <!-- Volume slider (long press play to reveal) -->
         <LinearLayout
-            android:id="@+id/volumeSliderContainer"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingTop="8dp"
-            android:visibility="gone">
+            android:layout_weight="1"
+            android:orientation="vertical">
+
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Vol"
+                android:text="Radio"
+                android:textColor="#FFFFFF"
+                android:textSize="26sp"
+                android:fontFamily="sans-serif-medium"/>
+
+            <TextView
+                android:id="@+id/tvNowPlayingTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Select a station"
                 android:textColor="#8888AA"
-                android:textSize="11sp"/>
-            <SeekBar
-                android:id="@+id/radioVolumeSeek"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginLeft="10dp"
-                android:max="100"
-                android:progress="80"/>
-        </LinearLayout>
-
-        <!-- Search + filter button row -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="10dp"
-            android:gravity="center_vertical">
-
-            <EditText
-                android:id="@+id/etSearch"
-                android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:hint="Search stations…"
-                android:textSize="14sp"
+                android:textSize="13sp"
+                android:paddingTop="2dp"
                 android:singleLine="true"
-                android:paddingLeft="14dp"
-                android:paddingRight="14dp"
-                android:inputType="text"
-                android:imeOptions="actionSearch"
-                android:background="#1E1E2A"/>
-
-            <TextView
-                android:id="@+id/btnCategoryFilter"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:text="⋮"
-                android:textSize="22sp"
-                android:gravity="center"
-                android:layout_marginStart="8dp"
-                android:textColor="#8888AA"
-                android:clickable="true"
-                android:focusable="true"/>
+                android:ellipsize="marquee"
+                android:marqueeRepeatLimit="marquee_forever"/>
 
         </LinearLayout>
 
     </LinearLayout>
 
-    <View android:layout_width="match_parent" android:layout_height="1dp"
+    <!-- Volume slider (revealed via long-press on station) -->
+    <LinearLayout
+        android:id="@+id/volumeSliderContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp"
+        android:paddingBottom="6dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Vol"
+            android:textColor="#8888AA"
+            android:textSize="11sp"/>
+
+        <SeekBar
+            android:id="@+id/radioVolumeSeek"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="10dp"
+            android:max="100"
+            android:progress="80"/>
+
+    </LinearLayout>
+
+    <!-- Search + filter row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingLeft="16dp"
+        android:paddingRight="8dp"
+        android:paddingBottom="10dp"
+        android:gravity="center_vertical">
+
+        <EditText
+            android:id="@+id/etSearch"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:hint="Search stations…"
+            android:textSize="14sp"
+            android:singleLine="true"
+            android:paddingLeft="14dp"
+            android:paddingRight="14dp"
+            android:inputType="text"
+            android:imeOptions="actionSearch"
+            android:background="#1E1E2A"/>
+
+        <TextView
+            android:id="@+id/btnCategoryFilter"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:text="⋮"
+            android:textSize="22sp"
+            android:gravity="center"
+            android:layout_marginStart="8dp"
+            android:textColor="#8888AA"
+            android:clickable="true"
+            android:focusable="true"/>
+
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
         android:background="#22223A"/>
 
     <androidx.recyclerview.widget.RecyclerView

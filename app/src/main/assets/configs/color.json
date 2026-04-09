@@ -24,7 +24,9 @@
     "chip_playing_bg": "#28265A",
     "chip_playing_border": "#6C63FF",
     "chip_text": "#FFFFFF",
-    "empty_text": "#44445A"
+    "empty_text": "#44445A",
+    "page_title": "#FFFFFF",
+    "now_playing_anim": "#6C63FF"
   },
   "radio": {
     "station_bg": "#1E1E2A",
@@ -38,7 +40,9 @@
     "group_name_collapsed_text": "#8888AA",
     "search_bg": "#1E1E2A",
     "search_text": "#FFFFFF",
-    "search_hint": "#8888AA"
+    "search_hint": "#8888AA",
+    "page_title": "#FFFFFF",
+    "checkbox_color": "#6C63FF"
   },
   "sounds": {
     "btn_bg": "#1A1A26",
@@ -74,8 +78,18 @@
     "btn_text": "#FFFFFF",
     "about_text": "#6C63FF",
     "divider": "#22223A",
+    "page_title": "#FFFFFF",
+    "switch_thumb_on": "#6C63FF",
+    "switch_track_on": "#3D3880",
+    "switch_thumb_off": "#8888AA",
+    "switch_track_off": "#2A2A3A",
     "made_by_text": "#44445A",
-    "made_by_brand": "#6C63FF"
+    "made_by_brand": "#6C63FF",
+    "tune_icon_color": "#6C63FF"
+  },
+  "notification": {
+    "bg": "#1A1A26",
+    "icon_bg": "#6C63FF"
   },
   "onboarding": {
     "bg": "#0D0D14",

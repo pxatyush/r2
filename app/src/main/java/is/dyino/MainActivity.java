@@ -49,15 +49,17 @@ public class MainActivity extends AppCompatActivity {
     private int         currentTab = 0;
 
     private final ServiceConnection conn = new ServiceConnection() {
-        @Override public void onServiceConnected(ComponentName n, IBinder b) {
+        @Override
+        public void onServiceConnected(ComponentName n, IBinder b) {
             audioService = ((AudioService.LocalBinder) b).getService();
-            serviceBound = true;
+            serviceBound  = true;
             homeFragment.setAudioService(audioService);
             radioFragment.setAudioService(audioService);
             soundsFragment.setAudioService(audioService);
             audioService.setButtonSoundEnabled(prefs.isButtonSoundEnabled());
         }
-        @Override public void onServiceDisconnected(ComponentName n) { serviceBound = false; }
+        @Override
+        public void onServiceDisconnected(ComponentName n) { serviceBound = false; }
     };
 
     @Override
@@ -75,14 +77,14 @@ public class MainActivity extends AppCompatActivity {
         startService(svc);
         bindService(svc, conn, BIND_AUTO_CREATE);
 
-        navHomeText     = findViewById(R.id.navHomeText);
-        navRadioText    = findViewById(R.id.navRadioText);
-        navSoundsText   = findViewById(R.id.navSoundsText);
-        navSettingsText = findViewById(R.id.navSettingsText);
-        fragmentHome    = findViewById(R.id.fragmentHome);
-        fragmentRadio   = findViewById(R.id.fragmentRadio);
-        fragmentSounds  = findViewById(R.id.fragmentSounds);
-        fragmentSettings= findViewById(R.id.fragmentSettings);
+        navHomeText      = findViewById(R.id.navHomeText);
+        navRadioText     = findViewById(R.id.navRadioText);
+        navSoundsText    = findViewById(R.id.navSoundsText);
+        navSettingsText  = findViewById(R.id.navSettingsText);
+        fragmentHome     = findViewById(R.id.fragmentHome);
+        fragmentRadio    = findViewById(R.id.fragmentRadio);
+        fragmentSounds   = findViewById(R.id.fragmentSounds);
+        fragmentSettings = findViewById(R.id.fragmentSettings);
 
         homeFragment     = new HomeFragment();
         radioFragment    = new RadioFragment();
@@ -90,7 +92,8 @@ public class MainActivity extends AppCompatActivity {
         settingsFragment = new SettingsFragment();
 
         settingsFragment.setListener(new SettingsFragment.OnSettingsChanged() {
-            @Override public void onThemeChanged() {
+            @Override
+            public void onThemeChanged() {
                 colors = new ColorConfig(MainActivity.this);
                 applyWindowColors();
                 applyNavColors();
@@ -99,7 +102,8 @@ public class MainActivity extends AppCompatActivity {
                 soundsFragment.refresh();
                 settingsFragment.applyTheme(settingsFragment.getView());
             }
-            @Override public void onButtonSoundChanged(boolean en) {
+            @Override
+            public void onButtonSoundChanged(boolean en) {
                 if (audioService != null) audioService.setButtonSoundEnabled(en);
             }
         });
@@ -111,12 +115,12 @@ public class MainActivity extends AppCompatActivity {
                 .add(R.id.fragmentSettings, settingsFragment)
                 .commit();
 
-        findViewById(R.id.navHome).setOnClickListener(v     -> { doHaptic(); doClick(); switchTab(0); });
-        findViewById(R.id.navRadio).setOnClickListener(v    -> { doHaptic(); doClick(); switchTab(1); });
-        findViewById(R.id.navSounds).setOnClickListener(v   -> { doHaptic(); doClick(); switchTab(2); });
+        findViewById(R.id.navHome)    .setOnClickListener(v -> { doHaptic(); doClick(); switchTab(0); });
+        findViewById(R.id.navRadio)   .setOnClickListener(v -> { doHaptic(); doClick(); switchTab(1); });
+        findViewById(R.id.navSounds)  .setOnClickListener(v -> { doHaptic(); doClick(); switchTab(2); });
         findViewById(R.id.navSettings).setOnClickListener(v -> { doHaptic(); doClick(); switchTab(3); });
 
-        applyNavColors();   // ← persist nav colors on every cold start
+        applyNavColors();
         switchTab(0);
     }
 
@@ -131,7 +135,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int req, @NonNull String[] perms, @NonNull int[] res) {
+    public void onRequestPermissionsResult(int req, @NonNull String[] perms,
+                                           @NonNull int[] res) {
         super.onRequestPermissionsResult(req, perms, res);
     }
 
@@ -162,7 +167,6 @@ public class MainActivity extends AppCompatActivity {
         if (navSettingsText != null) { navSettingsText.setTextColor(tab==3 ? sel:unsel); navSettingsText.setTextSize(tab==3 ? 13f:11f); }
     }
 
-    /** Called separately from applyWindowColors so nav is always re-tinted after theme change */
     private void applyNavColors() {
         setNavSelected(currentTab);
         View nav = findViewById(R.id.navBar);
@@ -170,24 +174,25 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applyWindowColors() {
-        // Status/nav bars: fixed dark — never follow theme bg
         int statusBar = 0xFF0D0D14;
         getWindow().setStatusBarColor(statusBar);
         getWindow().setNavigationBarColor(statusBar);
-
         int bg = colors.bgPrimary();
         getWindow().getDecorView().setBackgroundColor(bg);
         View root = findViewById(R.id.rootLayout);
         if (root != null) root.setBackgroundColor(bg);
     }
 
+    /** Stronger haptic: 35 ms / amplitude 255 */
     private void doHaptic() {
         if (!prefs.isHapticEnabled()) return;
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                VibratorManager vm = (VibratorManager) getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
+                VibratorManager vm = (VibratorManager)
+                        getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
                 if (vm != null) {
-                    vm.getDefaultVibrator().vibrate(VibrationEffect.createOneShot(18, 200));
+                    vm.getDefaultVibrator().vibrate(
+                            VibrationEffect.createOneShot(35, 255));
                     return;
                 }
             }
@@ -195,8 +200,9 @@ public class MainActivity extends AppCompatActivity {
             Vibrator vib = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
             if (vib == null || !vib.hasVibrator()) return;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                vib.vibrate(VibrationEffect.createOneShot(18, 200));
-            else vib.vibrate(18);
+                vib.vibrate(VibrationEffect.createOneShot(35, 255));
+            else
+                vib.vibrate(35);
         } catch (Exception ignored) {}
     }
 

@@ -24,11 +24,12 @@ public class AppPrefs {
     private static final String RADIO_CACHE_JSON = "radio_cache_json";
     private static final String RADIO_CACHE_TIME = "radio_cache_time";
     private static final String PERSISTENT_PLAY  = "persistent_playing";
-    private static final String GROUP_ORDER      = "radio_group_order";  // comma-separated names
+    private static final String GROUP_ORDER      = "radio_group_order";
     private static final String HIDDEN_CATS      = "hidden_categories";
+    private static final String LAST_PLAYED      = "last_played";     // |||‑separated station keys
+    private static final int    LAST_PLAYED_MAX  = 10;
     private static final long   CACHE_TTL_MS     = 7L * 24 * 60 * 60 * 1000;
 
-    // Asset paths for config files
     public static final String ASSET_COLOR    = "configs/color.json";
     public static final String ASSET_SETTINGS = "configs/settings.json";
 
@@ -72,13 +73,11 @@ public class AppPrefs {
     }
 
     // ── Radio group order ─────────────────────────────────────────
-    /** Returns saved group names in order, or empty list if none saved */
     public List<String> getGroupOrder() {
         String raw = sp.getString(GROUP_ORDER, "");
         if (raw.isEmpty()) return new ArrayList<>();
         return new ArrayList<>(Arrays.asList(raw.split("\\|\\|\\|", -1)));
     }
-
     public void saveGroupOrder(List<String> names) {
         sp.edit().putString(GROUP_ORDER, android.text.TextUtils.join("|||", names)).apply();
     }
@@ -106,11 +105,31 @@ public class AppPrefs {
     public void addStationUrl(String url)    { Set<String> s = getStationUrls(); s.add(url);    sp.edit().putStringSet(STATION_URLS, s).apply(); }
     public void removeStationUrl(String url) { Set<String> s = getStationUrls(); s.remove(url); sp.edit().putStringSet(STATION_URLS, s).apply(); }
 
-    public static String   stationKey(String n, String u, String g) { return n + "||" + u + "||" + g; }
-    public static String[] splitKey(String key) { return key.split("\\|\\|", 3); }
+    // ── Last Played (ordered, max 10) ─────────────────────────────
+    /** Returns station keys in recency order (most recent first). */
+    public List<String> getLastPlayed() {
+        String raw = sp.getString(LAST_PLAYED, "");
+        if (raw.isEmpty()) return new ArrayList<>();
+        return new ArrayList<>(Arrays.asList(raw.split("\\|\\|\\|", -1)));
+    }
+
+    /** Prepend key to last-played list, dedup, truncate to LAST_PLAYED_MAX. */
+    public void addLastPlayed(String key) {
+        List<String> list = getLastPlayed();
+        list.remove(key);          // remove duplicate if exists
+        list.add(0, key);          // prepend (most recent first)
+        if (list.size() > LAST_PLAYED_MAX) list = list.subList(0, LAST_PLAYED_MAX);
+        sp.edit().putString(LAST_PLAYED, android.text.TextUtils.join("|||", list)).apply();
+    }
+
+    public void clearLastPlayed() { sp.edit().remove(LAST_PLAYED).apply(); }
 
     // ── Hidden categories ─────────────────────────────────────────
     public Set<String> getHiddenCategories()          { return new HashSet<>(sp.getStringSet(HIDDEN_CATS, new HashSet<>())); }
     public void setHiddenCategories(Set<String> cats) { sp.edit().putStringSet(HIDDEN_CATS, cats).apply(); }
     public boolean isCategoryHidden(String name)      { return getHiddenCategories().contains(name); }
+
+    // ── Key helpers ───────────────────────────────────────────────
+    public static String   stationKey(String n, String u, String g) { return n + "||" + u + "||" + g; }
+    public static String[] splitKey(String key) { return key.split("\\|\\|", 3); }
 }

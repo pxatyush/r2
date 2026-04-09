@@ -6,47 +6,58 @@
     android:orientation="vertical"
     android:background="#0D0D14">
 
-    <!-- Header -->
+    <!-- ── Header: icon left-aligned with title ── -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
         android:paddingLeft="16dp"
         android:paddingRight="16dp"
         android:paddingTop="20dp"
         android:paddingBottom="12dp">
 
+        <!-- 🎵 icon, top-left, vertically centred with title block -->
         <ImageView
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:id="@+id/ivHomeIcon"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
             android:src="@drawable/ic_note_vec"
             android:scaleType="fitCenter"
-            android:alpha="0.65"
-            android:layout_gravity="center_horizontal" />
+            android:alpha="0.70"
+            android:layout_marginEnd="12dp"/>
 
-        <TextView
-            android:layout_width="match_parent"
+        <!-- Title + subtitle stacked -->
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Home"
-            android:textColor="#FFFFFF"
-            android:textSize="26sp"
-            android:fontFamily="sans-serif-medium"
-            android:paddingTop="8dp" />
+            android:layout_weight="1"
+            android:orientation="vertical">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Your ambient space"
-            android:textColor="#8888AA"
-            android:textSize="13sp"
-            android:paddingTop="2dp" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Home"
+                android:textColor="#FFFFFF"
+                android:textSize="26sp"
+                android:fontFamily="sans-serif-medium"/>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Your ambient space"
+                android:textColor="#8888AA"
+                android:textSize="13sp"
+                android:paddingTop="2dp"/>
+
+        </LinearLayout>
 
     </LinearLayout>
 
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="#22223A" />
+        android:background="#22223A"/>
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -62,7 +73,7 @@
             android:paddingRight="16dp"
             android:paddingBottom="24dp">
 
-            <!-- NOW PLAYING label -->
+            <!-- ── NOW PLAYING label ── -->
             <TextView
                 android:id="@+id/tvNowPlayingLabel"
                 android:layout_width="match_parent"
@@ -74,9 +85,9 @@
                 android:fontFamily="sans-serif-medium"
                 android:paddingTop="20dp"
                 android:paddingBottom="10dp"
-                android:visibility="gone" />
+                android:visibility="gone"/>
 
-            <!-- Radio now-playing card -->
+            <!-- ── Radio now-playing card ── -->
             <LinearLayout
                 android:id="@+id/nowPlayingRadioCard"
                 android:layout_width="match_parent"
@@ -91,11 +102,11 @@
 
                 <ImageView
                     android:id="@+id/ivStationIcon"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
                     android:src="@drawable/ic_app_icon"
                     android:scaleType="centerCrop"
-                    android:layout_marginRight="14dp" />
+                    android:layout_marginEnd="14dp"/>
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -108,7 +119,7 @@
                         android:layout_height="wrap_content"
                         android:text="Radio"
                         android:textColor="#8888AA"
-                        android:textSize="11sp" />
+                        android:textSize="11sp"/>
 
                     <TextView
                         android:id="@+id/tvNowPlayingStation"
@@ -119,26 +130,55 @@
                         android:textSize="15sp"
                         android:fontFamily="sans-serif-medium"
                         android:singleLine="true"
-                        android:ellipsize="end" />
+                        android:ellipsize="end"/>
+
+                    <!-- Buffering indicator (shown while loading) -->
+                    <TextView
+                        android:id="@+id/tvBuffering"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Buffering…"
+                        android:textColor="#6C63FF"
+                        android:textSize="11sp"
+                        android:paddingTop="2dp"
+                        android:visibility="gone"/>
+
                 </LinearLayout>
 
+                <!-- Pause / Play icon (single tap) -->
                 <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:id="@+id/tvNowPlayingToggle"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:text="⏸"
+                    android:textColor="#8888AA"
+                    android:textSize="18sp"
+                    android:gravity="center"
+                    android:paddingStart="4dp"
+                    android:clickable="true"
+                    android:focusable="true"/>
+
+                <!-- Stop / close -->
+                <TextView
+                    android:id="@+id/tvNowPlayingStop"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
                     android:text="✕"
                     android:textColor="#8888AA"
                     android:textSize="16sp"
-                    android:paddingLeft="10dp" />
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true"/>
 
             </LinearLayout>
 
-            <!-- Active sounds chips -->
+            <!-- ── Active sounds chips ── -->
             <LinearLayout
                 android:id="@+id/nowPlayingSoundsContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginBottom="4dp" />
+                android:layout_marginBottom="4dp"/>
 
             <View
                 android:id="@+id/dividerNowPlaying"
@@ -146,9 +186,9 @@
                 android:layout_height="1dp"
                 android:background="#22223A"
                 android:layout_marginTop="8dp"
-                android:visibility="gone" />
+                android:visibility="gone"/>
 
-            <!-- FAVOURITE RADIO -->
+            <!-- ── FAVOURITE RADIO ── -->
             <TextView
                 android:id="@+id/tvFavRadioLabel"
                 android:layout_width="match_parent"
@@ -160,16 +200,16 @@
                 android:fontFamily="sans-serif-medium"
                 android:paddingTop="20dp"
                 android:paddingBottom="10dp"
-                android:visibility="gone" />
+                android:visibility="gone"/>
 
             <LinearLayout
                 android:id="@+id/favRadioContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:layout_marginBottom="4dp" />
+                android:layout_marginBottom="4dp"/>
 
-            <!-- FAVOURITE SOUNDS -->
+            <!-- ── FAVOURITE SOUNDS ── -->
             <TextView
                 android:id="@+id/tvFavSoundsLabel"
                 android:layout_width="match_parent"
@@ -181,14 +221,14 @@
                 android:fontFamily="sans-serif-medium"
                 android:paddingTop="16dp"
                 android:paddingBottom="10dp"
-                android:visibility="gone" />
+                android:visibility="gone"/>
 
             <LinearLayout
                 android:id="@+id/favSoundsContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:layout_marginBottom="4dp" />
+                android:layout_marginBottom="4dp"/>
 
             <View
                 android:id="@+id/dividerFav"
@@ -196,9 +236,38 @@
                 android:layout_height="1dp"
                 android:background="#22223A"
                 android:layout_marginTop="8dp"
-                android:visibility="gone" />
+                android:visibility="gone"/>
 
-            <!-- Empty state -->
+            <!-- ── LAST PLAYED ── -->
+            <TextView
+                android:id="@+id/tvLastPlayedLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="RECENTLY PLAYED"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:letterSpacing="0.1"
+                android:fontFamily="sans-serif-medium"
+                android:paddingTop="20dp"
+                android:paddingBottom="10dp"
+                android:visibility="gone"/>
+
+            <LinearLayout
+                android:id="@+id/lastPlayedContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="4dp"/>
+
+            <View
+                android:id="@+id/dividerLastPlayed"
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#22223A"
+                android:layout_marginTop="8dp"
+                android:visibility="gone"/>
+
+            <!-- ── Empty state ── -->
             <TextView
                 android:id="@+id/tvEmpty"
                 android:layout_width="match_parent"
@@ -208,7 +277,7 @@
                 android:textSize="13sp"
                 android:lineSpacingExtra="4dp"
                 android:paddingTop="48dp"
-                android:gravity="center" />
+                android:gravity="center"/>
 
         </LinearLayout>
 
