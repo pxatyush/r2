@@ -5,39 +5,31 @@
     android:orientation="vertical"
     android:background="#0D0D14">
 
-    <!-- Header -->
+    <!-- Header — no icon -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
+        android:orientation="vertical"
         android:paddingLeft="16dp" android:paddingRight="16dp"
         android:paddingTop="20dp"  android:paddingBottom="12dp">
 
-        <ImageView
-            android:id="@+id/ivSettingsIcon"
-            android:layout_width="36dp" android:layout_height="36dp"
-            android:src="@drawable/ic_note_vec"
-            android:scaleType="fitCenter" android:alpha="0.80"
-            android:layout_marginEnd="12dp"/>
+        <TextView
+            android:id="@+id/tvSettingsTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Settings"
+            android:textColor="#FFFFFF"
+            android:textSize="26sp"
+            android:fontFamily="sans-serif-medium"/>
 
-        <LinearLayout
-            android:layout_width="0dp" android:layout_height="wrap_content"
-            android:layout_weight="1" android:orientation="vertical">
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Customise your experience"
+            android:textColor="#8888AA"
+            android:textSize="13sp"
+            android:paddingTop="2dp"/>
 
-            <TextView
-                android:id="@+id/tvSettingsTitle"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:text="Settings"
-                android:textColor="#FFFFFF" android:textSize="26sp"
-                android:fontFamily="sans-serif-medium"/>
-
-            <TextView
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:text="Customise your experience"
-                android:textColor="#8888AA" android:textSize="13sp" android:paddingTop="2dp"/>
-
-        </LinearLayout>
     </LinearLayout>
 
     <View android:id="@+id/settingsDivider"
@@ -103,8 +95,7 @@
                         android:paddingTop="12dp" android:paddingBottom="12dp">
                         <TextView android:id="@+id/tvPersistentLabel"
                             android:layout_width="match_parent" android:layout_height="wrap_content"
-                            android:text="Persistent Playing"
-                            android:textColor="#FFFFFF" android:textSize="14sp"/>
+                            android:text="Persistent Playing" android:textColor="#FFFFFF" android:textSize="14sp"/>
                         <TextView android:id="@+id/tvPersistentSub"
                             android:layout_width="match_parent" android:layout_height="wrap_content"
                             android:text="Keep playing when app is removed from recents"
@@ -129,7 +120,6 @@
                     android:textColor="#8888AA" android:textSize="11sp" android:letterSpacing="0.1"
                     android:paddingBottom="10dp"/>
 
-                <!-- Horizontally scrollable preset buttons row -->
                 <HorizontalScrollView
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:scrollbars="none" android:overScrollMode="never"
@@ -142,7 +132,7 @@
 
                 </HorizontalScrollView>
 
-                <!-- Custom JSON editor — hidden until "Custom ✎" is tapped -->
+                <!-- Custom JSON editor (hidden until Custom is tapped) -->
                 <LinearLayout
                     android:id="@+id/customEditorWrap"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -247,7 +237,6 @@
 
             </LinearLayout>
 
-            <!-- Made by / version -->
             <TextView android:id="@+id/tvMadeBy"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:text="Made by pxatyush"

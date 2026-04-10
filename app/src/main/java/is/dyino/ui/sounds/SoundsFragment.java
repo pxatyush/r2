@@ -51,13 +51,9 @@ public class SoundsFragment extends Fragment {
     private static final long DOUBLE_TAP_MS = 350;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    /** Syncs UI when notification buttons (stop/pause) change state */
     private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) {
-            mainHandler.post(() -> {
-                refreshAllButtons();
-                updateActiveLabel();
-            });
+            mainHandler.post(() -> { refreshAllButtons(); updateActiveLabel(); });
         }
     };
 
@@ -95,8 +91,8 @@ public class SoundsFragment extends Fragment {
     @Override
     public void onStart() {
         super.onStart();
-        IntentFilter filter = new IntentFilter(AudioService.BROADCAST_STATE);
-        ContextCompat.registerReceiver(requireContext(), stateReceiver, filter,
+        ContextCompat.registerReceiver(requireContext(), stateReceiver,
+                new IntentFilter(AudioService.BROADCAST_STATE),
                 ContextCompat.RECEIVER_NOT_EXPORTED);
     }
 
@@ -106,6 +102,7 @@ public class SoundsFragment extends Fragment {
         try { requireContext().unregisterReceiver(stateReceiver); } catch (Exception ignored) {}
     }
 
+    // ── Grid builder ──────────────────────────────────────────────
     private void buildGrid() {
         if (categoriesContainer == null || categories == null) return;
         categoriesContainer.removeAllViews();
@@ -141,6 +138,7 @@ public class SoundsFragment extends Fragment {
                 row.setLayoutParams(rowLp);
 
                 row.addView(inflateBtn(sounds.get(i), btnW, btnH));
+
                 View sp = new View(requireContext());
                 sp.setLayoutParams(new LinearLayout.LayoutParams(gap, btnH));
                 row.addView(sp);
@@ -157,73 +155,90 @@ public class SoundsFragment extends Fragment {
         }
     }
 
+    // ── Button inflation — vertical drag volume, no horizontal overlay ──
     @SuppressLint("ClickableViewAccessibility")
     private View inflateBtn(SoundItem sound, int btnW, int btnH) {
+        // Inflate a simplified layout: just the FrameLayout root with WaveView + label
         View btn        = LayoutInflater.from(requireContext())
                             .inflate(R.layout.item_sound_button, null, false);
         TextView tvName = btn.findViewById(R.id.tvSoundName);
         WaveView wave   = btn.findViewById(R.id.waveView);
+
+        // Hide the horizontal volume overlay — we no longer use it
         View volOverlay = btn.findViewById(R.id.volumeBarOverlay);
-        View volFill    = btn.findViewById(R.id.volumeBarFill);
+        if (volOverlay != null) volOverlay.setVisibility(View.GONE);
 
         btn.setLayoutParams(new LinearLayout.LayoutParams(btnW, btnH));
         tvName.setText(sound.getName());
         tvName.setTextColor(colors.soundBtnText());
 
         applyBtnShape(btn, sound, wave);
-        if (wave != null) wave.setVolume(sound.getVolume());
+        if (wave != null) {
+            wave.setVolumeDragListener(vol -> {
+                sound.setVolume(vol);
+                if (audioService != null) audioService.setSoundVolume(sound.getFileName(), vol);
+            });
+            wave.setVolume(sound.getVolume());
+        }
 
-        final float[]   lpX   = {0};
-        final float[]   lpVol = {sound.getVolume()};
-        final boolean[] volOn = {false};
-        final Runnable[] disc = {null};
+        // Track long-press for drag-volume mode
+        final float[] downY     = {0f};
+        final boolean[] longPressed = {false};
 
         btn.setOnLongClickListener(v -> {
+            if (wave == null) return false;
             haptic();
-            if (volOn[0]) return true;
-            lpVol[0] = audioService != null
+            longPressed[0] = true;
+            float vol = audioService != null
                     ? audioService.getSoundVolume(sound.getFileName()) : sound.getVolume();
-            if (wave != null) { wave.stopWave(); wave.setVisibility(View.INVISIBLE); }
-            if (volOverlay != null) {
-                volOverlay.setVisibility(View.VISIBLE);
-                updateFill(volFill, volOverlay, lpVol[0]);
+            wave.setVolume(vol);
+            sound.setVolume(vol);
+
+            // Make wave glow brighter during drag
+            if (!wave.isWaving()) {
+                int wc = (colors.soundWaveColor() & 0x00FFFFFF) | 0x88000000;
+                wave.setColors(colors.soundBtnActiveBg(), wc);
+                wave.setVisibility(View.VISIBLE);
+                wave.startWave();
             }
-            volOn[0] = true;
-            schedule(disc, volOverlay, wave, sound, volOn);
+            wave.beginVolumeDrag(downY[0]);
             return true;
         });
 
         btn.setOnTouchListener((v, ev) -> {
-            if (!volOn[0]) return false;
-            switch (ev.getAction()) {
-                case MotionEvent.ACTION_DOWN: lpX[0] = ev.getX(); break;
+            switch (ev.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    downY[0]       = ev.getY();
+                    longPressed[0] = false;
+                    break;
+
                 case MotionEvent.ACTION_MOVE:
-                    float dv = (ev.getX() - lpX[0]) / (float) btnW;
-                    float nv = Math.max(0f, Math.min(1f, lpVol[0] + dv));
-                    sound.setVolume(nv);
-                    if (audioService != null) audioService.setSoundVolume(sound.getFileName(), nv);
-                    updateFill(volFill, volOverlay, nv);
-                    if (wave != null && wave.isWaving()) wave.setVolume(nv);
-                    if (disc[0] != null) mainHandler.removeCallbacks(disc[0]);
-                    schedule(disc, volOverlay, wave, sound, volOn);
-                    return true;
-                case MotionEvent.ACTION_UP: case MotionEvent.ACTION_CANCEL:
-                    lpVol[0] = sound.getVolume(); break;
+                    if (longPressed[0] && wave != null && wave.isDragging()) {
+                        wave.handleDragMove(ev.getY());
+                        return true; // consume — do not trigger click
+                    }
+                    break;
+
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    if (longPressed[0] && wave != null) {
+                        wave.endDrag(true);
+                    }
+                    longPressed[0] = false;
+                    break;
             }
             return false;
         });
 
         btn.setOnClickListener(v -> {
-            if (volOn[0]) {
-                if (disc[0] != null) mainHandler.removeCallbacks(disc[0]);
-                dismiss(volOverlay, wave, sound, volOn);
-                return;
-            }
+            if (wave != null && wave.isDragging()) return; // ignore tap during drag
+
             String fn  = sound.getFileName();
             long   now = System.currentTimeMillis();
             Long   lst = lastTapTime.get(fn);
 
             if (lst != null && (now - lst) < DOUBLE_TAP_MS) {
+                // Double tap = favourite toggle
                 lastTapTime.remove(fn);
                 haptic();
                 boolean f = prefs.isFavSound(fn);
@@ -259,27 +274,7 @@ public class SoundsFragment extends Fragment {
         return btn;
     }
 
-    private void schedule(Runnable[] h, View ov, WaveView wv, SoundItem s, boolean[] on) {
-        h[0] = () -> dismiss(ov, wv, s, on);
-        mainHandler.postDelayed(h[0], 3000);
-    }
-
-    private void dismiss(View ov, WaveView wv, SoundItem s, boolean[] on) {
-        if (ov != null) ov.setVisibility(View.GONE);
-        on[0] = false;
-        boolean p = audioService != null && audioService.isSoundPlaying(s.getFileName());
-        if (wv != null && p) { wv.setVisibility(View.VISIBLE); if (!wv.isWaving()) wv.startWave(); }
-    }
-
-    private void updateFill(View fill, View track, float vol) {
-        if (fill == null || track == null) return;
-        track.post(() -> {
-            int w = track.getWidth(); if (w == 0) return;
-            ViewGroup.LayoutParams lp = fill.getLayoutParams();
-            lp.width = (int)(w * vol); fill.setLayoutParams(lp);
-        });
-    }
-
+    // ── Button styling ────────────────────────────────────────────
     private void applyBtnShape(View btn, SoundItem sound, WaveView wave) {
         boolean playing = audioService != null && audioService.isSoundPlaying(sound.getFileName());
         float dp = getResources().getDisplayMetrics().density;
@@ -334,21 +329,16 @@ public class SoundsFragment extends Fragment {
                 : cnt + " sound" + (cnt > 1 ? "s" : "") + " playing");
     }
 
-    /** Max intensity haptic: 50 ms / amplitude 255 */
     private void haptic() {
         if (prefs == null || !prefs.isHapticEnabled()) return;
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 VibratorManager vm = (VibratorManager) requireContext()
                         .getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE);
-                if (vm != null) {
-                    vm.getDefaultVibrator().vibrate(VibrationEffect.createOneShot(50, 255));
-                    return;
-                }
+                if (vm != null) { vm.getDefaultVibrator().vibrate(VibrationEffect.createOneShot(50, 255)); return; }
             }
             @SuppressWarnings("deprecation")
-            Vibrator vib = (Vibrator) requireContext().getSystemService(
-                    android.content.Context.VIBRATOR_SERVICE);
+            Vibrator vib = (Vibrator) requireContext().getSystemService(android.content.Context.VIBRATOR_SERVICE);
             if (vib == null || !vib.hasVibrator()) return;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 vib.vibrate(VibrationEffect.createOneShot(50, 255));

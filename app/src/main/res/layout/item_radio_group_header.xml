@@ -1,48 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Header row only — stations are separate RecyclerView items (TYPE_STATION) -->
+<!--
+  Modern category header row.
+  Label is prominent (15sp, medium weight), badge shows station count,
+  arrow rotates on expand. No drag handle (drag lives in the dialog only).
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
+    android:layout_height="52dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingStart="4dp"
+    android:paddingEnd="8dp"
     android:clickable="true"
-    android:focusable="true"
-    android:paddingLeft="4dp"
-    android:paddingRight="4dp">
+    android:focusable="true">
 
-    <!-- Label + arrow row -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingTop="20dp"
-        android:paddingBottom="8dp">
-
-        <TextView
-            android:id="@+id/tvGroupLabel"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:textColor="#8888AA"
-            android:textSize="11sp"
-            android:fontFamily="sans-serif-medium"
-            android:letterSpacing="0.10"/>
-
-        <TextView
-            android:id="@+id/tvGroupArrow"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="›"
-            android:textSize="18sp"
-            android:textColor="#44445A"
-            android:paddingEnd="2dp"/>
-
-    </LinearLayout>
-
-    <!-- Full-width divider rule -->
+    <!-- Accent left bar -->
     <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#22223A"/>
+        android:id="@+id/categoryAccentBar"
+        android:layout_width="3dp"
+        android:layout_height="22dp"
+        android:background="#6C63FF"
+        android:layout_marginEnd="10dp"/>
+
+    <!-- Category name — large, readable -->
+    <TextView
+        android:id="@+id/tvGroupLabel"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textColor="#8888AA"
+        android:textSize="15sp"
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="0.04"
+        android:maxLines="1"
+        android:ellipsize="end"/>
+
+    <!-- Station count badge -->
+    <TextView
+        android:id="@+id/tvGroupCount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#6C63FF"
+        android:textSize="11sp"
+        android:fontFamily="sans-serif-medium"
+        android:paddingStart="7dp"
+        android:paddingEnd="7dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp"
+        android:layout_marginEnd="8dp"
+        android:visibility="visible"/>
+
+    <!-- Expand arrow -->
+    <TextView
+        android:id="@+id/tvGroupArrow"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:text="›"
+        android:textSize="20sp"
+        android:gravity="center"
+        android:textColor="#44445A"/>
 
 </LinearLayout>

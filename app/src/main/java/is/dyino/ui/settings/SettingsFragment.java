@@ -1,14 +1,13 @@
 package is.dyino.ui.settings;
 
 import android.content.res.ColorStateList;
-import android.graphics.PorterDuff;
+import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -36,6 +35,9 @@ public class SettingsFragment extends Fragment {
     private AppPrefs    prefs;
     private ColorConfig colors;
 
+    /** SharedPrefs key to persist the currently applied theme name */
+    private static final String PREF_ACTIVE_THEME = "active_theme_name";
+
     public interface OnSettingsChanged {
         void onThemeChanged();
         void onButtonSoundChanged(boolean enabled);
@@ -50,10 +52,9 @@ public class SettingsFragment extends Fragment {
     private TextView     tvCountryNote, tvVersion, tvMadeBy;
     private LinearLayout cardToggles, cardTheme, cardStations, cardAdvanced;
     private LinearLayout themePresetsContainer;
-    private LinearLayout customEditorWrap;   // wraps the raw JSON editor, hidden by default
+    private LinearLayout customEditorWrap;
     private View         dividerSettings;
     private TextView     tvSettingsTitle;
-    private ImageView    ivSettingsIcon;
 
     @Nullable @Override
     public View onCreateView(@NonNull LayoutInflater inf, @Nullable ViewGroup c, @Nullable Bundle s) {
@@ -74,7 +75,6 @@ public class SettingsFragment extends Fragment {
         cardAdvanced         = view.findViewById(R.id.cardAdvanced);
         themePresetsContainer= view.findViewById(R.id.themePresetsContainer);
         customEditorWrap     = view.findViewById(R.id.customEditorWrap);
-        ivSettingsIcon       = view.findViewById(R.id.ivSettingsIcon);
         swHaptic             = view.findViewById(R.id.switchHaptic);
         swBtnSound           = view.findViewById(R.id.switchButtonSound);
         swPersistent         = view.findViewById(R.id.switchPersistent);
@@ -96,124 +96,170 @@ public class SettingsFragment extends Fragment {
         if (etCountry  != null) etCountry.setText(prefs.getRadioCountry());
 
         swHaptic.setOnCheckedChangeListener((b, v) -> prefs.setHapticEnabled(v));
-        swBtnSound.setOnCheckedChangeListener((b, v) -> { prefs.setButtonSoundEnabled(v); if(listener!=null) listener.onButtonSoundChanged(v); });
+        swBtnSound.setOnCheckedChangeListener((b, v) -> {
+            prefs.setButtonSoundEnabled(v);
+            if (listener != null) listener.onButtonSoundChanged(v);
+        });
         swPersistent.setOnCheckedChangeListener((b, v) -> prefs.setPersistentPlayingEnabled(v));
 
         if (btnSaveColor != null) btnSaveColor.setOnClickListener(v -> {
             if (etColorCfg == null) return;
             colors.saveRaw(etColorCfg.getText().toString());
+            setActiveThemeName("Custom");
             if (listener != null) listener.onThemeChanged();
-            Toast.makeText(requireContext(), "Theme saved", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), "Custom theme saved", Toast.LENGTH_SHORT).show();
+            refreshPresetButtons();
         });
         if (btnSaveCountry != null) btnSaveCountry.setOnClickListener(v -> {
             if (etCountry == null) return;
-            String c = etCountry.getText().toString().trim(); prefs.setRadioCountry(c); prefs.saveRadioCache("");
-            Toast.makeText(requireContext(),"Set to \""+(c.isEmpty()?"Global":c)+"\". Go to Radio tab.",Toast.LENGTH_LONG).show();
+            String c = etCountry.getText().toString().trim();
+            prefs.setRadioCountry(c); prefs.saveRadioCache("");
+            Toast.makeText(requireContext(),
+                    "Set to \"" + (c.isEmpty() ? "Global" : c) + "\". Go to Radio tab.",
+                    Toast.LENGTH_LONG).show();
         });
         if (btnFetch != null) btnFetch.setOnClickListener(v -> {
-            if (etStationUrl==null) return;
-            String url=etStationUrl.getText().toString().trim();
-            if(url.isEmpty()){if(tvFetchStatus!=null)tvFetchStatus.setText("Enter a URL first");return;}
-            if(tvFetchStatus!=null)tvFetchStatus.setText("Fetching…"); fetchAndMerge(url);
+            if (etStationUrl == null) return;
+            String url = etStationUrl.getText().toString().trim();
+            if (url.isEmpty()) { if (tvFetchStatus != null) tvFetchStatus.setText("Enter a URL first"); return; }
+            if (tvFetchStatus != null) tvFetchStatus.setText("Fetching…");
+            fetchAndMerge(url);
         });
 
         buildThemePresets();
         applyTheme(view);
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // 13 THEME PRESETS (all self-contained JSON strings)
-    // ═══════════════════════════════════════════════════════════════
+    // ── Active theme persistence ──────────────────────────────────
+    private String getActiveThemeName() {
+        return requireContext().getSharedPreferences("dyino_prefs", 0)
+                .getString(PREF_ACTIVE_THEME, "");
+    }
 
-    private static final String[][] BUILTIN_THEMES = {
-        {"Dark",    buildTheme("#0D0D14","#16161F","#1E1E2A","#6C63FF","#3D3880","#22223A","#FFFFFF","#8888AA","#44445A","#0D0D14","#44445A")},
-        {"Light",   buildTheme("#F4F4F8","#FFFFFF","#EBEBF2","#5B52E8","#BDB9F7","#D8D8E8","#12121A","#666688","#AAAACC","#F4F4F8","#AAAACC")},
-        {"Dusk",    buildTheme("#1A0F1F","#221528","#2C1A35","#E07AFF","#6A2E80","#3A2048","#F5E8FF","#AA88CC","#6A4080","#1A0F1F","#6A4080")},
-        {"Ocean",   buildTheme("#080F1A","#0D1A2A","#122035","#1ECBE1","#0E5F6A","#183048","#E0F8FF","#6A9BB0","#2A5068","#080F1A","#2A5068")},
-        {"Forest",  buildTheme("#0A1208","#121C10","#1A2818","#4CAF50","#2E6B30","#1E3020","#E8F5E9","#88AA88","#3A5A3A","#0A1208","#3A5A3A")},
-        {"Sunset",  buildTheme("#1A0A00","#2A1200","#3A1E06","#FF7043","#8B3000","#3D1C0A","#FFF3E0","#FFAB80","#7A3010","#1A0A00","#7A3010")},
-        {"Rose",    buildTheme("#18090E","#24111A","#301828","#F06292","#882244","#3A1828","#FFE4EC","#CC88AA","#7A3050","#18090E","#7A3050")},
-        {"Slate",   buildTheme("#0C0D10","#141519","#1C1D22","#7986CB","#3D4A8A","#22232A","#E8EAF6","#7A80A0","#3A3D50","#0C0D10","#3A3D50")},
-        {"Amber",   buildTheme("#110D00","#1C1500","#281E00","#FFB300","#7A5600","#302400","#FFF8E1","#CCAA55","#7A6020","#110D00","#7A6020")},
-        {"Mint",    buildTheme("#081210","#10201E","#182E2C","#26A69A","#0E5E58","#1A3030","#E0F2F1","#70A8A4","#2A5050","#081210","#2A5050")},
-        {"Mono",    buildTheme("#0A0A0A","#141414","#1E1E1E","#FFFFFF","#888888","#2A2A2A","#FFFFFF","#888888","#444444","#0A0A0A","#444444")},
-        {"Neon",    buildTheme("#000814","#001028","#001840","#00F5FF","#004D6B","#002240","#E0FFFF","#00A0B0","#003040","#000814","#003040")},
-        {"Crimson", buildTheme("#120408","#1E0810","#2A1018","#E53935","#8B1A1A","#301018","#FFE8E8","#CC8888","#7A2020","#120408","#7A2020")},
+    private void setActiveThemeName(String name) {
+        requireContext().getSharedPreferences("dyino_prefs", 0)
+                .edit().putString(PREF_ACTIVE_THEME, name).apply();
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // 30 THEME PRESETS
+    // bg, card, card2, accent, accentDim, divider, textPri, textSec, navUnsel, navBg, navLabelUnsel
+    // ══════════════════════════════════════════════════════════════
+    private static final String[][] THEMES = {
+      // ── Dark / AMOLED ──
+      {"Dark",         "#0D0D14","#16161F","#1E1E2A","#6C63FF","#3D3880","#22223A","#FFFFFF","#8888AA","#44445A","#0D0D14","#44445A"},
+      {"AMOLED Black", "#000000","#0A0A0A","#111111","#6C63FF","#2A2880","#1A1A1A","#FFFFFF","#888888","#333333","#000000","#333333"},
+      {"AMOLED Purple","#000000","#0A0008","#110012","#BB86FC","#6200EA","#1E001E","#FFFFFF","#CC99FF","#440044","#000000","#440044"},
+      {"AMOLED Blue",  "#000000","#000A14","#001020","#0AF0FF","#003A50","#001830","#FFFFFF","#6AAABB","#003344","#000000","#003344"},
+      {"AMOLED Green", "#000000","#001208","#001A08","#00E676","#007A3A","#001E10","#FFFFFF","#66BB88","#003018","#000000","#003018"},
+      // ── Day / Light ──
+      {"Light",        "#F4F4F8","#FFFFFF","#EBEBF2","#5B52E8","#BDB9F7","#D8D8E8","#12121A","#666688","#AAAACC","#F4F4F8","#AAAACC"},
+      {"Day Blue",     "#EEF4FF","#FFFFFF","#DCE8FF","#2979FF","#82B1FF","#BBCCE8","#0D1A33","#5577AA","#9AADCC","#EEF4FF","#9AADCC"},
+      {"Day Green",    "#EDFAF4","#FFFFFF","#DAFCE9","#00897B","#80CBC4","#B2DFDB","#0D2018","#447766","#99BBAA","#EDFAF4","#99BBAA"},
+      {"Cream",        "#FAF7F0","#FFFFFF","#F5EED8","#B8860B","#F0D080","#E0D0A0","#1A1208","#887744","#CCBB88","#FAF7F0","#CCBB88"},
+      {"Paper",        "#F2EDE8","#FFFFFF","#EDE5DA","#8B5E3C","#D4A27A","#D5C8B8","#1A0E06","#886644","#C8A88A","#F2EDE8","#C8A88A"},
+      // ── Colours / Themes ──
+      {"Dusk",         "#1A0F1F","#221528","#2C1A35","#E07AFF","#6A2E80","#3A2048","#F5E8FF","#AA88CC","#6A4080","#1A0F1F","#6A4080"},
+      {"Ocean",        "#080F1A","#0D1A2A","#122035","#1ECBE1","#0E5F6A","#183048","#E0F8FF","#6A9BB0","#2A5068","#080F1A","#2A5068"},
+      {"Forest",       "#0A1208","#121C10","#1A2818","#4CAF50","#2E6B30","#1E3020","#E8F5E9","#88AA88","#3A5A3A","#0A1208","#3A5A3A"},
+      {"Sunset",       "#1A0A00","#2A1200","#3A1E06","#FF7043","#8B3000","#3D1C0A","#FFF3E0","#FFAB80","#7A3010","#1A0A00","#7A3010"},
+      {"Rose",         "#18090E","#24111A","#301828","#F06292","#882244","#3A1828","#FFE4EC","#CC88AA","#7A3050","#18090E","#7A3050"},
+      {"Slate",        "#0C0D10","#141519","#1C1D22","#7986CB","#3D4A8A","#22232A","#E8EAF6","#7A80A0","#3A3D50","#0C0D10","#3A3D50"},
+      {"Amber",        "#110D00","#1C1500","#281E00","#FFB300","#7A5600","#302400","#FFF8E1","#CCAA55","#7A6020","#110D00","#7A6020"},
+      {"Mint",         "#081210","#10201E","#182E2C","#26A69A","#0E5E58","#1A3030","#E0F2F1","#70A8A4","#2A5050","#081210","#2A5050"},
+      {"Mono",         "#0A0A0A","#141414","#1E1E1E","#FFFFFF","#888888","#2A2A2A","#FFFFFF","#888888","#444444","#0A0A0A","#444444"},
+      {"Neon",         "#000814","#001028","#001840","#00F5FF","#004D6B","#002240","#E0FFFF","#00A0B0","#003040","#000814","#003040"},
+      {"Crimson",      "#120408","#1E0810","#2A1018","#E53935","#8B1A1A","#301018","#FFE8E8","#CC8888","#7A2020","#120408","#7A2020"},
+      {"Midnight",     "#080818","#0F102A","#161830","#4FC3F7","#1565C0","#1A1E38","#E3F2FD","#6A9BC0","#2A3060","#080818","#2A3060"},
+      {"Aurora",       "#060C14","#0A1522","#0F1E30","#69FF47","#1B7A00","#102218","#E8FFE0","#66AA66","#204A28","#060C14","#204A28"},
+      {"Sand",         "#1A1208","#261C10","#342818","#F4A460","#8B5E1A","#3A2C1A","#FFF5E6","#CCAA77","#7A5030","#1A1208","#7A5030"},
+      {"Grape",        "#120818","#1E1028","#2A1838","#CE93D8","#6A1B9A","#301848","#F3E5F5","#BB88CC","#6A3888","#120818","#6A3888"},
+      // ── Specialty ──
+      {"Dracula",      "#282A36","#44475A","#21222C","#BD93F9","#6272A4","#44475A","#F8F8F2","#6272A4","#44475A","#282A36","#44475A"},
+      {"Solarized",    "#002B36","#073642","#002B36","#268BD2","#586E75","#073642","#EEE8D5","#657B83","#586E75","#002B36","#586E75"},
+      {"Nord",         "#2E3440","#3B4252","#434C5E","#88C0D0","#5E81AC","#4C566A","#ECEFF4","#D8DEE9","#4C566A","#2E3440","#4C566A"},
+      {"Material You", "#1C1B1F","#2B2930","#37353D","#D0BCFF","#6650A4","#48464F","#E6E1E5","#CAC4D0","#49454E","#1C1B1F","#49454E"},
+      {"Catppuccin",   "#1E1E2E","#181825","#313244","#CBA6F7","#45475A","#45475A","#CDD6F4","#A6ADC8","#6C7086","#1E1E2E","#6C7086"},
     };
 
-    /** Build a minimal complete theme JSON for a given palette */
-    private static String buildTheme(String bg, String card, String card2, String accent,
-                                     String accentDim, String divider, String textPri,
-                                     String textSec, String navUnsel, String navBg, String navLabelUnsel) {
+    private String buildThemeJson(String[] t) {
+        // t: [name, bg, card, card2, accent, accentDim, divider, textPri, textSec, navUnsel, navBg, navLabelUnsel]
+        String bg=t[1],card=t[2],card2=t[3],acc=t[4],accD=t[5],div=t[6],
+               tPri=t[7],tSec=t[8],navU=t[9],navBg=t[10],navLU=t[11];
         return "{\n" +
           "\"global\":{\"bg_primary\":\""+bg+"\",\"bg_card\":\""+card+"\",\"bg_card2\":\""+card2+"\"," +
-          "\"accent\":\""+accent+"\",\"accent_dim\":\""+accentDim+"\",\"divider\":\""+divider+"\"," +
-          "\"text_primary\":\""+textPri+"\",\"text_secondary\":\""+textSec+"\",\"text_section_title\":\""+textPri+"\"," +
-          "\"icon_note_color\":\""+accent+"\",\"icon_note_vec_tint\":\""+accent+"\"},\n" +
-          "\"nav\":{\"bg\":\""+navBg+"\",\"selected\":\""+textPri+"\",\"unselected\":\""+navUnsel+"\"," +
-          "\"label_selected\":\""+textPri+"\",\"label_unselected\":\""+navLabelUnsel+"\"},\n" +
-          "\"home\":{\"section_title\":\""+textPri+"\",\"card_bg\":\""+card+"\"," +
-          "\"chip_playing_bg\":\""+accentDim+"\",\"chip_playing_border\":\""+accent+"\"," +
-          "\"chip_text\":\""+textPri+"\",\"empty_text\":\""+navUnsel+"\",\"page_title\":\""+textPri+"\"," +
-          "\"now_playing_anim\":\""+accent+"\",\"now_playing_card_bg\":\""+card2+"\"," +
-          "\"now_playing_card_border\":\""+accent+"\",\"now_playing_icon_bg\":\""+accentDim+"\"," +
-          "\"now_playing_icon_tint\":\""+accent+"\"},\n" +
-          "\"radio\":{\"station_bg\":\""+card2+"\",\"station_bg_active\":\""+accentDim+"\"," +
-          "\"station_border_active\":\""+accent+"\",\"station_text\":\""+textPri+"\"," +
-          "\"station_text_active\":\""+accent+"\",\"station_click_glow\":\""+accent+"\"," +
-          "\"eq_bar\":\""+accent+"\",\"group_name_text\":\""+accent+"\"," +
-          "\"group_name_collapsed_text\":\""+textSec+"\",\"search_bg\":\""+card2+"\"," +
-          "\"search_text\":\""+textPri+"\",\"search_hint\":\""+textSec+"\"," +
-          "\"page_title\":\""+textPri+"\",\"checkbox_color\":\""+accent+"\"},\n" +
-          "\"sounds\":{\"btn_bg\":\""+card+"\",\"btn_active_bg\":\""+accentDim+"\"," +
-          "\"btn_border_active\":\""+accent+"\",\"btn_click_glow\":\""+accent+"\"," +
-          "\"btn_text\":\""+textPri+"\",\"wave_color\":\""+accent+"\"," +
-          "\"vol_bar_track\":\"#44FFFFFF\",\"vol_bar_fill\":\""+textPri+"\"," +
-          "\"stop_all_bg\":\""+card2+"\",\"stop_all_border\":\""+accent+"\"," +
-          "\"stop_all_text\":\""+textPri+"\"},\n" +
-          "\"controls\":{\"stop_bg\":\""+card2+"\",\"stop_border\":\""+accent+"\"," +
-          "\"stop_text\":\""+textPri+"\"},\n" +
-          "\"settings\":{\"card_bg\":\""+card+"\",\"card_border\":\""+divider+"\"," +
-          "\"label_text\":\""+textPri+"\",\"header_text\":\""+textSec+"\"," +
-          "\"hint_text\":\""+textSec+"\",\"version_text\":\""+navUnsel+"\"," +
-          "\"input_bg\":\""+card2+"\",\"input_border\":\""+divider+"\"," +
-          "\"input_text\":\""+textPri+"\",\"btn_bg\":\""+card2+"\"," +
-          "\"btn_border\":\""+accent+"\",\"btn_text\":\""+textPri+"\"," +
-          "\"about_text\":\""+accent+"\",\"divider\":\""+divider+"\"," +
-          "\"page_title\":\""+textPri+"\",\"switch_thumb_on\":\""+accent+"\"," +
-          "\"switch_track_on\":\""+accentDim+"\",\"switch_thumb_off\":\""+textSec+"\"," +
-          "\"switch_track_off\":\""+card2+"\",\"made_by_text\":\""+navUnsel+"\"," +
-          "\"made_by_brand\":\""+accent+"\",\"tune_icon_color\":\""+accent+"\"},\n" +
-          "\"notification\":{\"bg\":\""+card+"\",\"icon_bg\":\""+accent+"\"}\n}";
+          "\"accent\":\""+acc+"\",\"accent_dim\":\""+accD+"\",\"divider\":\""+div+"\"," +
+          "\"text_primary\":\""+tPri+"\",\"text_secondary\":\""+tSec+"\"," +
+          "\"text_section_title\":\""+tPri+"\"," +
+          "\"icon_note_color\":\""+acc+"\",\"icon_note_vec_tint\":\""+acc+"\"," +
+          "\"page_header_text\":\""+tPri+"\",\"page_header_subtitle_text\":\""+tSec+"\"},\n" +
+          "\"nav\":{\"bg\":\""+navBg+"\",\"selected\":\""+tPri+"\",\"unselected\":\""+navU+"\"," +
+          "\"label_selected\":\""+tPri+"\",\"label_unselected\":\""+navLU+"\"},\n" +
+          "\"home\":{\"section_title\":\""+tPri+"\",\"card_bg\":\""+card+"\"," +
+          "\"chip_playing_bg\":\""+accD+"\",\"chip_playing_border\":\""+acc+"\"," +
+          "\"chip_text\":\""+tPri+"\",\"empty_text\":\""+navU+"\",\"page_title\":\""+tPri+"\"," +
+          "\"now_playing_anim\":\""+acc+"\",\"now_playing_card_bg\":\""+card2+"\"," +
+          "\"now_playing_card_border\":\""+acc+"\",\"now_playing_icon_bg\":\""+accD+"\"," +
+          "\"now_playing_icon_tint\":\""+acc+"\"},\n" +
+          "\"radio\":{\"station_bg\":\""+card2+"\",\"station_bg_active\":\""+accD+"\"," +
+          "\"station_border_active\":\""+acc+"\",\"station_text\":\""+tPri+"\"," +
+          "\"station_text_active\":\""+acc+"\",\"station_click_glow\":\""+acc+"\"," +
+          "\"eq_bar\":\""+acc+"\",\"group_name_text\":\""+acc+"\"," +
+          "\"group_name_collapsed_text\":\""+tSec+"\",\"search_bg\":\""+card2+"\"," +
+          "\"search_text\":\""+tPri+"\",\"search_hint\":\""+tSec+"\"," +
+          "\"page_title\":\""+tPri+"\",\"checkbox_color\":\""+acc+"\"},\n" +
+          "\"sounds\":{\"btn_bg\":\""+card+"\",\"btn_active_bg\":\""+accD+"\"," +
+          "\"btn_border_active\":\""+acc+"\",\"btn_click_glow\":\""+acc+"\"," +
+          "\"btn_text\":\""+tPri+"\",\"wave_color\":\""+acc+"\"," +
+          "\"vol_bar_track\":\"#44FFFFFF\",\"vol_bar_fill\":\""+tPri+"\"," +
+          "\"stop_all_bg\":\""+card2+"\",\"stop_all_border\":\""+acc+"\"," +
+          "\"stop_all_text\":\""+tPri+"\"},\n" +
+          "\"controls\":{\"stop_bg\":\""+card2+"\",\"stop_border\":\""+acc+"\",\"stop_text\":\""+tPri+"\"},\n" +
+          "\"settings\":{\"card_bg\":\""+card+"\",\"card_border\":\""+div+"\"," +
+          "\"label_text\":\""+tPri+"\",\"header_text\":\""+tSec+"\"," +
+          "\"hint_text\":\""+tSec+"\",\"version_text\":\""+navU+"\"," +
+          "\"input_bg\":\""+card2+"\",\"input_border\":\""+div+"\"," +
+          "\"input_text\":\""+tPri+"\",\"btn_bg\":\""+card2+"\"," +
+          "\"btn_border\":\""+acc+"\",\"btn_text\":\""+tPri+"\"," +
+          "\"about_text\":\""+acc+"\",\"divider\":\""+div+"\"," +
+          "\"page_title\":\""+tPri+"\",\"switch_thumb_on\":\""+acc+"\"," +
+          "\"switch_track_on\":\""+accD+"\",\"switch_thumb_off\":\""+tSec+"\"," +
+          "\"switch_track_off\":\""+card2+"\",\"made_by_text\":\""+navU+"\"," +
+          "\"made_by_brand\":\""+acc+"\",\"tune_icon_color\":\""+acc+"\"},\n" +
+          "\"notification\":{\"bg\":\""+card+"\",\"icon_bg\":\""+acc+"\"}\n}";
     }
 
     private void buildThemePresets() {
         if (themePresetsContainer == null) return;
         themePresetsContainer.removeAllViews();
         float dp = density();
+        String active = getActiveThemeName();
 
-        // Built-in presets
-        for (String[] preset : BUILTIN_THEMES) {
-            final String name = preset[0], json = preset[1];
-            addPresetButton(themePresetsContainer, name, dp, false, () -> applyThemeJson(json, name));
+        // Built-in 30 themes
+        for (String[] t : THEMES) {
+            final String name = t[0];
+            final String json = buildThemeJson(t);
+            boolean isActive  = name.equals(active);
+            addPresetBtn(themePresetsContainer, name, dp, false, isActive,
+                    () -> applyThemeJson(json, name));
         }
 
-        // User-supplied themes from assets/themes/
+        // User asset themes
         try {
             String[] assetThemes = requireContext().getAssets().list("themes");
             if (assetThemes != null) {
                 for (String file : assetThemes) {
                     if (!file.endsWith(".json")) continue;
-                    String themeName = SoundLoader.prettify(file.replace(".json", ""));
-                    final String themeFile = file;
-                    addPresetButton(themePresetsContainer, themeName, dp, false, () -> {
+                    String name = prettify(file.replace(".json", ""));
+                    boolean isActive = name.equals(active);
+                    addPresetBtn(themePresetsContainer, name, dp, false, isActive, () -> {
                         try {
                             BufferedReader br = new BufferedReader(new InputStreamReader(
-                                    requireContext().getAssets().open("themes/" + themeFile)));
+                                    requireContext().getAssets().open("themes/" + file)));
                             StringBuilder sb = new StringBuilder(); String line;
                             while ((line = br.readLine()) != null) sb.append(line).append('\n');
                             br.close();
-                            applyThemeJson(sb.toString(), themeName);
+                            applyThemeJson(sb.toString(), name);
                         } catch (Exception e) {
                             Toast.makeText(requireContext(), "Failed to load theme", Toast.LENGTH_SHORT).show();
                         }
@@ -222,26 +268,40 @@ public class SettingsFragment extends Fragment {
             }
         } catch (Exception ignored) {}
 
-        // "Custom" button — last, toggles the JSON editor visibility
-        addPresetButton(themePresetsContainer, "Custom ✎", dp, true, () -> {
-            if (customEditorWrap != null) {
-                boolean nowVisible = customEditorWrap.getVisibility() != View.VISIBLE;
-                customEditorWrap.setVisibility(nowVisible ? View.VISIBLE : View.GONE);
-                if (nowVisible && etColorCfg != null)
-                    etColorCfg.setText(colors.readRaw());
-            }
-        });
+        // Custom button (last)
+        boolean customActive = "Custom".equals(active);
+        addPresetBtn(themePresetsContainer, "Custom ✎", dp, true, customActive,
+                () -> {
+                    if (customEditorWrap != null) {
+                        boolean show = customEditorWrap.getVisibility() != View.VISIBLE;
+                        customEditorWrap.setVisibility(show ? View.VISIBLE : View.GONE);
+                        if (show && etColorCfg != null) etColorCfg.setText(colors.readRaw());
+                    }
+                });
     }
 
-    private void addPresetButton(LinearLayout container, String label, float dp,
-                                 boolean isCustom, Runnable action) {
+    private void refreshPresetButtons() {
+        // Rebuild to update highlight state
+        buildThemePresets();
+    }
+
+    private void addPresetBtn(LinearLayout container, String label, float dp,
+                              boolean isCustom, boolean isActive, Runnable action) {
         TextView btn = new TextView(requireContext());
         btn.setText(label);
         btn.setGravity(android.view.Gravity.CENTER);
         btn.setTextSize(13f);
-        btn.setPadding((int)(16*dp), (int)(10*dp), (int)(16*dp), (int)(10*dp));
+        btn.setPadding((int)(16*dp),(int)(10*dp),(int)(16*dp),(int)(10*dp));
         btn.setClickable(true); btn.setFocusable(true);
-        if (isCustom) styleBtnAccent(btn); else styleBtn(btn);
+
+        if (isActive) {
+            styleBtnActive(btn);
+        } else if (isCustom) {
+            styleBtnAccent(btn);
+        } else {
+            styleBtn(btn);
+        }
+
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, 0, (int)(8*dp), 0);
@@ -252,18 +312,20 @@ public class SettingsFragment extends Fragment {
 
     private void applyThemeJson(String json, String name) {
         colors.saveRaw(json);
+        setActiveThemeName(name);
         colors = new ColorConfig(requireContext());
         if (listener != null) listener.onThemeChanged();
         if (etColorCfg != null) etColorCfg.setText(colors.readRaw());
         applyTheme(getView());
-        Toast.makeText(requireContext(), name + " theme applied", Toast.LENGTH_SHORT).show();
+        refreshPresetButtons();
+        Toast.makeText(requireContext(), name + " applied", Toast.LENGTH_SHORT).show();
     }
 
     // ── Network ──────────────────────────────────────────────────
     private void fetchAndMerge(String url) {
         new OkHttpClient().newCall(new Request.Builder().url(url).build()).enqueue(new Callback() {
             @Override public void onFailure(Call c, IOException e) {
-                requireActivity().runOnUiThread(()->{ if(tvFetchStatus!=null) tvFetchStatus.setText("Failed: "+e.getMessage()); });
+                requireActivity().runOnUiThread(() -> { if(tvFetchStatus!=null)tvFetchStatus.setText("Failed: "+e.getMessage()); });
             }
             @Override public void onResponse(Call c, Response r) throws IOException {
                 if (!r.isSuccessful()) { requireActivity().runOnUiThread(()->{ if(tvFetchStatus!=null)tvFetchStatus.setText("HTTP "+r.code()); }); return; }
@@ -274,21 +336,19 @@ public class SettingsFragment extends Fragment {
         });
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // THEMING
-    // ═══════════════════════════════════════════════════════════════
+    // ── Theming ───────────────────────────────────────────────────
     public void applyTheme(View root) {
         if (root == null || colors == null) return;
         root.setBackgroundColor(colors.bgPrimary());
-        if (tvSettingsTitle != null) tvSettingsTitle.setTextColor(colors.settingsPageTitle());
+
+        // Page header title uses pageHeaderText
+        if (tvSettingsTitle != null) tvSettingsTitle.setTextColor(colors.pageHeaderText());
         if (dividerSettings != null) dividerSettings.setBackgroundColor(colors.settingsDivider());
 
-        // Tint ic_note_vec icon
-        if (ivSettingsIcon != null) {
-            ivSettingsIcon.setColorFilter(colors.iconNoteVecTint(), PorterDuff.Mode.SRC_IN);
-        }
+        // No ic_note_vec icon in header — it was removed from the XML
 
-        styleCard(cardToggles); styleCard(cardTheme); styleCard(cardStations); styleCard(cardAdvanced);
+        styleCard(cardToggles); styleCard(cardTheme);
+        styleCard(cardStations); styleCard(cardAdvanced);
 
         lbl(root.findViewById(R.id.tvToggleHeader));
         lbl(root.findViewById(R.id.tvHapticLabel));
@@ -305,16 +365,7 @@ public class SettingsFragment extends Fragment {
         styleInput(etColorCfg); styleInput(etCountry); styleInput(etStationUrl);
         styleBtn(btnSaveColor); styleBtn(btnSaveCountry); styleBtn(btnFetch);
 
-        // Restyle preset buttons
-        if (themePresetsContainer != null) {
-            for (int i = 0; i < themePresetsContainer.getChildCount(); i++) {
-                View child = themePresetsContainer.getChildAt(i);
-                if (!(child instanceof TextView)) continue;
-                TextView tv = (TextView) child;
-                boolean isLast = i == themePresetsContainer.getChildCount() - 1;
-                if (isLast) styleBtnAccent(tv); else styleBtn(tv);
-            }
-        }
+        refreshPresetButtons();
 
         if (tvFetchStatus != null) tvFetchStatus.setTextColor(colors.textSettingsHint());
         if (tvVersion     != null) tvVersion.setTextColor(colors.textSettingsVersion());
@@ -329,7 +380,7 @@ public class SettingsFragment extends Fragment {
         ColorStateList trackStates = new ColorStateList(
                 new int[][]{ new int[]{android.R.attr.state_checked}, new int[]{} },
                 new int[]{ colors.settingsSwitchTrackOn(), colors.settingsSwitchTrackOff() });
-        for (SwitchCompat sw : new SwitchCompat[]{swHaptic, swBtnSound, swPersistent}) {
+        for (SwitchCompat sw : new SwitchCompat[]{ swHaptic, swBtnSound, swPersistent }) {
             if (sw == null) continue;
             sw.setThumbTintList(thumbStates);
             sw.setTrackTintList(trackStates);
@@ -363,7 +414,19 @@ public class SettingsFragment extends Fragment {
         btn.setBackground(gd); btn.setTextColor(colors.settingsBtnText());
     }
 
-    /** Accent-filled variant for the Custom button */
+    /** Active/selected theme — filled accent background */
+    private void styleBtnActive(TextView btn) {
+        if (btn == null) return;
+        float dp = density();
+        GradientDrawable gd = new GradientDrawable();
+        gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(10*dp);
+        gd.setColor(colors.accent()); gd.setStroke((int)(2f*dp), colors.accent());
+        btn.setBackground(gd);
+        // Contrast text over accent
+        btn.setTextColor(isLight(colors.accent()) ? 0xFF111111 : 0xFFFFFFFF);
+    }
+
+    /** Custom editor button — accent-bordered */
     private void styleBtnAccent(TextView btn) {
         if (btn == null) return;
         float dp = density();
@@ -371,6 +434,13 @@ public class SettingsFragment extends Fragment {
         gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(10*dp);
         gd.setColor(colors.accentDim()); gd.setStroke((int)(1.5f*dp), colors.accent());
         btn.setBackground(gd); btn.setTextColor(colors.accent());
+    }
+
+    private static boolean isLight(int color) {
+        double r = ((color >> 16) & 0xFF) / 255.0;
+        double g = ((color >>  8) & 0xFF) / 255.0;
+        double b = ( color        & 0xFF) / 255.0;
+        return (0.299*r + 0.587*g + 0.114*b) > 0.5;
     }
 
     private void lbl(View v) { if(v instanceof TextView) ((TextView)v).setTextColor(colors.textSettingsLabel()); }
@@ -386,6 +456,8 @@ public class SettingsFragment extends Fragment {
 
     private float density() { return getResources().getDisplayMetrics().density; }
 
-    // Expose SoundLoader.prettify for theme file names
-    private static class SoundLoader { static String prettify(String s) { if(s==null||s.isEmpty()) return s; return Character.toUpperCase(s.charAt(0))+s.substring(1); } }
+    private static String prettify(String s) {
+        if (s == null || s.isEmpty()) return s;
+        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+    }
 }

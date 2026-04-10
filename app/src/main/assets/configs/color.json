@@ -10,7 +10,9 @@
     "text_secondary": "#8888AA",
     "text_section_title": "#FFFFFF",
     "icon_note_color": "#6C63FF",
-    "icon_note_vec_tint": "#6C63FF"
+    "icon_note_vec_tint": "#6C63FF",
+    "page_header_text": "#FFFFFF",
+    "page_header_subtitle_text": "#8888AA"
   },
   "nav": {
     "bg": "#0D0D14",

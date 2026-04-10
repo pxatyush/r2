@@ -37,7 +37,7 @@ public class ColorConfig {
         }
     }
 
-    // ── Global ───────────────────────────────────────────────────
+    // ── Global ────────────────────────────────────────────────────
     public int bgPrimary()        { return color("global","bg_primary",      "#0D0D14"); }
     public int bgCard()           { return color("global","bg_card",         "#16161F"); }
     public int bgCard2()          { return color("global","bg_card2",        "#1E1E2A"); }
@@ -48,15 +48,31 @@ public class ColorConfig {
     public int textSecondary()    { return color("global","text_secondary",  "#8888AA"); }
     public int textSectionTitle() { return color("global","text_section_title","#FFFFFF"); }
     public int iconNoteColor()    { return color("global","icon_note_color", "#6C63FF"); }
-    /** Tint applied to ic_note_vec vector drawable everywhere */
     public int iconNoteVecTint()  { return color("global","icon_note_vec_tint","#6C63FF"); }
 
+    /**
+     * Page header BIG title text colour (e.g. "Home", "Radio", "Sounds", "Settings").
+     * JSON key: global → page_header_text
+     * Falls back to text_primary so existing themes are unaffected.
+     */
+    public int pageHeaderText() {
+        return color("global","page_header_text", "#FFFFFF");
+    }
+
+    /**
+     * Page header subtitle / tagline text colour (e.g. "Your ambient space").
+     * JSON key: global → page_header_subtitle_text
+     */
+    public int pageHeaderSubtitleText() {
+        return color("global","page_header_subtitle_text","#8888AA");
+    }
+
     // ── Nav ──────────────────────────────────────────────────────
-    public int bgNav()             { return color("nav","bg",                "#0D0D14"); }
-    public int navSelected()       { return color("nav","selected",          "#FFFFFF"); }
-    public int navUnselected()     { return color("nav","unselected",        "#44445A"); }
-    public int navLabelSelected()  { return color("nav","label_selected",    "#FFFFFF"); }
-    public int navLabelUnselected(){ return color("nav","label_unselected",  "#44445A"); }
+    public int bgNav()             { return color("nav","bg",               "#0D0D14"); }
+    public int navSelected()       { return color("nav","selected",         "#FFFFFF"); }
+    public int navUnselected()     { return color("nav","unselected",       "#44445A"); }
+    public int navLabelSelected()  { return color("nav","label_selected",   "#FFFFFF"); }
+    public int navLabelUnselected(){ return color("nav","label_unselected", "#44445A"); }
 
     // ── Home ─────────────────────────────────────────────────────
     public int homeSectionTitle()     { return color("home","section_title",          "#FFFFFF"); }
@@ -72,7 +88,7 @@ public class ColorConfig {
     public int nowPlayingIconBg()     { return color("home","now_playing_icon_bg",    "#28265A"); }
     public int nowPlayingIconTint()   { return color("home","now_playing_icon_tint",  "#6C63FF"); }
 
-    // ── Radio ────────────────────────────────────────────────────
+    // ── Radio ─────────────────────────────────────────────────────
     public int stationBg()           { return color("radio","station_bg",              "#1E1E2A"); }
     public int stationActiveBg()     { return color("radio","station_bg_active",       "#2A1E4A"); }
     public int stationActiveBorder() { return color("radio","station_border_active",   "#6C63FF"); }
@@ -91,7 +107,7 @@ public class ColorConfig {
     public int textAboutBrand()      { return accent(); }
     public int textLink()            { return textPrimary(); }
 
-    // ── Sounds ───────────────────────────────────────────────────
+    // ── Sounds ────────────────────────────────────────────────────
     public int soundBtnBg()           { return color("sounds","btn_bg",          "#1A1A26"); }
     public int soundBtnActiveBg()     { return color("sounds","btn_active_bg",   "#28265A"); }
     public int soundBtnActiveBorder() { return color("sounds","btn_border_active","#6C63FF"); }
@@ -161,8 +177,7 @@ public class ColorConfig {
             BufferedReader br = f.exists()
                 ? new BufferedReader(new FileReader(f))
                 : new BufferedReader(new InputStreamReader(ctx.getAssets().open(ASSET)));
-            StringBuilder sb = new StringBuilder();
-            String line;
+            StringBuilder sb = new StringBuilder(); String line;
             while ((line = br.readLine()) != null) sb.append(line).append('\n');
             br.close();
             return sb.toString();

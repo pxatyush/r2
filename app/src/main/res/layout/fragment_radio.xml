@@ -6,127 +6,90 @@
     android:orientation="vertical"
     android:background="#0D0D14">
 
-    <!-- Header: icon left-aligned with title -->
+    <!-- Header — no icon -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingLeft="16dp"
-        android:paddingRight="16dp"
-        android:paddingTop="20dp"
-        android:paddingBottom="10dp">
+        android:orientation="vertical"
+        android:paddingLeft="16dp" android:paddingRight="16dp"
+        android:paddingTop="20dp"  android:paddingBottom="10dp">
 
-        <ImageView
-            android:id="@+id/ivRadioIcon"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:src="@drawable/ic_note_vec"
-            android:scaleType="fitCenter"
-            android:alpha="0.70"
-            android:layout_marginEnd="12dp"/>
-
-        <LinearLayout
-            android:layout_width="0dp"
+        <TextView
+            android:id="@+id/tvRadioPageTitle"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:text="Radio"
+            android:textColor="#FFFFFF"
+            android:textSize="26sp"
+            android:fontFamily="sans-serif-medium"/>
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Radio"
-                android:textColor="#FFFFFF"
-                android:textSize="26sp"
-                android:fontFamily="sans-serif-medium"/>
-
-            <TextView
-                android:id="@+id/tvNowPlayingTitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Select a station"
-                android:textColor="#8888AA"
-                android:textSize="13sp"
-                android:paddingTop="2dp"
-                android:singleLine="true"
-                android:ellipsize="marquee"
-                android:marqueeRepeatLimit="marquee_forever"/>
-
-        </LinearLayout>
+        <TextView
+            android:id="@+id/tvNowPlayingTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Select a station"
+            android:textColor="#8888AA"
+            android:textSize="13sp"
+            android:paddingTop="2dp"
+            android:singleLine="true"
+            android:ellipsize="marquee"
+            android:marqueeRepeatLimit="marquee_forever"/>
 
     </LinearLayout>
 
-    <!-- Volume slider (revealed via long-press on station) -->
+    <!-- Volume slider (hidden by default) -->
     <LinearLayout
         android:id="@+id/volumeSliderContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingLeft="16dp"
-        android:paddingRight="16dp"
+        android:paddingLeft="16dp" android:paddingRight="16dp"
         android:paddingBottom="6dp"
         android:visibility="gone">
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Vol"
-            android:textColor="#8888AA"
-            android:textSize="11sp"/>
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Vol" android:textColor="#8888AA" android:textSize="11sp"/>
 
         <SeekBar
             android:id="@+id/radioVolumeSeek"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="10dp"
-            android:max="100"
-            android:progress="80"/>
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:layout_marginStart="10dp"
+            android:max="100" android:progress="80"/>
 
     </LinearLayout>
 
-    <!-- Search + filter row -->
+    <!-- Search + filter -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:paddingLeft="16dp"
-        android:paddingRight="8dp"
+        android:paddingLeft="16dp" android:paddingRight="8dp"
         android:paddingBottom="10dp"
         android:gravity="center_vertical">
 
         <EditText
             android:id="@+id/etSearch"
-            android:layout_width="0dp"
-            android:layout_height="40dp"
+            android:layout_width="0dp" android:layout_height="40dp"
             android:layout_weight="1"
             android:hint="Search stations…"
-            android:textSize="14sp"
-            android:singleLine="true"
-            android:paddingLeft="14dp"
-            android:paddingRight="14dp"
-            android:inputType="text"
-            android:imeOptions="actionSearch"
+            android:textSize="14sp" android:singleLine="true"
+            android:paddingLeft="14dp" android:paddingRight="14dp"
+            android:inputType="text" android:imeOptions="actionSearch"
             android:background="#1E1E2A"/>
 
         <TextView
             android:id="@+id/btnCategoryFilter"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:text="⋮"
-            android:textSize="22sp"
-            android:gravity="center"
+            android:layout_width="40dp" android:layout_height="40dp"
+            android:text="⋮" android:textSize="22sp" android:gravity="center"
             android:layout_marginStart="8dp"
             android:textColor="#8888AA"
-            android:clickable="true"
-            android:focusable="true"/>
+            android:clickable="true" android:focusable="true"/>
 
     </LinearLayout>
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
+    <View android:layout_width="match_parent" android:layout_height="1dp"
         android:background="#22223A"/>
 
     <androidx.recyclerview.widget.RecyclerView
@@ -134,10 +97,8 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:paddingLeft="12dp"
-        android:paddingRight="12dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="16dp"
+        android:paddingLeft="12dp" android:paddingRight="12dp"
+        android:paddingTop="4dp"  android:paddingBottom="16dp"
         android:clipToPadding="false"
         android:overScrollMode="never"/>
 
