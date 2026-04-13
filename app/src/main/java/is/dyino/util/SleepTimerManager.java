@@ -6,9 +6,9 @@ import android.os.CountDownTimer;
 /**
  * Sleep timer that counts down and stops all audio when it reaches zero.
  * Usage: SleepTimerManager.get().start(millis, audioService);
- *        SleepTimerManager.get().cancel();
- *        SleepTimerManager.get().isRunning();
- *        SleepTimerManager.get().getRemainingMs();
+ * SleepTimerManager.get().cancel();
+ * SleepTimerManager.get().isRunning();
+ * SleepTimerManager.get().getRemainingMs();
  */
 public class SleepTimerManager {
 
@@ -34,7 +34,9 @@ public class SleepTimerManager {
         cancel();
         remainingMs = durationMs;
         running     = true;
-        timer = new CountDownTimer(durationMs, 1000) {
+        
+        // Changed interval to 60000ms (1 minute) for performance optimization
+        timer = new CountDownTimer(durationMs, 60000) {
             @Override public void onTick(long msLeft) {
                 remainingMs = msLeft;
                 if (listener != null) listener.onTick(msLeft);
@@ -61,14 +63,14 @@ public class SleepTimerManager {
     public boolean isRunning()    { return running; }
     public long    getRemainingMs(){ return remainingMs; }
 
-    /** "29m 45s" or "1h 02m" style label */
+    /** "2h 02m" or "29m" style label (seconds removed) */
     public static String formatRemaining(long ms) {
         long totalSec = ms / 1000;
         long hours    = totalSec / 3600;
         long minutes  = (totalSec % 3600) / 60;
-        long seconds  = totalSec % 60;
+        
         if (hours > 0)
             return hours + "h " + String.format("%02d", minutes) + "m";
-        return minutes + "m " + String.format("%02d", seconds) + "s";
+        return minutes + "m";
     }
 }

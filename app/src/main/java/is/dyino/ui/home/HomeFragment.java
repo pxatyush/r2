@@ -363,19 +363,20 @@ public class HomeFragment extends Fragment {
             return;
         }
 
-        long[][] options = {
-            {15,  "15 minutes"},
-            {30,  "30 minutes"},
-            {60,  "1 hour"},
-            {90,  "1.5 hours"},
-            {120, "2 hours"},
+        // FIXED ARRAY: Changed to Object[][] and added 'L' to numbers
+        Object[][] options = {
+            {15L,  "15 minutes"},
+            {30L,  "30 minutes"},
+            {60L,  "1 hour"},
+            {90L,  "1.5 hours"},
+            {120L, "2 hours"},
         };
 
         AlertDialog[] dlgRef = {null};
 
-        for (long[] opt : options) {
-            long minutes   = opt[0];
-            String label   = (String)(Object) opt[1]; // cast trick for array literal
+        for (Object[] opt : options) {
+            long minutes   = (long) opt[0];
+            String label   = (String) opt[1];
             // Re-declare as final
             final long mins = minutes; final String lbl = (minutes == 15 ? "15 minutes"
                     : minutes == 30 ? "30 minutes" : minutes == 60 ? "1 hour"
