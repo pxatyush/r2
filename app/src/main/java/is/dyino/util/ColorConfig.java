@@ -50,16 +50,9 @@ public class ColorConfig {
     public int textSectionTitle(){ return color("global","text_section_title","#FFFFFF"); }
     public int iconNoteVecTint() { return color("global","icon_note_vec_tint","#6C63FF"); }
 
-    /**
-     * Big page-header title text (e.g. "Home", "Radio", "Sounds", "Settings").
-     * Controlled by: global → page_header_text
-     */
-    public int pageHeaderText() { return color("global","page_header_text","#FFFFFF"); }
-
-    /**
-     * Page-header subtitle / tagline text.
-     * Controlled by: global → page_header_subtitle_text
-     */
+    /** Big page-header title text ("Home", "Radio", "Sounds", "Settings"). */
+    public int pageHeaderText()         { return color("global","page_header_text",         "#FFFFFF"); }
+    /** Page-header subtitle / tagline. */
     public int pageHeaderSubtitleText() { return color("global","page_header_subtitle_text","#8888AA"); }
 
     // ── Nav ───────────────────────────────────────────────────────
@@ -92,7 +85,7 @@ public class ColorConfig {
     public int radioGroupCollapsed()  { return color("radio","group_name_collapsed_text","#8888AA"); }
     public int radioGroupBadgeBg()    { return color("radio","group_badge_bg",           "#28265A"); }
     public int radioGroupBadgeText()  { return color("radio","group_badge_text",         "#6C63FF"); }
-    public int radioCardBg()          { return color("radio","station_card_bg",          "#1A1A2A"); }
+    public int radioCardBg()          { return color("radio","station_card_bg",          "#1A1A28"); }
     public int radioCardBorder()      { return color("radio","station_card_border",      "#22223A"); }
     public int radioSearchBg()        { return color("radio","search_bg",                "#1E1E2A"); }
     public int radioSearchText()      { return color("radio","search_text",              "#FFFFFF"); }
@@ -135,7 +128,7 @@ public class ColorConfig {
     // ── Persist ──────────────────────────────────────────────────
     public void saveRaw(String raw) {
         try {
-            new JSONObject(raw); // validate
+            new JSONObject(raw);
             FileWriter fw = new FileWriter(new File(ctx.getFilesDir(), FILE));
             fw.write(raw); fw.close();
         } catch (Exception e) { Log.e(TAG, "saveRaw", e); }

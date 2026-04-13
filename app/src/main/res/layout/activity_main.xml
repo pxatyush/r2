@@ -1,74 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+  Root layout is a FrameLayout so MainActivity can dynamically place
+  the nav bar (LinearLayout) on left, right, or bottom at runtime.
+  The fragment container fills remaining space.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/rootLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="horizontal"
     android:background="#0D0D14">
 
-    <!-- Left vertical nav — 52dp, items bottom-aligned -->
-    <LinearLayout
-        android:id="@+id/navBar"
-        android:layout_width="52dp"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:gravity="bottom|center_horizontal"
-        android:paddingBottom="28dp"
-        android:background="#0D0D14">
-
-        <View android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1"/>
-
-        <!-- Settings -->
-        <FrameLayout android:id="@+id/navSettings"
-            android:layout_width="52dp" android:layout_height="64dp"
-            android:clickable="true" android:focusable="true">
-            <TextView android:id="@+id/navSettingsText"
-                android:layout_width="match_parent" android:layout_height="match_parent"
-                android:text="Settings" android:textSize="11sp" android:letterSpacing="0.04"
-                android:textColor="#44445A" android:gravity="center"
-                android:rotation="-90" android:fontFamily="sans-serif-medium"/>
-        </FrameLayout>
-
-        <!-- Sounds -->
-        <FrameLayout android:id="@+id/navSounds"
-            android:layout_width="52dp" android:layout_height="64dp"
-            android:clickable="true" android:focusable="true">
-            <TextView android:id="@+id/navSoundsText"
-                android:layout_width="match_parent" android:layout_height="match_parent"
-                android:text="Sounds" android:textSize="11sp" android:letterSpacing="0.04"
-                android:textColor="#44445A" android:gravity="center"
-                android:rotation="-90" android:fontFamily="sans-serif-medium"/>
-        </FrameLayout>
-
-        <!-- Radio -->
-        <FrameLayout android:id="@+id/navRadio"
-            android:layout_width="52dp" android:layout_height="64dp"
-            android:clickable="true" android:focusable="true">
-            <TextView android:id="@+id/navRadioText"
-                android:layout_width="match_parent" android:layout_height="match_parent"
-                android:text="Radio" android:textSize="11sp" android:letterSpacing="0.04"
-                android:textColor="#44445A" android:gravity="center"
-                android:rotation="-90" android:fontFamily="sans-serif-medium"/>
-        </FrameLayout>
-
-        <!-- Home (default, bottom = thumb-closest) -->
-        <FrameLayout android:id="@+id/navHome"
-            android:layout_width="52dp" android:layout_height="64dp"
-            android:clickable="true" android:focusable="true">
-            <TextView android:id="@+id/navHomeText"
-                android:layout_width="match_parent" android:layout_height="match_parent"
-                android:text="Home" android:textSize="11sp" android:letterSpacing="0.04"
-                android:textColor="#FFFFFF" android:gravity="center"
-                android:rotation="-90" android:fontFamily="sans-serif-medium"/>
-        </FrameLayout>
-
-    </LinearLayout>
-
-    <!-- Content area -->
+    <!-- Content area — margin applied by MainActivity based on nav position -->
     <FrameLayout
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:layout_weight="1">
+        android:id="@+id/contentArea"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
         <FrameLayout android:id="@+id/fragmentHome"
             android:layout_width="match_parent" android:layout_height="match_parent"
@@ -82,10 +28,65 @@
         <FrameLayout android:id="@+id/fragmentSettings"
             android:layout_width="match_parent" android:layout_height="match_parent"
             android:visibility="gone"/>
-        <FrameLayout android:id="@+id/fragmentAbout"
-            android:layout_width="match_parent" android:layout_height="match_parent"
-            android:visibility="gone"/>
 
     </FrameLayout>
 
-</LinearLayout>
+    <!--
+      Nav bar — position (left/right/bottom) and orientation (vertical/horizontal)
+      are set programmatically in MainActivity.applyNavPosition().
+    -->
+    <LinearLayout
+        android:id="@+id/navBar"
+        android:layout_width="52dp"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="bottom|center_horizontal"
+        android:paddingBottom="28dp"
+        android:background="#0D0D14"
+        android:layout_gravity="start">
+
+        <View android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1"/>
+
+        <FrameLayout android:id="@+id/navSettings"
+            android:layout_width="52dp" android:layout_height="64dp"
+            android:clickable="true" android:focusable="true">
+            <TextView android:id="@+id/navSettingsText"
+                android:layout_width="match_parent" android:layout_height="match_parent"
+                android:text="Settings" android:textSize="11sp" android:letterSpacing="0.04"
+                android:textColor="#44445A" android:gravity="center"
+                android:rotation="-90" android:fontFamily="sans-serif-medium"/>
+        </FrameLayout>
+
+        <FrameLayout android:id="@+id/navSounds"
+            android:layout_width="52dp" android:layout_height="64dp"
+            android:clickable="true" android:focusable="true">
+            <TextView android:id="@+id/navSoundsText"
+                android:layout_width="match_parent" android:layout_height="match_parent"
+                android:text="Sounds" android:textSize="11sp" android:letterSpacing="0.04"
+                android:textColor="#44445A" android:gravity="center"
+                android:rotation="-90" android:fontFamily="sans-serif-medium"/>
+        </FrameLayout>
+
+        <FrameLayout android:id="@+id/navRadio"
+            android:layout_width="52dp" android:layout_height="64dp"
+            android:clickable="true" android:focusable="true">
+            <TextView android:id="@+id/navRadioText"
+                android:layout_width="match_parent" android:layout_height="match_parent"
+                android:text="Radio" android:textSize="11sp" android:letterSpacing="0.04"
+                android:textColor="#44445A" android:gravity="center"
+                android:rotation="-90" android:fontFamily="sans-serif-medium"/>
+        </FrameLayout>
+
+        <FrameLayout android:id="@+id/navHome"
+            android:layout_width="52dp" android:layout_height="64dp"
+            android:clickable="true" android:focusable="true">
+            <TextView android:id="@+id/navHomeText"
+                android:layout_width="match_parent" android:layout_height="match_parent"
+                android:text="Home" android:textSize="11sp" android:letterSpacing="0.04"
+                android:textColor="#FFFFFF" android:gravity="center"
+                android:rotation="-90" android:fontFamily="sans-serif-medium"/>
+        </FrameLayout>
+
+    </LinearLayout>
+
+</FrameLayout>

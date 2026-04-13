@@ -6,16 +6,17 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
-import android.graphics.PorterDuff;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.VibratorManager;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -30,16 +31,21 @@ import is.dyino.ui.settings.SettingsFragment;
 import is.dyino.ui.sounds.SoundsFragment;
 import is.dyino.util.AppPrefs;
 import is.dyino.util.ColorConfig;
+import is.dyino.util.SleepTimerManager;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final int PERM_NOTIF = 1001;
+    private static final int NAV_W_DP  = 52;
+    private static final int NAV_H_DP  = 56; // bottom nav item height
 
     private AudioService audioService;
     private boolean      serviceBound = false;
 
     private TextView    navHomeText, navRadioText, navSoundsText, navSettingsText;
     private FrameLayout fragmentHome, fragmentRadio, fragmentSounds, fragmentSettings;
+    private LinearLayout navBar;
+    private FrameLayout  contentArea;
 
     private HomeFragment     homeFragment;
     private RadioFragment    radioFragment;
@@ -77,14 +83,16 @@ public class MainActivity extends AppCompatActivity {
         startService(svc);
         bindService(svc, conn, BIND_AUTO_CREATE);
 
-        navHomeText      = findViewById(R.id.navHomeText);
-        navRadioText     = findViewById(R.id.navRadioText);
-        navSoundsText    = findViewById(R.id.navSoundsText);
-        navSettingsText  = findViewById(R.id.navSettingsText);
-        fragmentHome     = findViewById(R.id.fragmentHome);
-        fragmentRadio    = findViewById(R.id.fragmentRadio);
-        fragmentSounds   = findViewById(R.id.fragmentSounds);
-        fragmentSettings = findViewById(R.id.fragmentSettings);
+        navBar        = findViewById(R.id.navBar);
+        contentArea   = findViewById(R.id.contentArea);
+        navHomeText     = findViewById(R.id.navHomeText);
+        navRadioText    = findViewById(R.id.navRadioText);
+        navSoundsText   = findViewById(R.id.navSoundsText);
+        navSettingsText = findViewById(R.id.navSettingsText);
+        fragmentHome    = findViewById(R.id.fragmentHome);
+        fragmentRadio   = findViewById(R.id.fragmentRadio);
+        fragmentSounds  = findViewById(R.id.fragmentSounds);
+        fragmentSettings= findViewById(R.id.fragmentSettings);
 
         homeFragment     = new HomeFragment();
         radioFragment    = new RadioFragment();
@@ -96,6 +104,7 @@ public class MainActivity extends AppCompatActivity {
                 colors = new ColorConfig(MainActivity.this);
                 applyWindowColors();
                 applyNavColors();
+                applyNavPosition(); // re-apply in case nav color changed
                 homeFragment.refreshTheme();
                 radioFragment.refresh();
                 soundsFragment.refresh();
@@ -103,6 +112,9 @@ public class MainActivity extends AppCompatActivity {
             }
             @Override public void onButtonSoundChanged(boolean en) {
                 if (audioService != null) audioService.setButtonSoundEnabled(en);
+            }
+            @Override public void onNavPositionChanged() {
+                applyNavPosition();
             }
         });
 
@@ -118,25 +130,83 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.navSounds)  .setOnClickListener(v -> { doHaptic(); doClick(); switchTab(2); });
         findViewById(R.id.navSettings).setOnClickListener(v -> { doHaptic(); doClick(); switchTab(3); });
 
+        applyNavPosition();
         applyNavColors();
         switchTab(0);
     }
 
-    private void requestNotifPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                    != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.POST_NOTIFICATIONS}, PERM_NOTIF);
-            }
+    // ── Nav position ──────────────────────────────────────────────
+
+    /**
+     * Repositions the nav bar and adjusts contentArea margins so content
+     * never overlaps the nav regardless of chosen position.
+     */
+    public void applyNavPosition() {
+        if (navBar == null || contentArea == null) return;
+        String pos = prefs.getNavPosition(); // "left" | "right" | "bottom"
+        float dp   = getResources().getDisplayMetrics().density;
+        int navSizePx = (int)(NAV_W_DP * dp);
+        int navHPx    = (int)(NAV_H_DP * dp);
+
+        // Reset all margins
+        setContentMargins(0, 0, 0, 0);
+
+        FrameLayout.LayoutParams navLp;
+        boolean isBottom = "bottom".equals(pos);
+        boolean isRight  = "right".equals(pos);
+
+        if (isBottom) {
+            // Horizontal bottom nav
+            navLp = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, navHPx * 4);
+            navLp.gravity = Gravity.BOTTOM;
+            navBar.setOrientation(LinearLayout.HORIZONTAL);
+            navBar.setGravity(Gravity.CENTER);
+            navBar.setPadding(0, 0, 0, 0);
+            setContentMargins(0, 0, 0, navHPx * 4);
+            // Un-rotate labels for horizontal nav
+            setNavLabelRotation(0);
+        } else if (isRight) {
+            navLp = new FrameLayout.LayoutParams(navSizePx,
+                    ViewGroup.LayoutParams.MATCH_PARENT);
+            navLp.gravity = Gravity.END;
+            navBar.setOrientation(LinearLayout.VERTICAL);
+            navBar.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+            navBar.setPadding(0, 0, 0, (int)(28 * dp));
+            setContentMargins(0, 0, navSizePx, 0);
+            setNavLabelRotation(90); // right-side rotated outward
+        } else {
+            // Default: left
+            navLp = new FrameLayout.LayoutParams(navSizePx,
+                    ViewGroup.LayoutParams.MATCH_PARENT);
+            navLp.gravity = Gravity.START;
+            navBar.setOrientation(LinearLayout.VERTICAL);
+            navBar.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+            navBar.setPadding(0, 0, 0, (int)(28 * dp));
+            setContentMargins(navSizePx, 0, 0, 0);
+            setNavLabelRotation(-90); // left-side rotated inward
+        }
+        navBar.setLayoutParams(navLp);
+        navBar.setBackgroundColor(colors.bgNav());
+        navBar.requestLayout();
+    }
+
+    private void setContentMargins(int l, int t, int r, int b) {
+        if (contentArea == null) return;
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) contentArea.getLayoutParams();
+        if (lp == null) lp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        lp.setMargins(l, t, r, b);
+        contentArea.setLayoutParams(lp);
+    }
+
+    private void setNavLabelRotation(float deg) {
+        for (TextView tv : new TextView[]{navHomeText, navRadioText, navSoundsText, navSettingsText}) {
+            if (tv != null) tv.setRotation(deg);
         }
     }
 
-    @Override
-    public void onRequestPermissionsResult(int req, @NonNull String[] perms, @NonNull int[] res) {
-        super.onRequestPermissionsResult(req, perms, res);
-    }
-
+    // ── Tab switching ─────────────────────────────────────────────
     private void switchTab(int tab) {
         currentTab = tab;
         fragmentHome.setVisibility(tab == 0     ? View.VISIBLE : View.GONE);
@@ -166,37 +236,32 @@ public class MainActivity extends AppCompatActivity {
 
     private void applyNavColors() {
         setNavSelected(currentTab);
-        View nav = findViewById(R.id.navBar);
-        if (nav != null) nav.setBackgroundColor(colors.bgNav());
+        if (navBar != null) navBar.setBackgroundColor(colors.bgNav());
     }
 
     private void applyWindowColors() {
-        int statusBar = colors.bgPrimary();
-        getWindow().setStatusBarColor(statusBar);
-        getWindow().setNavigationBarColor(statusBar);
-        getWindow().getDecorView().setBackgroundColor(statusBar);
+        int bg = colors.bgPrimary();
+        getWindow().setStatusBarColor(bg);
+        getWindow().setNavigationBarColor(bg);
+        getWindow().getDecorView().setBackgroundColor(bg);
         View root = findViewById(R.id.rootLayout);
-        if (root != null) root.setBackgroundColor(statusBar);
+        if (root != null) root.setBackgroundColor(bg);
     }
 
-    /** Maximum-intensity haptic: 50 ms / amplitude 255 — clearly felt for nav changes */
+    // ── Haptic ────────────────────────────────────────────────────
     private void doHaptic() {
         if (!prefs.isHapticEnabled()) return;
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 VibratorManager vm = (VibratorManager) getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
-                if (vm != null) {
-                    vm.getDefaultVibrator().vibrate(VibrationEffect.createOneShot(50, 255));
-                    return;
-                }
+                if (vm != null) { vm.getDefaultVibrator().vibrate(VibrationEffect.createOneShot(50, 255)); return; }
             }
             @SuppressWarnings("deprecation")
             Vibrator vib = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
             if (vib == null || !vib.hasVibrator()) return;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 vib.vibrate(VibrationEffect.createOneShot(50, 255));
-            else
-                vib.vibrate(50);
+            else vib.vibrate(50);
         } catch (Exception ignored) {}
     }
 
@@ -205,8 +270,25 @@ public class MainActivity extends AppCompatActivity {
             audioService.playClickSound();
     }
 
+    // ── Permissions ───────────────────────────────────────────────
+    private void requestNotifPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.POST_NOTIFICATIONS}, PERM_NOTIF);
+            }
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int req, @NonNull String[] perms, @NonNull int[] res) {
+        super.onRequestPermissionsResult(req, perms, res);
+    }
+
     @Override
     protected void onDestroy() {
+        SleepTimerManager.get().cancel();
         if (serviceBound) { unbindService(conn); serviceBound = false; }
         super.onDestroy();
     }

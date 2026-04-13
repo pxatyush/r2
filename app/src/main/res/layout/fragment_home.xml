@@ -61,29 +61,35 @@
                 android:paddingTop="20dp" android:paddingBottom="10dp"
                 android:visibility="gone"/>
 
-            <!-- Radio now-playing card with inline WaveView -->
+            <!--
+              Radio now-playing card.
+              elevation + translationZ create the 3D raised effect.
+              CardView is avoided to keep custom corner radius from code.
+            -->
             <FrameLayout
                 android:id="@+id/nowPlayingRadioCard"
                 android:layout_width="match_parent"
-                android:layout_height="72dp"
-                android:layout_marginBottom="10dp"
+                android:layout_height="80dp"
+                android:layout_marginBottom="6dp"
+                android:elevation="8dp"
+                android:translationZ="4dp"
                 android:clickable="true" android:focusable="true"
                 android:visibility="gone">
 
-                <!-- Wave behind content (radio stream visualiser) -->
+                <!-- Wave visualiser behind content -->
                 <is.dyino.ui.sounds.WaveView
                     android:id="@+id/radioWaveView"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:visibility="invisible"/>
 
-                <!-- Content row -->
+                <!-- Main content -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:paddingLeft="14dp" android:paddingRight="14dp">
+                    android:paddingLeft="14dp" android:paddingRight="10dp">
 
                     <ImageView
                         android:id="@+id/ivStationIcon"
@@ -116,6 +122,19 @@
 
                     </LinearLayout>
 
+                    <!-- Sleep timer pill button -->
+                    <TextView
+                        android:id="@+id/btnSleepTimer"
+                        android:layout_width="wrap_content"
+                        android:layout_height="28dp"
+                        android:text="Sleep"
+                        android:textSize="11sp"
+                        android:textColor="#8888AA"
+                        android:gravity="center"
+                        android:paddingLeft="10dp" android:paddingRight="10dp"
+                        android:layout_marginEnd="6dp"
+                        android:clickable="true" android:focusable="true"/>
+
                     <!-- Stop button -->
                     <TextView
                         android:id="@+id/tvNowPlayingStop"
@@ -127,7 +146,7 @@
                 </LinearLayout>
             </FrameLayout>
 
-            <!-- Active sounds — horizontal scrollable, each is a mini WaveView button -->
+            <!-- Active sounds label -->
             <TextView
                 android:id="@+id/tvNowPlayingSoundsLabel"
                 android:layout_width="match_parent"
@@ -135,16 +154,17 @@
                 android:text="ACTIVE SOUNDS"
                 android:textColor="#FFFFFF" android:textSize="11sp"
                 android:letterSpacing="0.1" android:fontFamily="sans-serif-medium"
-                android:paddingBottom="8dp"
+                android:paddingTop="10dp" android:paddingBottom="8dp"
                 android:visibility="gone"/>
 
+            <!-- Scrollable active-sound chips (each with WaveView + drag-vol) -->
             <HorizontalScrollView
                 android:id="@+id/nowPlayingSoundsScroll"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:scrollbars="none"
                 android:overScrollMode="never"
-                android:layout_marginBottom="4dp"
+                android:layout_marginBottom="8dp"
                 android:visibility="gone">
 
                 <LinearLayout
@@ -158,7 +178,7 @@
             <View
                 android:id="@+id/dividerNowPlaying"
                 android:layout_width="match_parent" android:layout_height="1dp"
-                android:background="#22223A" android:layout_marginTop="8dp"
+                android:background="#22223A"
                 android:visibility="gone"/>
 
             <!-- FAVOURITE RADIO -->
@@ -194,7 +214,7 @@
             <View
                 android:id="@+id/dividerFav"
                 android:layout_width="match_parent" android:layout_height="1dp"
-                android:background="#22223A" android:layout_marginTop="8dp"
+                android:background="#22223A"
                 android:visibility="gone"/>
 
             <!-- RECENTLY PLAYED -->
@@ -215,7 +235,7 @@
             <View
                 android:id="@+id/dividerLastPlayed"
                 android:layout_width="match_parent" android:layout_height="1dp"
-                android:background="#22223A" android:layout_marginTop="8dp"
+                android:background="#22223A"
                 android:visibility="gone"/>
 
             <!-- Empty state -->
