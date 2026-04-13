@@ -52,7 +52,7 @@ import is.dyino.util.RadioLoader;
 
 public class RadioFragment extends Fragment {
 
-    private TextView     tvNowPlaying;
+    private TextView     tvNowPlaying, tvRadioPageTitle;
     private EditText     etSearch;
     private SeekBar      radioVolumeSeek;
     private View         volumeSliderContainer;
@@ -70,26 +70,19 @@ public class RadioFragment extends Fragment {
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    /** Syncs currently-playing label when notification changes station/pause state */
+    /** Receives state broadcasts from AudioService (notification actions, etc.) */
     private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) {
             mainHandler.post(() -> {
-                if (audioService == null) return;
-                // Update now-playing title
-                if (tvNowPlaying != null) {
-                    if (!audioService.isRadioSelected()) {
-                        tvNowPlaying.setText("Select a station");
-                        selectedStation = null;
-                    } else if (audioService.isRadioPlaying()) {
-                        tvNowPlaying.setText(audioService.getCurrentName());
-                    } else if (audioService.isRadioPaused()) {
-                        tvNowPlaying.setText("⏸  " + audioService.getCurrentName());
-                    }
-                }
-                if (adapter != null) {
-                    // Sync active highlight in list
-                    if (!audioService.isRadioSelected()) adapter.setActiveStation(null);
-                    else if (selectedStation != null)    adapter.setActiveStation(selectedStation);
+                if (audioService == null || tvNowPlaying == null) return;
+                if (!audioService.isRadioSelected()) {
+                    tvNowPlaying.setText("Select a station");
+                    selectedStation = null;
+                    if (adapter != null) adapter.setActiveStation(null);
+                } else if (audioService.isRadioPlaying()) {
+                    tvNowPlaying.setText(audioService.getCurrentName());
+                } else if (audioService.isRadioPaused()) {
+                    tvNowPlaying.setText("⏸  " + audioService.getCurrentName());
                 }
             });
         }
@@ -111,6 +104,7 @@ public class RadioFragment extends Fragment {
         prefs  = new AppPrefs(requireContext());
         colors = new ColorConfig(requireContext());
 
+        tvRadioPageTitle      = view.findViewById(R.id.tvRadioPageTitle);
         tvNowPlaying          = view.findViewById(R.id.tvNowPlayingTitle);
         etSearch              = view.findViewById(R.id.etSearch);
         radioVolumeSeek       = view.findViewById(R.id.radioVolumeSeek);
@@ -121,8 +115,8 @@ public class RadioFragment extends Fragment {
         applyTheme(view);
 
         etSearch.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int st, int c2, int a) {}
-            @Override public void onTextChanged(CharSequence s, int st, int b, int c2) {
+            @Override public void beforeTextChanged(CharSequence s, int i, int c2, int a) {}
+            @Override public void onTextChanged(CharSequence s, int i, int b, int c2) {
                 searchQuery = s.toString().trim(); refreshAdapter();
             }
             @Override public void afterTextChanged(Editable s) {}
@@ -143,16 +137,14 @@ public class RadioFragment extends Fragment {
         else loadRadioStations();
     }
 
-    @Override
-    public void onStart() {
+    @Override public void onStart() {
         super.onStart();
-        IntentFilter filter = new IntentFilter(AudioService.BROADCAST_STATE);
-        ContextCompat.registerReceiver(requireContext(), stateReceiver, filter,
+        ContextCompat.registerReceiver(requireContext(), stateReceiver,
+                new IntentFilter(AudioService.BROADCAST_STATE),
                 ContextCompat.RECEIVER_NOT_EXPORTED);
     }
 
-    @Override
-    public void onStop() {
+    @Override public void onStop() {
         super.onStop();
         try { requireContext().unregisterReceiver(stateReceiver); } catch (Exception ignored) {}
     }
@@ -163,8 +155,7 @@ public class RadioFragment extends Fragment {
         LinearLayout container = new LinearLayout(requireContext());
         container.setOrientation(LinearLayout.VERTICAL);
         container.setBackgroundColor(colors.bgCard());
-        int pad = (int)(24 * dp);
-        container.setPadding(pad, pad, pad, pad);
+        int pad = (int)(24 * dp); container.setPadding(pad, pad, pad, pad);
 
         TextView title = new TextView(requireContext());
         title.setText("Radio Country"); title.setTextColor(colors.textPrimary()); title.setTextSize(20f);
@@ -174,10 +165,8 @@ public class RadioFragment extends Fragment {
         TextView sub = new TextView(requireContext());
         sub.setText("Enter your country to fetch local stations");
         sub.setTextColor(colors.textSecondary()); sub.setTextSize(13f);
-        LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        subLp.setMargins(0,(int)(6*dp),0,(int)(20*dp)); sub.setLayoutParams(subLp);
-        container.addView(sub);
+        LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        subLp.setMargins(0,(int)(6*dp),0,(int)(20*dp)); sub.setLayoutParams(subLp); container.addView(sub);
 
         EditText input = new EditText(requireContext());
         input.setHint("India, Germany, USA…"); input.setTextColor(colors.radioSearchText());
@@ -187,24 +176,20 @@ public class RadioFragment extends Fragment {
         inputBg.setShape(GradientDrawable.RECTANGLE); inputBg.setCornerRadius(10*dp);
         inputBg.setColor(colors.settingsInputBg()); inputBg.setStroke((int)(1*dp), colors.divider());
         input.setBackground(inputBg);
-        LinearLayout.LayoutParams inputLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        inputLp.setMargins(0,0,0,(int)(20*dp)); input.setLayoutParams(inputLp);
-        container.addView(input);
+        LinearLayout.LayoutParams inputLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        inputLp.setMargins(0,0,0,(int)(20*dp)); input.setLayoutParams(inputLp); container.addView(input);
 
         LinearLayout btnRow = new LinearLayout(requireContext()); btnRow.setOrientation(LinearLayout.HORIZONTAL);
-        TextView btnSkip  = makeDialogBtn("Use Global", false);
-        TextView btnFetch = makeDialogBtn("Fetch", true);
+        TextView btnSkip = makeDialogBtn("Use Global", false), btnFetch = makeDialogBtn("Fetch", true);
         LinearLayout.LayoutParams bpSkip = new LinearLayout.LayoutParams(0,(int)(44*dp),1f);
         bpSkip.setMargins(0,0,(int)(8*dp),0); btnSkip.setLayoutParams(bpSkip);
         btnFetch.setLayoutParams(new LinearLayout.LayoutParams(0,(int)(44*dp),1f));
         btnRow.addView(btnSkip); btnRow.addView(btnFetch); container.addView(btnRow);
 
-        AlertDialog dialog = new AlertDialog.Builder(requireContext())
-                .setView(container).setCancelable(false).create();
+        AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(container).setCancelable(false).create();
         if (dialog.getWindow()!=null) dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-        btnSkip.setOnClickListener(v->{prefs.setRadioCountry("");loadRadioStations();dialog.dismiss();});
-        btnFetch.setOnClickListener(v->{String c=input.getText().toString().trim();prefs.setRadioCountry(c);loadRadioStations();dialog.dismiss();});
+        btnSkip.setOnClickListener(v -> { prefs.setRadioCountry(""); loadRadioStations(); dialog.dismiss(); });
+        btnFetch.setOnClickListener(v -> { prefs.setRadioCountry(input.getText().toString().trim()); loadRadioStations(); dialog.dismiss(); });
         dialog.show();
     }
 
@@ -212,15 +197,14 @@ public class RadioFragment extends Fragment {
         float dp = getResources().getDisplayMetrics().density;
         TextView tv = new TextView(requireContext());
         tv.setText(label); tv.setGravity(Gravity.CENTER); tv.setTextSize(14f);
-        GradientDrawable gd = new GradientDrawable();
-        gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(10*dp);
+        GradientDrawable gd = new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(10*dp);
         if (primary) { gd.setColor(colors.accent()); tv.setTextColor(0xFFFFFFFF); }
         else { gd.setColor(colors.bgCard2()); gd.setStroke((int)(1*dp),colors.divider()); tv.setTextColor(colors.textSecondary()); }
         tv.setBackground(gd); tv.setClickable(true); tv.setFocusable(true);
         return tv;
     }
 
-    // ── Category manager dialog ──────────────────────────────────
+    // ── Category manager ─────────────────────────────────────────
     @SuppressLint("ClickableViewAccessibility")
     private void showCategoryManager() {
         if (allGroups.isEmpty()) return;
@@ -230,69 +214,62 @@ public class RadioFragment extends Fragment {
         List<String> catNames   = new ArrayList<>();
         for (String n : savedOrder) for (RadioGroup g : allGroups) if (g.getName().equals(n) && !catNames.contains(n)) { catNames.add(n); break; }
         for (RadioGroup g : allGroups) if (!catNames.contains(g.getName())) catNames.add(g.getName());
-        List<boolean[]> visibleFlags = new ArrayList<>();
-        for (String n : catNames) visibleFlags.add(new boolean[]{!hidden.contains(n)});
+        List<boolean[]> vis = new ArrayList<>();
+        for (String n : catNames) vis.add(new boolean[]{!hidden.contains(n)});
 
         LinearLayout root = new LinearLayout(requireContext()); root.setOrientation(LinearLayout.VERTICAL);
-        GradientDrawable rootBg = new GradientDrawable();
-        rootBg.setShape(GradientDrawable.RECTANGLE); rootBg.setCornerRadius(16*dp); rootBg.setColor(colors.bgCard());
+        GradientDrawable rootBg = new GradientDrawable(); rootBg.setShape(GradientDrawable.RECTANGLE); rootBg.setCornerRadius(16*dp); rootBg.setColor(colors.bgCard());
         root.setBackground(rootBg); root.setClipToOutline(true);
 
-        TextView tvTitle = new TextView(requireContext());
-        tvTitle.setText("Categories"); tvTitle.setTextColor(colors.textPrimary()); tvTitle.setTextSize(18f);
+        TextView tvTitle = new TextView(requireContext()); tvTitle.setText("Categories"); tvTitle.setTextColor(colors.textPrimary()); tvTitle.setTextSize(18f);
         tvTitle.setTypeface(android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.NORMAL));
         tvTitle.setPadding((int)(20*dp),(int)(18*dp),(int)(20*dp),(int)(12*dp)); root.addView(tvTitle);
-
-        View divTop = new View(requireContext()); divTop.setBackgroundColor(colors.divider());
-        divTop.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,1)); root.addView(divTop);
+        View divTop = new View(requireContext()); divTop.setBackgroundColor(colors.divider()); divTop.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,1)); root.addView(divTop);
 
         RecyclerView rv = new RecyclerView(requireContext()); rv.setOverScrollMode(View.OVER_SCROLL_NEVER);
         rv.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0,1f)); root.addView(rv);
+        View divBot = new View(requireContext()); divBot.setBackgroundColor(colors.divider()); divBot.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,1)); root.addView(divBot);
 
-        View divBot = new View(requireContext()); divBot.setBackgroundColor(colors.divider());
-        divBot.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,1)); root.addView(divBot);
-
-        TextView btnDone = new TextView(requireContext());
-        btnDone.setText("Done"); btnDone.setGravity(Gravity.CENTER); btnDone.setTextColor(colors.accent());
-        btnDone.setTextSize(15f); btnDone.setTypeface(android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.NORMAL));
+        TextView btnDone = new TextView(requireContext()); btnDone.setText("Done"); btnDone.setGravity(Gravity.CENTER); btnDone.setTextColor(colors.accent()); btnDone.setTextSize(15f);
+        btnDone.setTypeface(android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.NORMAL));
         btnDone.setPadding(0,(int)(14*dp),0,(int)(16*dp)); btnDone.setClickable(true); btnDone.setFocusable(true); root.addView(btnDone);
 
-        CatManagerAdapter catAdapter = new CatManagerAdapter(catNames, visibleFlags, colors, dp);
+        CatManagerAdapter catAdapter = new CatManagerAdapter(catNames, vis, colors, dp);
         rv.setLayoutManager(new LinearLayoutManager(requireContext())); rv.setAdapter(catAdapter);
 
         ItemTouchHelper.Callback cb = new ItemTouchHelper.Callback() {
-            @Override public int getMovementFlags(@NonNull RecyclerView r2,@NonNull RecyclerView.ViewHolder vh) { return makeMovementFlags(ItemTouchHelper.UP|ItemTouchHelper.DOWN,0); }
-            @Override public boolean onMove(@NonNull RecyclerView r2,@NonNull RecyclerView.ViewHolder from,@NonNull RecyclerView.ViewHolder to) {
-                int f=from.getAdapterPosition(),t=to.getAdapterPosition(); if(f<0||t<0) return false;
-                Collections.swap(catNames,f,t); Collections.swap(visibleFlags,f,t); catAdapter.notifyItemMoved(f,t); return true; }
+            @Override public int getMovementFlags(@NonNull RecyclerView r, @NonNull RecyclerView.ViewHolder vh) { return makeMovementFlags(ItemTouchHelper.UP|ItemTouchHelper.DOWN,0); }
+            @Override public boolean onMove(@NonNull RecyclerView r, @NonNull RecyclerView.ViewHolder f, @NonNull RecyclerView.ViewHolder t) {
+                int fi=f.getAdapterPosition(), ti=t.getAdapterPosition(); if(fi<0||ti<0) return false;
+                Collections.swap(catNames,fi,ti); Collections.swap(vis,fi,ti); catAdapter.notifyItemMoved(fi,ti); return true; }
             @Override public void onSwiped(@NonNull RecyclerView.ViewHolder vh, int d) {}
             @Override public boolean isLongPressDragEnabled() { return false; }
-            @Override public void onSelectedChanged(RecyclerView.ViewHolder vh,int state) {
+            @Override public void onSelectedChanged(RecyclerView.ViewHolder vh, int state) {
                 super.onSelectedChanged(vh,state);
                 if(state==ItemTouchHelper.ACTION_STATE_DRAG&&vh!=null){haptic();vh.itemView.setAlpha(0.85f);vh.itemView.setScaleX(1.02f);vh.itemView.setScaleY(1.02f);}
             }
-            @Override public void clearView(@NonNull RecyclerView r2,@NonNull RecyclerView.ViewHolder vh) {
-                super.clearView(r2,vh); vh.itemView.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(150).start(); }
+            @Override public void clearView(@NonNull RecyclerView r, @NonNull RecyclerView.ViewHolder vh) {
+                super.clearView(r,vh); vh.itemView.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(150).start(); }
         };
         ItemTouchHelper ith = new ItemTouchHelper(cb); ith.attachToRecyclerView(rv); catAdapter.setTouchHelper(ith);
 
-        int maxH = (int)(getResources().getDisplayMetrics().heightPixels*0.60f);
+        int maxH = (int)(getResources().getDisplayMetrics().heightPixels * 0.60f);
         AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(root).create();
         if(dialog.getWindow()!=null) dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-        btnDone.setOnClickListener(v->{
+        btnDone.setOnClickListener(v -> {
             prefs.saveGroupOrder(catNames);
-            Set<String> newHidden=new java.util.HashSet<>();
-            for(int i=0;i<catNames.size();i++) if(!visibleFlags.get(i)[0]) newHidden.add(catNames.get(i));
+            Set<String> newHidden = new java.util.HashSet<>();
+            for (int i=0;i<catNames.size();i++) if(!vis.get(i)[0]) newHidden.add(catNames.get(i));
             prefs.setHiddenCategories(newHidden); dialog.dismiss(); refreshAdapter();
         });
         dialog.show();
-        if(dialog.getWindow()!=null){int w=(int)(getResources().getDisplayMetrics().widthPixels*0.90f);int h=Math.min(maxH,catNames.size()*(int)(56*dp)+(int)(140*dp));dialog.getWindow().setLayout(w,h);}
+        if(dialog.getWindow()!=null){ int w=(int)(getResources().getDisplayMetrics().widthPixels*0.90f); int h=Math.min(maxH,catNames.size()*(int)(56*dp)+(int)(140*dp)); dialog.getWindow().setLayout(w,h); }
     }
 
     static class CatManagerAdapter extends RecyclerView.Adapter<CatManagerAdapter.VH> {
-        private final List<String> names; private final List<boolean[]> visible;
-        private final ColorConfig colors; private final float dp; private ItemTouchHelper touchHelper;
-        CatManagerAdapter(List<String> n,List<boolean[]> v,ColorConfig c,float d){names=n;visible=v;colors=c;dp=d;}
+        final List<String> names; final List<boolean[]> visible; final ColorConfig colors; final float dp;
+        ItemTouchHelper touchHelper;
+        CatManagerAdapter(List<String> n, List<boolean[]> v, ColorConfig c, float d){names=n;visible=v;colors=c;dp=d;}
         void setTouchHelper(ItemTouchHelper ith){this.touchHelper=ith;}
         @NonNull @Override public VH onCreateViewHolder(@NonNull ViewGroup parent,int type){
             LinearLayout row=new LinearLayout(parent.getContext()); row.setOrientation(LinearLayout.HORIZONTAL); row.setGravity(Gravity.CENTER_VERTICAL);
@@ -303,11 +280,11 @@ public class RadioFragment extends Fragment {
             try { android.content.res.ColorStateList csl=android.content.res.ColorStateList.valueOf(colors.radioCheckboxColor()); androidx.core.widget.CompoundButtonCompat.setButtonTintList(cb,csl); } catch(Exception ignored){}
             row.addView(cb); return new VH(row); }
         @SuppressLint("ClickableViewAccessibility") @Override public void onBindViewHolder(@NonNull VH h,int pos){
-            String name=names.get(pos); boolean[] vis=visible.get(pos);
+            String name=names.get(pos); boolean[] vis2=visible.get(pos);
             TextView tvName=h.row.findViewWithTag("name"); CheckBox cb=h.row.findViewWithTag("check"); View drag=h.row.findViewWithTag("drag");
-            tvName.setText(name); tvName.setTextColor(vis[0]?colors.textPrimary():colors.textSecondary());
-            cb.setOnCheckedChangeListener(null); cb.setChecked(vis[0]); cb.setOnCheckedChangeListener((btn,checked)->{vis[0]=checked;tvName.setTextColor(checked?colors.textPrimary():colors.textSecondary());});
-            drag.setOnTouchListener((v,ev)->{if(ev.getActionMasked()==MotionEvent.ACTION_DOWN&&touchHelper!=null)touchHelper.startDrag(h);return false;}); }
+            tvName.setText(name); tvName.setTextColor(vis2[0]?colors.textPrimary():colors.textSecondary());
+            cb.setOnCheckedChangeListener(null); cb.setChecked(vis2[0]); cb.setOnCheckedChangeListener((b,checked)->{vis2[0]=checked;tvName.setTextColor(checked?colors.textPrimary():colors.textSecondary());});
+            drag.setOnTouchListener((v,ev)->{if(ev.getActionMasked()==MotionEvent.ACTION_DOWN&&touchHelper!=null)touchHelper.startDrag(h);return false;});}
         @Override public int getItemCount(){return names.size();}
         static class VH extends RecyclerView.ViewHolder{final LinearLayout row;VH(LinearLayout v){super(v);row=v;}}
     }
@@ -323,35 +300,39 @@ public class RadioFragment extends Fragment {
 
     private void refreshAdapter() {
         if (recycler == null) return;
-        Set<String> hidden = prefs.getHiddenCategories();
-        List<String> savedOrder = prefs.getGroupOrder();
+        Set<String>  hidden = prefs.getHiddenCategories();
+        List<String> order  = prefs.getGroupOrder();
+
         List<RadioGroup> ordered = new ArrayList<>();
-        for (String n : savedOrder) for (RadioGroup g : allGroups) if (g.getName().equals(n)){ordered.add(g);break;}
-        for (RadioGroup g : allGroups) if (!savedOrder.contains(g.getName())) ordered.add(g);
+        for (String n : order) for (RadioGroup g : allGroups) if (g.getName().equals(n)) { ordered.add(g); break; }
+        for (RadioGroup g : allGroups) if (!order.contains(g.getName())) ordered.add(g);
 
         List<RadioGroup> display = new ArrayList<>();
         for (RadioGroup g : ordered) {
             if (hidden.contains(g.getName())) continue;
-            if (searchQuery.isEmpty()) { display.add(g); }
-            else {
-                String q = searchQuery.toLowerCase(); List<RadioStation> m = new ArrayList<>();
-                for (RadioStation s : g.getStations()) if (s.getName().toLowerCase().contains(q)) m.add(s);
-                if (!m.isEmpty()) display.add(new RadioGroup(g.getName(), m));
-            }
+            if (searchQuery.isEmpty()) { display.add(g); continue; }
+            String q = searchQuery.toLowerCase();
+            List<RadioStation> m = new ArrayList<>();
+            for (RadioStation s : g.getStations()) if (s.getName().toLowerCase().contains(q)) m.add(s);
+            if (!m.isEmpty()) display.add(new RadioGroup(g.getName(), m));
         }
+
         Set<String> archivedKeys = prefs.getArchived();
         if (!archivedKeys.isEmpty()) {
             List<RadioStation> arch = new ArrayList<>();
-            for (String key : archivedKeys) { String[] p=AppPrefs.splitKey(key); if(p.length>=2) arch.add(new RadioStation(p[0],p[1],p.length>=3?p[2]:"","")); }
+            for (String key : archivedKeys) {
+                String[] p = AppPrefs.splitKey(key);
+                if (p.length >= 2) arch.add(new RadioStation(p[0], p[1], p.length >= 3 ? p[2] : "", ""));
+            }
             if (!arch.isEmpty()) display.add(new RadioGroup("__ARCHIVED__", arch));
         }
 
         adapter = new RadioGroupAdapter(display, this::onStationClicked,
-                (station,isFav)->{haptic();Toast.makeText(requireContext(),isFav?"♥ Added to Favourites":"Removed from Favourites",Toast.LENGTH_SHORT).show();},
+                (station,isFav) -> { haptic(); Toast.makeText(requireContext(), isFav ? "♥ Added to Favourites" : "Removed from Favourites", Toast.LENGTH_SHORT).show(); },
                 prefs, colors,
-                new RadioGroupAdapter.SwipeActionListener(){
-                    @Override public void onArchive(RadioStation s){haptic();prefs.addArchived(AppPrefs.stationKey(s.getName(),s.getUrl(),s.getGroup()));Toast.makeText(requireContext(),"Archived",Toast.LENGTH_SHORT).show();refreshAdapter();}
-                    @Override public void onUnarchive(String key){haptic();prefs.removeArchived(key);refreshAdapter();}
+                new RadioGroupAdapter.SwipeActionListener() {
+                    @Override public void onArchive(RadioStation s) { haptic(); prefs.addArchived(AppPrefs.stationKey(s.getName(),s.getUrl(),s.getGroup())); Toast.makeText(requireContext(),"Archived",Toast.LENGTH_SHORT).show(); refreshAdapter(); }
+                    @Override public void onUnarchive(String key)   { haptic(); prefs.removeArchived(key); refreshAdapter(); }
                 });
         if (selectedStation != null) adapter.setActiveStation(selectedStation);
         recycler.setLayoutManager(new LinearLayoutManager(requireContext()));
@@ -362,8 +343,7 @@ public class RadioFragment extends Fragment {
     private void onStationClicked(RadioStation station) {
         haptic(); clickSound();
         if (audioService == null) return;
-        String curUrl = audioService.getCurrentRadioUrl();
-        if (curUrl.equals(station.getUrl())) {
+        if (audioService.getCurrentRadioUrl().equals(station.getUrl())) {
             if (audioService.isRadioPlaying()) { audioService.pauseAll(); if(tvNowPlaying!=null) tvNowPlaying.setText("⏸  "+station.getName()); }
             else { audioService.resumeAll(); if(tvNowPlaying!=null) tvNowPlaying.setText(station.getName()); }
             return;
@@ -371,31 +351,28 @@ public class RadioFragment extends Fragment {
         selectedStation = station;
         if (tvNowPlaying != null) tvNowPlaying.setText("Buffering…");
         if (adapter != null) adapter.setActiveStation(station);
-        String key = AppPrefs.stationKey(station.getName(), station.getUrl(), station.getGroup());
-        prefs.addLastPlayed(key);
+        prefs.addLastPlayed(AppPrefs.stationKey(station.getName(), station.getUrl(), station.getGroup()));
         audioService.playRadio(station.getName(), station.getUrl(), station.getFaviconUrl());
         audioService.setRadioListener(makeListener());
     }
 
     private AudioService.RadioListener makeListener() {
         return new AudioService.RadioListener() {
-            @Override public void onPlaybackStarted(String n) { mainHandler.post(()->{if(tvNowPlaying!=null) tvNowPlaying.setText(n);}); }
-            @Override public void onPlaybackStopped() { mainHandler.post(()->{selectedStation=null;if(tvNowPlaying!=null)tvNowPlaying.setText("Select a station");if(adapter!=null)adapter.setActiveStation(null);}); }
-            @Override public void onError(String m) { mainHandler.post(()->{if(tvNowPlaying!=null)tvNowPlaying.setText("Error – "+m);}); }
-            @Override public void onBuffering() { mainHandler.post(()->{if(tvNowPlaying!=null&&selectedStation!=null)tvNowPlaying.setText("Buffering…  "+selectedStation.getName());}); }
+            @Override public void onPlaybackStarted(String n) { mainHandler.post(()->{ if(tvNowPlaying!=null)tvNowPlaying.setText(n); }); }
+            @Override public void onPlaybackStopped()         { mainHandler.post(()->{ selectedStation=null; if(tvNowPlaying!=null)tvNowPlaying.setText("Select a station"); if(adapter!=null)adapter.setActiveStation(null); }); }
+            @Override public void onError(String m)          { mainHandler.post(()->{ if(tvNowPlaying!=null)tvNowPlaying.setText("Error – "+m); }); }
+            @Override public void onBuffering()              { mainHandler.post(()->{ if(tvNowPlaying!=null&&selectedStation!=null)tvNowPlaying.setText("Buffering…  "+selectedStation.getName()); }); }
         };
     }
 
-    /** Max intensity: 50 ms / amplitude 255 */
     private void haptic() {
         if (prefs == null || !prefs.isHapticEnabled()) return;
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 VibratorManager vm = (VibratorManager) requireContext().getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE);
-                if (vm != null) { vm.getDefaultVibrator().vibrate(VibrationEffect.createOneShot(50, 255)); return; }
+                if (vm != null) { vm.getDefaultVibrator().vibrate(VibrationEffect.createOneShot(50,255)); return; }
             }
-            @SuppressWarnings("deprecation")
-            Vibrator vib = (Vibrator) requireContext().getSystemService(android.content.Context.VIBRATOR_SERVICE);
+            @SuppressWarnings("deprecation") Vibrator vib = (Vibrator) requireContext().getSystemService(android.content.Context.VIBRATOR_SERVICE);
             if (vib==null||!vib.hasVibrator()) return;
             if (Build.VERSION.SDK_INT>=Build.VERSION_CODES.O) vib.vibrate(VibrationEffect.createOneShot(50,255)); else vib.vibrate(50);
         } catch (Exception ignored) {}
@@ -404,16 +381,26 @@ public class RadioFragment extends Fragment {
     private void clickSound() { if(audioService!=null&&prefs!=null&&prefs.isButtonSoundEnabled()) audioService.playClickSound(); }
 
     public void applyTheme(View root) {
-        if(root==null||colors==null) return;
+        if (root == null || colors == null) return;
         root.setBackgroundColor(colors.bgPrimary());
-        if(tvNowPlaying!=null) tvNowPlaying.setTextColor(colors.textSecondary());
-        if(etSearch!=null){ etSearch.setTextColor(colors.radioSearchText()); etSearch.setHintTextColor(colors.radioSearchHint());
-            float dp=getResources().getDisplayMetrics().density; GradientDrawable gd=new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(10*dp); gd.setColor(colors.radioSearchBg()); etSearch.setBackground(gd); }
-        if(btnCategoryFilter!=null) btnCategoryFilter.setTextColor(colors.textSecondary());
+        // Wire page header title colour
+        if (tvRadioPageTitle != null) tvRadioPageTitle.setTextColor(colors.pageHeaderText());
+        if (tvNowPlaying    != null) tvNowPlaying.setTextColor(colors.textSecondary());
+        if (etSearch != null) {
+            etSearch.setTextColor(colors.radioSearchText());
+            etSearch.setHintTextColor(colors.radioSearchHint());
+            float dp = getResources().getDisplayMetrics().density;
+            GradientDrawable gd = new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(10*dp); gd.setColor(colors.radioSearchBg());
+            etSearch.setBackground(gd);
+        }
+        if (btnCategoryFilter != null) btnCategoryFilter.setTextColor(colors.textSecondary());
     }
 
     public void refresh() {
-        if(getView()==null) return; colors=new ColorConfig(requireContext()); applyTheme(getView()); refreshAdapter();
+        if (getView() == null) return;
+        colors = new ColorConfig(requireContext());
+        applyTheme(getView());
+        refreshAdapter();
     }
 
     public RadioStation getSelectedStation() { return selectedStation; }

@@ -1,5 +1,6 @@
 package is.dyino.ui.home;
 
+import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -10,8 +11,10 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -36,6 +39,7 @@ import is.dyino.R;
 import is.dyino.model.SoundCategory;
 import is.dyino.model.SoundItem;
 import is.dyino.service.AudioService;
+import is.dyino.ui.sounds.WaveView;
 import is.dyino.util.AppPrefs;
 import is.dyino.util.ColorConfig;
 import is.dyino.util.SettingsConfig;
@@ -43,24 +47,33 @@ import is.dyino.util.SoundLoader;
 
 public class HomeFragment extends Fragment {
 
-    private LinearLayout nowPlayingRadioCard;
+    // ── Views ─────────────────────────────────────────────────────
+    private FrameLayout  nowPlayingRadioCard;
+    private WaveView     radioWaveView;
     private ImageView    ivStationIcon;
     private TextView     tvStationName, tvBuffering, tvNowPlayingStop;
-    private LinearLayout nowPlayingSoundsWrap;
+    private View         nowPlayingSoundsScroll;
+    private LinearLayout nowPlayingSoundsContainer;
+    private TextView     tvNowPlayingLabel, tvNowPlayingSoundsLabel;
     private LinearLayout favRadioWrap, favSoundsWrap, lastPlayedWrap;
-    private TextView     tvNowPlayingLabel, tvFavRadioLabel, tvFavSoundsLabel, tvLastPlayedLabel;
+    private TextView     tvFavRadioLabel, tvFavSoundsLabel, tvLastPlayedLabel;
     private View         dividerNowPlaying, dividerFav, dividerLastPlayed;
     private TextView     tvEmpty;
 
+    // ── Dependencies ──────────────────────────────────────────────
     private AppPrefs       prefs;
     private ColorConfig    colors;
     private SettingsConfig cfg;
     private AudioService   audioService;
 
+    // Active sound wave views — keyed by filename for quick update
+    private final Map<String, WaveView> activeSoundWaves = new java.util.HashMap<>();
+
     private final Map<String, Long> lastTapTime = new java.util.HashMap<>();
     private static final long DOUBLE_TAP_MS = 350;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
+    // ── Broadcast receiver (notification / service state changes) ─
     private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) {
             mainHandler.post(HomeFragment.this::refresh);
@@ -69,14 +82,13 @@ public class HomeFragment extends Fragment {
 
     public void setAudioService(AudioService svc) {
         this.audioService = svc;
-        if (audioService != null) {
-            audioService.setRadioListener(new AudioService.RadioListener() {
-                @Override public void onPlaybackStarted(String n) { mainHandler.post(HomeFragment.this::refresh); }
-                @Override public void onPlaybackStopped()          { mainHandler.post(HomeFragment.this::refresh); }
-                @Override public void onError(String m)           { mainHandler.post(HomeFragment.this::refresh); }
-                @Override public void onBuffering()               { mainHandler.post(HomeFragment.this::refresh); }
-            });
-        }
+        if (audioService == null) return;
+        audioService.setRadioListener(new AudioService.RadioListener() {
+            @Override public void onPlaybackStarted(String n) { mainHandler.post(HomeFragment.this::refresh); }
+            @Override public void onPlaybackStopped()          { mainHandler.post(HomeFragment.this::refresh); }
+            @Override public void onError(String m)           { mainHandler.post(HomeFragment.this::refresh); }
+            @Override public void onBuffering()               { mainHandler.post(HomeFragment.this::refresh); }
+        });
     }
 
     @Nullable @Override
@@ -91,44 +103,46 @@ public class HomeFragment extends Fragment {
         colors = new ColorConfig(requireContext());
         cfg    = new SettingsConfig(requireContext());
 
-        nowPlayingRadioCard   = view.findViewById(R.id.nowPlayingRadioCard);
-        ivStationIcon         = view.findViewById(R.id.ivStationIcon);
-        tvStationName         = view.findViewById(R.id.tvNowPlayingStation);
-        tvBuffering           = view.findViewById(R.id.tvBuffering);
-        tvNowPlayingStop      = view.findViewById(R.id.tvNowPlayingStop);
-        nowPlayingSoundsWrap  = view.findViewById(R.id.nowPlayingSoundsContainer);
-        favRadioWrap          = view.findViewById(R.id.favRadioContainer);
-        favSoundsWrap         = view.findViewById(R.id.favSoundsContainer);
-        lastPlayedWrap        = view.findViewById(R.id.lastPlayedContainer);
-        tvNowPlayingLabel     = view.findViewById(R.id.tvNowPlayingLabel);
-        tvFavRadioLabel       = view.findViewById(R.id.tvFavRadioLabel);
-        tvFavSoundsLabel      = view.findViewById(R.id.tvFavSoundsLabel);
-        tvLastPlayedLabel     = view.findViewById(R.id.tvLastPlayedLabel);
-        dividerNowPlaying     = view.findViewById(R.id.dividerNowPlaying);
-        dividerFav            = view.findViewById(R.id.dividerFav);
-        dividerLastPlayed     = view.findViewById(R.id.dividerLastPlayed);
-        tvEmpty               = view.findViewById(R.id.tvEmpty);
+        nowPlayingRadioCard      = view.findViewById(R.id.nowPlayingRadioCard);
+        radioWaveView            = view.findViewById(R.id.radioWaveView);
+        ivStationIcon            = view.findViewById(R.id.ivStationIcon);
+        tvStationName            = view.findViewById(R.id.tvNowPlayingStation);
+        tvBuffering              = view.findViewById(R.id.tvBuffering);
+        tvNowPlayingStop         = view.findViewById(R.id.tvNowPlayingStop);
+        nowPlayingSoundsScroll   = view.findViewById(R.id.nowPlayingSoundsScroll);
+        nowPlayingSoundsContainer= view.findViewById(R.id.nowPlayingSoundsContainer);
+        tvNowPlayingLabel        = view.findViewById(R.id.tvNowPlayingLabel);
+        tvNowPlayingSoundsLabel  = view.findViewById(R.id.tvNowPlayingSoundsLabel);
+        favRadioWrap             = view.findViewById(R.id.favRadioContainer);
+        favSoundsWrap            = view.findViewById(R.id.favSoundsContainer);
+        lastPlayedWrap           = view.findViewById(R.id.lastPlayedContainer);
+        tvFavRadioLabel          = view.findViewById(R.id.tvFavRadioLabel);
+        tvFavSoundsLabel         = view.findViewById(R.id.tvFavSoundsLabel);
+        tvLastPlayedLabel        = view.findViewById(R.id.tvLastPlayedLabel);
+        dividerNowPlaying        = view.findViewById(R.id.dividerNowPlaying);
+        dividerFav               = view.findViewById(R.id.dividerFav);
+        dividerLastPlayed        = view.findViewById(R.id.dividerLastPlayed);
+        tvEmpty                  = view.findViewById(R.id.tvEmpty);
 
         applyTheme(view);
         refresh();
     }
 
-    @Override
-    public void onStart() {
+    @Override public void onStart() {
         super.onStart();
         ContextCompat.registerReceiver(requireContext(), stateReceiver,
                 new IntentFilter(AudioService.BROADCAST_STATE),
                 ContextCompat.RECEIVER_NOT_EXPORTED);
     }
 
-    @Override
-    public void onStop() {
+    @Override public void onStop() {
         super.onStop();
         try { requireContext().unregisterReceiver(stateReceiver); } catch (Exception ignored) {}
     }
 
     @Override public void onResume() { super.onResume(); refresh(); }
 
+    // ═══════════════════════════════════════════════════════════════
     public void refresh() {
         if (getView() == null || colors == null) return;
         buildNowPlaying();
@@ -143,8 +157,8 @@ public class HomeFragment extends Fragment {
         boolean radioPaused   = audioService != null && audioService.isRadioPaused();
         Map<String, Float> activeSounds = audioService != null
                 ? audioService.getAllPlayingSounds() : new java.util.HashMap<>();
-        boolean soundsPlaying = !activeSounds.isEmpty();
 
+        // ── Radio card ──
         if (radioSelected) {
             nowPlayingRadioCard.setVisibility(View.VISIBLE);
             String name    = audioService.getCurrentName();
@@ -154,30 +168,43 @@ public class HomeFragment extends Fragment {
             if (tvBuffering != null)
                 tvBuffering.setVisibility(!radioPlaying && !radioPaused ? View.VISIBLE : View.GONE);
 
-            // Art: favicon → ic_note_vec tinted fallback
+            // Favicon / note-icon fallback
             if (favicon != null && !favicon.isEmpty()) {
-                if (ivStationIcon != null) ivStationIcon.clearColorFilter();
+                ivStationIcon.clearColorFilter();
                 Glide.with(this).load(favicon)
-                        .apply(RequestOptions.bitmapTransform(new RoundedCorners(dp(16)))
-                               .placeholder(R.drawable.ic_note_vec).error(R.drawable.ic_note_vec))
+                        .apply(RequestOptions.bitmapTransform(new RoundedCorners(dp(14)))
+                                .placeholder(R.drawable.ic_note_vec).error(R.drawable.ic_note_vec))
                         .into(ivStationIcon);
             } else {
-                if (ivStationIcon != null) {
-                    ivStationIcon.setImageResource(R.drawable.ic_note_vec);
-                    ivStationIcon.setColorFilter(colors.nowPlayingIconTint(), PorterDuff.Mode.SRC_IN);
+                ivStationIcon.setImageResource(R.drawable.ic_note_vec);
+                ivStationIcon.setColorFilter(colors.nowPlayingIconTint(), PorterDuff.Mode.SRC_IN);
+            }
+
+            // Radio wave (stream visualiser)
+            if (radioWaveView != null) {
+                int wc = (colors.nowPlayingAnimColor() & 0x00FFFFFF) | 0x55000000;
+                radioWaveView.setColors(colors.nowPlayingCardBg(), wc);
+                radioWaveView.setVolume(1f);
+                if (radioPlaying) {
+                    radioWaveView.setVisibility(View.VISIBLE);
+                    if (!radioWaveView.isWaving()) radioWaveView.startWave();
+                } else {
+                    radioWaveView.stopWave();
+                    radioWaveView.setVisibility(View.INVISIBLE);
                 }
             }
 
             styleNowPlayingCard(nowPlayingRadioCard, radioPlaying);
 
+            // Single tap = play/pause, double tap = favourite
             nowPlayingRadioCard.setOnClickListener(v -> {
                 long now = System.currentTimeMillis();
-                Long lst = lastTapTime.get("__now_playing__");
+                Long lst = lastTapTime.get("__np__");
                 if (lst != null && (now - lst) < DOUBLE_TAP_MS) {
-                    lastTapTime.remove("__now_playing__");
-                    toggleFavFromNowPlaying();
+                    lastTapTime.remove("__np__");
+                    toggleFav();
                 } else {
-                    lastTapTime.put("__now_playing__", now);
+                    lastTapTime.put("__np__", now);
                     toggleRadio();
                 }
             });
@@ -188,39 +215,146 @@ public class HomeFragment extends Fragment {
                     refresh();
                 });
         } else {
+            if (radioWaveView != null) { radioWaveView.stopWave(); radioWaveView.setVisibility(View.INVISIBLE); }
             nowPlayingRadioCard.setVisibility(View.GONE);
         }
 
-        // Active sound chips
-        nowPlayingSoundsWrap.removeAllViews();
+        // ── Active sounds (scrollable horizontal row, each with WaveView + drag vol) ──
+        nowPlayingSoundsContainer.removeAllViews();
+        activeSoundWaves.clear();
+
         List<SoundCategory> allSounds = SoundLoader.load(requireContext());
+        boolean soundsPlaying = !activeSounds.isEmpty();
+
         if (soundsPlaying) {
+            float dp = getResources().getDisplayMetrics().density;
+            int chipW = (int)(84 * dp);
+            int chipH = (int)(64 * dp);
+            int gap   = (int)(8  * dp);
+
             for (Map.Entry<String, Float> e : activeSounds.entrySet()) {
                 String fn  = e.getKey();
-                String lbl = soundDisplayName(fn, allSounds) + "  ✕";
-                addChip(nowPlayingSoundsWrap, lbl,
-                        colors.homeChipPlayBg(), colors.homeChipBorder(),
-                        colors.homeChipText(), cfg.chipHeightDp(), cfg.chipCornerDp(), v -> {
-                            if (audioService != null) audioService.stopSound(fn);
-                            refresh();
-                        });
+                float  vol = e.getValue();
+                String lbl = soundDisplayName(fn, allSounds);
+
+                View chip = buildSoundChip(fn, lbl, vol, chipW, chipH, allSounds);
+                LinearLayout.LayoutParams lp =
+                        new LinearLayout.LayoutParams(chipW, chipH);
+                lp.setMargins(0, 0, gap, 0);
+                chip.setLayoutParams(lp);
+                nowPlayingSoundsContainer.addView(chip);
             }
         }
+
+        tvNowPlayingSoundsLabel.setVisibility(soundsPlaying ? View.VISIBLE : View.GONE);
+        nowPlayingSoundsScroll.setVisibility(soundsPlaying ? View.VISIBLE : View.GONE);
 
         boolean anyPlaying = radioSelected || soundsPlaying;
         tvNowPlayingLabel.setVisibility(anyPlaying ? View.VISIBLE : View.GONE);
         dividerNowPlaying.setVisibility(anyPlaying ? View.VISIBLE : View.GONE);
 
-        List<String> lastPlayed = prefs.getLastPlayed();
-        boolean anything = anyPlaying || !prefs.getFavourites().isEmpty()
-                || !prefs.getFavSounds().isEmpty() || !lastPlayed.isEmpty();
+        boolean anything = anyPlaying
+                || !prefs.getFavourites().isEmpty()
+                || !prefs.getFavSounds().isEmpty()
+                || !prefs.getLastPlayed().isEmpty();
         tvEmpty.setVisibility(anything ? View.GONE : View.VISIBLE);
     }
 
-    private void toggleFavFromNowPlaying() {
+    /**
+     * Mini sound chip for the now-playing horizontal scroll row.
+     * Shows a WaveView behind the label; long-press + vertical drag adjusts volume.
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private View buildSoundChip(String fn, String label, float initialVol,
+                                int chipW, int chipH,
+                                List<SoundCategory> allSounds) {
+        FrameLayout frame = new FrameLayout(requireContext());
+
+        // Wave fill
+        WaveView wave = new WaveView(requireContext());
+        int wc = (colors.soundWaveColor() & 0x00FFFFFF) | 0x6A000000;
+        wave.setColors(colors.soundBtnActiveBg(), wc);
+        wave.setVolume(initialVol);
+        wave.setVisibility(View.VISIBLE);
+        wave.startWave();
+        frame.addView(wave, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        activeSoundWaves.put(fn, wave);
+
+        // Label
+        TextView tv = new TextView(requireContext());
+        tv.setText(label);
+        tv.setTextColor(colors.soundBtnText());
+        tv.setTextSize(11f);
+        tv.setGravity(android.view.Gravity.CENTER);
+        tv.setSingleLine(true);
+        tv.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        tv.setPadding(dp(6), dp(6), dp(6), dp(6));
+        frame.addView(tv, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // Card background
+        GradientDrawable gd = new GradientDrawable();
+        gd.setShape(GradientDrawable.RECTANGLE);
+        gd.setCornerRadius(dp(14));
+        gd.setColor(colors.soundBtnActiveBg());
+        gd.setStroke(dp(1), colors.soundBtnActiveBorder != 0
+                ? colors.soundBtnActiveBorder() : colors.accent());
+        frame.setBackground(gd);
+        frame.setClipToOutline(true);
+
+        // Volume drag
+        wave.setVolumeDragListener(vol -> {
+            if (audioService != null) audioService.setSoundVolume(fn, vol);
+        });
+
+        final float[] downY       = {0f};
+        final boolean[] longPress = {false};
+
+        frame.setOnLongClickListener(v -> {
+            longPress[0] = true;
+            float vol = audioService != null
+                    ? audioService.getSoundVolume(fn) : initialVol;
+            wave.setVolume(vol);
+            wave.beginVolumeDrag(downY[0]);
+            return true;
+        });
+
+        frame.setOnTouchListener((v, ev) -> {
+            switch (ev.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    downY[0] = ev.getY(); longPress[0] = false; break;
+                case MotionEvent.ACTION_MOVE:
+                    if (longPress[0] && wave.isDragging()) {
+                        wave.handleDragMove(ev.getY());
+                        return true;
+                    }
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    if (longPress[0]) wave.endDrag();
+                    longPress[0] = false;
+                    break;
+            }
+            return false;
+        });
+
+        // Single tap = stop sound
+        frame.setOnClickListener(v -> {
+            if (wave.isDragging()) return;
+            if (audioService != null) audioService.stopSound(fn);
+            refresh();
+        });
+
+        return frame;
+    }
+
+    // ── Helper for soundBtnActiveBorder which may be 0 if not in color map ──
+    // (accessed via lambda above — safe because ColorConfig always returns a value)
+
+    private void toggleFav() {
         if (audioService == null) return;
-        String url = audioService.getCurrentRadioUrl();
-        if (url.isEmpty()) return;
+        String url = audioService.getCurrentRadioUrl(); if (url.isEmpty()) return;
         String key = AppPrefs.stationKey(audioService.getCurrentName(), url, "");
         if (prefs.isFavourite(key)) {
             prefs.removeFavourite(key);
@@ -246,91 +380,59 @@ public class HomeFragment extends Fragment {
         int   chipH  = cfg.chipHeightDp() + 8;
         float chipR  = 20f;
 
-        // Deduplicate radio favourites by URL
         favRadioWrap.removeAllViews();
-        List<String> dedupedRadio = deduplicateByUrl(new ArrayList<>(prefs.getFavourites()));
-        buildStationRows(favRadioWrap, dedupedRadio, perRow, chipH, chipR);
-        tvFavRadioLabel.setVisibility(dedupedRadio.isEmpty() ? View.GONE : View.VISIBLE);
+        List<String> favRadio = deduplicateByUrl(new ArrayList<>(prefs.getFavourites()));
+        buildStationRows(favRadioWrap, favRadio, perRow, chipH, chipR);
+        tvFavRadioLabel.setVisibility(favRadio.isEmpty() ? View.GONE : View.VISIBLE);
 
-        // Deduplicate sound favourites by filename
         favSoundsWrap.removeAllViews();
-        List<String> dedupedSounds = deduplicateStrings(new ArrayList<>(prefs.getFavSounds()));
-        buildSoundRows(favSoundsWrap, dedupedSounds, allSounds, 3, chipH, chipR);
-        tvFavSoundsLabel.setVisibility(dedupedSounds.isEmpty() ? View.GONE : View.VISIBLE);
+        List<String> favSounds = dedupList(new ArrayList<>(prefs.getFavSounds()));
+        buildSoundRows(favSoundsWrap, favSounds, allSounds, 3, chipH, chipR);
+        tvFavSoundsLabel.setVisibility(favSounds.isEmpty() ? View.GONE : View.VISIBLE);
 
-        boolean anyFavs = !dedupedRadio.isEmpty() || !dedupedSounds.isEmpty();
-        dividerFav.setVisibility(anyFavs ? View.VISIBLE : View.GONE);
+        boolean any = !favRadio.isEmpty() || !favSounds.isEmpty();
+        dividerFav.setVisibility(any ? View.VISIBLE : View.GONE);
     }
 
     // ── Last Played ───────────────────────────────────────────────
     private void buildLastPlayed() {
         lastPlayedWrap.removeAllViews();
-        // Deduplicate last played by URL
-        List<String> lastPlayed = deduplicateByUrl(prefs.getLastPlayed());
-        if (lastPlayed.isEmpty()) {
+        List<String> last = deduplicateByUrl(prefs.getLastPlayed());
+        if (last.isEmpty()) {
             tvLastPlayedLabel.setVisibility(View.GONE);
             dividerLastPlayed.setVisibility(View.GONE);
             return;
         }
         tvLastPlayedLabel.setVisibility(View.VISIBLE);
-        buildStationRows(lastPlayedWrap, lastPlayed, cfg.favRadioPerRow(),
+        buildStationRows(lastPlayedWrap, last, cfg.favRadioPerRow(),
                 cfg.chipHeightDp() + 8, 20f);
         dividerLastPlayed.setVisibility(View.VISIBLE);
     }
 
-    // ── Deduplication helpers ─────────────────────────────────────
-
-    /**
-     * Remove station keys with duplicate URLs.
-     * Keeps insertion order (most-recent first for lastPlayed).
-     */
-    private List<String> deduplicateByUrl(List<String> keys) {
-        LinkedHashMap<String, String> urlToKey = new LinkedHashMap<>();
-        for (String key : keys) {
-            if (key == null || key.trim().isEmpty()) continue;
-            String[] p = AppPrefs.splitKey(key);
-            if (p.length < 2 || p[1].trim().isEmpty()) continue;
-            String url = p[1].trim().toLowerCase();
-            urlToKey.putIfAbsent(url, key); // first occurrence wins
-        }
-        return new ArrayList<>(urlToKey.values());
-    }
-
-    /** Simple string deduplication preserving order. */
-    private List<String> deduplicateStrings(List<String> list) {
-        LinkedHashMap<String, Boolean> seen = new LinkedHashMap<>();
-        for (String s : list) if (s != null && !s.isEmpty()) seen.put(s, true);
-        return new ArrayList<>(seen.keySet());
-    }
-
-    // ── Station row builder ───────────────────────────────────────
+    // ── Station rows ──────────────────────────────────────────────
     private void buildStationRows(LinearLayout container, List<String> keys,
                                   int perRow, int chipH, float chipR) {
         for (int i = 0; i < keys.size(); i += perRow) {
-            LinearLayout row = makeRow();
-            int inRow = 0;
+            LinearLayout row = new LinearLayout(requireContext());
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            int added = 0;
             for (int j = 0; j < perRow && i + j < keys.size(); j++) {
                 String   key = keys.get(i + j);
                 String[] p   = AppPrefs.splitKey(key);
                 if (p.length < 2 || p[0].trim().isEmpty() || p[1].trim().isEmpty()) continue;
-                String name = p[0].trim(), url = p[1].trim();
-
-                View chip = makeStationChip(name, url, key, chipH, chipR);
+                View chip = makeStationChip(p[0].trim(), p[1].trim(), key, chipH, chipR);
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(chipH), 1f);
-                lp.setMargins(0, 0, inRow < perRow - 1 ? dp(6) : 0, 0);
+                lp.setMargins(0, 0, added < perRow - 1 ? dp(6) : 0, 0);
                 chip.setLayoutParams(lp);
-                row.addView(chip);
-                inRow++;
+                row.addView(chip); added++;
             }
-            // Pad remaining slots so layout stays grid-like
-            for (int k = inRow; k < perRow; k++) {
+            if (added == 0) continue;
+            // Pad empty slots
+            for (int k = added; k < perRow; k++) {
                 View ph = new View(requireContext());
-                LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(0, dp(chipH), 1f);
-                plp.setMargins(0, 0, dp(6), 0);
-                ph.setLayoutParams(plp);
+                ph.setLayoutParams(new LinearLayout.LayoutParams(0, dp(chipH), 1f));
                 row.addView(ph);
             }
-            if (inRow == 0) continue; // skip entirely empty rows
             LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             rowLp.setMargins(0, 0, 0, dp(8));
@@ -340,23 +442,22 @@ public class HomeFragment extends Fragment {
     }
 
     private View makeStationChip(String name, String url, String key,
-                                  int heightDp, float cornerDp) {
-        String curUrl = audioService != null ? audioService.getCurrentRadioUrl() : "";
-        boolean isCurrent = curUrl.equals(url);
-        boolean isPlaying = isCurrent && audioService != null && audioService.isRadioPlaying();
-
-        int bg     = isPlaying ? colors.stationActiveBg()     : colors.stationBg();
-        int border = isPlaying ? colors.stationActiveBorder() : colors.divider();
+                                  int chipH, float cornerDp) {
+        String curUrl   = audioService != null ? audioService.getCurrentRadioUrl() : "";
+        boolean current = curUrl.equals(url);
+        boolean playing = current && audioService != null && audioService.isRadioPlaying();
 
         TextView tv = new TextView(requireContext());
         tv.setText(name);
-        tv.setTextColor(isPlaying ? colors.stationTextActive() : colors.stationText());
+        tv.setTextColor(playing ? colors.stationTextActive() : colors.stationText());
         tv.setTextSize(13f);
         tv.setGravity(android.view.Gravity.CENTER);
         tv.setSingleLine(true);
         tv.setEllipsize(android.text.TextUtils.TruncateAt.END);
         tv.setPadding(dp(12), dp(8), dp(12), dp(8));
-        tv.setBackground(squircleBg(bg, border, cornerDp));
+        tv.setBackground(squircleBg(
+                playing ? colors.stationActiveBg() : colors.stationBg(),
+                playing ? colors.stationActiveBorder() : colors.divider(), cornerDp));
 
         tv.setOnClickListener(v -> {
             long now = System.currentTimeMillis();
@@ -392,13 +493,14 @@ public class HomeFragment extends Fragment {
                                 List<SoundCategory> allSounds, int perRow,
                                 int chipH, float chipR) {
         for (int i = 0; i < fns.size(); i += perRow) {
-            LinearLayout row = makeRow();
-            int inRow = 0;
+            LinearLayout row = new LinearLayout(requireContext());
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            int added = 0;
             for (int j = 0; j < perRow && i + j < fns.size(); j++) {
                 String fn = fns.get(i + j);
-                if (fn == null || fn.trim().isEmpty()) continue;
-                String  lbl     = soundDisplayName(fn, allSounds);
-                boolean playing = audioService != null && audioService.isSoundPlaying(fn);
+                if (fn == null || fn.isEmpty()) continue;
+                String  lbl = soundDisplayName(fn, allSounds);
+                boolean pl  = audioService != null && audioService.isSoundPlaying(fn);
                 final String ffn = fn;
 
                 TextView chip = new TextView(requireContext());
@@ -410,9 +512,8 @@ public class HomeFragment extends Fragment {
                 chip.setEllipsize(android.text.TextUtils.TruncateAt.END);
                 chip.setPadding(dp(10), dp(8), dp(10), dp(8));
                 chip.setBackground(squircleBg(
-                        playing ? colors.soundBtnActiveBg()     : colors.soundBtnBg(),
-                        playing ? colors.soundBtnActiveBorder() : colors.divider(),
-                        chipR));
+                        pl ? colors.soundBtnActiveBg() : colors.soundBtnBg(),
+                        pl ? colors.soundBtnActiveBorder() : colors.divider(), chipR));
                 chip.setOnClickListener(v -> {
                     long now = System.currentTimeMillis();
                     Long lst = lastTapTime.get("snd_" + ffn);
@@ -431,17 +532,15 @@ public class HomeFragment extends Fragment {
                 });
 
                 LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(chipH), 1f);
-                lp.setMargins(0, 0, inRow < perRow - 1 ? dp(6) : 0, 0);
-                chip.setLayoutParams(lp);
-                row.addView(chip);
-                inRow++;
+                lp.setMargins(0, 0, added < perRow - 1 ? dp(6) : 0, 0);
+                chip.setLayoutParams(lp); row.addView(chip); added++;
             }
-            for (int k = inRow; k < perRow; k++) {
+            if (added == 0) continue;
+            for (int k = added; k < perRow; k++) {
                 View ph = new View(requireContext());
                 ph.setLayoutParams(new LinearLayout.LayoutParams(0, dp(chipH), 1f));
                 row.addView(ph);
             }
-            if (inRow == 0) continue;
             LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             rowLp.setMargins(0, 0, 0, dp(8));
@@ -450,29 +549,25 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    // ── Chip helpers ──────────────────────────────────────────────
-    private void addChip(LinearLayout wrap, String label, int bg, int border, int textColor,
-                         int heightDp, float cornerDp, View.OnClickListener click) {
-        TextView chip = new TextView(requireContext());
-        chip.setText(label); chip.setTextColor(textColor); chip.setTextSize(13f);
-        chip.setGravity(android.view.Gravity.CENTER); chip.setSingleLine(true);
-        chip.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        chip.setPadding(dp(14), dp(8), dp(14), dp(8));
-        chip.setBackground(squircleBg(bg, border, cornerDp));
-        chip.setOnClickListener(click);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, dp(heightDp));
-        lp.setMargins(0, 0, dp(8), dp(8));
-        chip.setLayoutParams(lp);
-        wrap.addView(chip);
+    // ── Deduplication ─────────────────────────────────────────────
+    private List<String> deduplicateByUrl(List<String> keys) {
+        LinkedHashMap<String, String> urlToKey = new LinkedHashMap<>();
+        for (String key : keys) {
+            if (key == null || key.isEmpty()) continue;
+            String[] p = AppPrefs.splitKey(key);
+            if (p.length < 2 || p[1].trim().isEmpty()) continue;
+            urlToKey.putIfAbsent(p[1].trim().toLowerCase(), key);
+        }
+        return new ArrayList<>(urlToKey.values());
     }
 
-    private LinearLayout makeRow() {
-        LinearLayout row = new LinearLayout(requireContext());
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        return row;
+    private List<String> dedupList(List<String> list) {
+        LinkedHashMap<String, Boolean> seen = new LinkedHashMap<>();
+        for (String s : list) if (s != null && !s.isEmpty()) seen.put(s, true);
+        return new ArrayList<>(seen.keySet());
     }
 
+    // ── Helpers ───────────────────────────────────────────────────
     private GradientDrawable squircleBg(int bg, int border, float cornerDp) {
         GradientDrawable gd = new GradientDrawable();
         gd.setShape(GradientDrawable.RECTANGLE);
@@ -482,10 +577,12 @@ public class HomeFragment extends Fragment {
 
     private void styleNowPlayingCard(View card, boolean active) {
         GradientDrawable gd = new GradientDrawable();
-        gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(dp(18));
+        gd.setShape(GradientDrawable.RECTANGLE);
+        gd.setCornerRadius(dp(18));
         gd.setColor(active ? colors.nowPlayingCardBg() : colors.bgCard());
         gd.setStroke(dp(1), active ? colors.nowPlayingCardBorder() : colors.divider());
         card.setBackground(gd);
+        card.setClipToOutline(true);
     }
 
     private String soundDisplayName(String fn, List<SoundCategory> cats) {
@@ -504,14 +601,15 @@ public class HomeFragment extends Fragment {
         if (root == null || colors == null) return;
         root.setBackgroundColor(colors.bgPrimary());
 
-        // Page title colours from color.json
-        TextView tvPageTitle = root.findViewById(R.id.tvHomePageTitle);
-        if (tvPageTitle != null) tvPageTitle.setTextColor(colors.pageHeaderText());
+        // Page header colours — properly wired
+        TextView title = root.findViewById(R.id.tvHomePageTitle);
+        if (title != null) title.setTextColor(colors.pageHeaderText());
 
-        TextView tvPageSub = root.findViewById(R.id.tvHomePageSubtitle);
-        if (tvPageSub != null) tvPageSub.setTextColor(colors.pageHeaderSubtitleText());
+        TextView subtitle = root.findViewById(R.id.tvHomePageSubtitle);
+        if (subtitle != null) subtitle.setTextColor(colors.pageHeaderSubtitleText());
 
         if (tvNowPlayingLabel != null) tvNowPlayingLabel.setTextColor(colors.homeSectionTitle());
+        if (tvNowPlayingSoundsLabel != null) tvNowPlayingSoundsLabel.setTextColor(colors.homeSectionTitle());
         if (tvFavRadioLabel   != null) tvFavRadioLabel.setTextColor(colors.homeSectionTitle());
         if (tvFavSoundsLabel  != null) tvFavSoundsLabel.setTextColor(colors.homeSectionTitle());
         if (tvLastPlayedLabel != null) tvLastPlayedLabel.setTextColor(colors.homeSectionTitle());
@@ -531,4 +629,7 @@ public class HomeFragment extends Fragment {
         applyTheme(getView());
         refresh();
     }
+
+    // Expose accent for lambda inside buildSoundChip
+    private int soundBtnActiveBorder() { return colors.soundBtnActiveBorder(); }
 }

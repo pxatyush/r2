@@ -88,28 +88,25 @@ public class SoundsFragment extends Fragment {
         });
     }
 
-    @Override
-    public void onStart() {
+    @Override public void onStart() {
         super.onStart();
         ContextCompat.registerReceiver(requireContext(), stateReceiver,
                 new IntentFilter(AudioService.BROADCAST_STATE),
                 ContextCompat.RECEIVER_NOT_EXPORTED);
     }
 
-    @Override
-    public void onStop() {
+    @Override public void onStop() {
         super.onStop();
         try { requireContext().unregisterReceiver(stateReceiver); } catch (Exception ignored) {}
     }
 
-    // ── Grid builder ──────────────────────────────────────────────
     private void buildGrid() {
         if (categoriesContainer == null || categories == null) return;
         categoriesContainer.removeAllViews();
 
         float dp    = getResources().getDisplayMetrics().density;
-        int navW    = (int)(52 * dp);
         int screenW = getResources().getDisplayMetrics().widthPixels;
+        int navW    = (int)(52 * dp);
         int avail   = screenW - navW;
         int gap     = (int)(5 * dp);
         int btnW    = (avail - gap * 3) / 2;
@@ -138,7 +135,6 @@ public class SoundsFragment extends Fragment {
                 row.setLayoutParams(rowLp);
 
                 row.addView(inflateBtn(sounds.get(i), btnW, btnH));
-
                 View sp = new View(requireContext());
                 sp.setLayoutParams(new LinearLayout.LayoutParams(gap, btnH));
                 row.addView(sp);
@@ -155,16 +151,14 @@ public class SoundsFragment extends Fragment {
         }
     }
 
-    // ── Button inflation — vertical drag volume, no horizontal overlay ──
     @SuppressLint("ClickableViewAccessibility")
     private View inflateBtn(SoundItem sound, int btnW, int btnH) {
-        // Inflate a simplified layout: just the FrameLayout root with WaveView + label
         View btn        = LayoutInflater.from(requireContext())
                             .inflate(R.layout.item_sound_button, null, false);
         TextView tvName = btn.findViewById(R.id.tvSoundName);
         WaveView wave   = btn.findViewById(R.id.waveView);
 
-        // Hide the horizontal volume overlay — we no longer use it
+        // Hide legacy horizontal overlay
         View volOverlay = btn.findViewById(R.id.volumeBarOverlay);
         if (volOverlay != null) volOverlay.setVisibility(View.GONE);
 
@@ -174,73 +168,66 @@ public class SoundsFragment extends Fragment {
 
         applyBtnShape(btn, sound, wave);
         if (wave != null) {
+            wave.setVolume(sound.getVolume());
             wave.setVolumeDragListener(vol -> {
                 sound.setVolume(vol);
                 if (audioService != null) audioService.setSoundVolume(sound.getFileName(), vol);
             });
-            wave.setVolume(sound.getVolume());
         }
 
-        // Track long-press for drag-volume mode
-        final float[] downY     = {0f};
-        final boolean[] longPressed = {false};
+        final float[]   downY     = {0f};
+        final boolean[] inDrag    = {false};
 
         btn.setOnLongClickListener(v -> {
-            if (wave == null) return false;
+            inDrag[0] = true;
             haptic();
-            longPressed[0] = true;
             float vol = audioService != null
                     ? audioService.getSoundVolume(sound.getFileName()) : sound.getVolume();
-            wave.setVolume(vol);
-            sound.setVolume(vol);
-
-            // Make wave glow brighter during drag
-            if (!wave.isWaving()) {
-                int wc = (colors.soundWaveColor() & 0x00FFFFFF) | 0x88000000;
-                wave.setColors(colors.soundBtnActiveBg(), wc);
-                wave.setVisibility(View.VISIBLE);
-                wave.startWave();
+            if (wave != null) {
+                wave.setVolume(vol);
+                sound.setVolume(vol);
+                if (!wave.isWaving()) {
+                    int wc = (colors.soundWaveColor() & 0x00FFFFFF) | 0x88000000;
+                    wave.setColors(colors.soundBtnActiveBg(), wc);
+                    wave.setVisibility(View.VISIBLE);
+                    wave.startWave();
+                }
+                wave.beginVolumeDrag(downY[0]);
             }
-            wave.beginVolumeDrag(downY[0]);
             return true;
         });
 
         btn.setOnTouchListener((v, ev) -> {
             switch (ev.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
-                    downY[0]       = ev.getY();
-                    longPressed[0] = false;
-                    break;
+                    downY[0] = ev.getY(); inDrag[0] = false; break;
 
                 case MotionEvent.ACTION_MOVE:
-                    if (longPressed[0] && wave != null && wave.isDragging()) {
+                    if (inDrag[0] && wave != null && wave.isDragging()) {
                         wave.handleDragMove(ev.getY());
-                        return true; // consume — do not trigger click
+                        // Already told parent to stop intercepting inside WaveView.beginVolumeDrag
+                        return true;
                     }
                     break;
 
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
-                    if (longPressed[0] && wave != null) {
-                        wave.endDrag(true);
-                    }
-                    longPressed[0] = false;
+                    if (inDrag[0] && wave != null) wave.endDrag();
+                    inDrag[0] = false;
                     break;
             }
             return false;
         });
 
         btn.setOnClickListener(v -> {
-            if (wave != null && wave.isDragging()) return; // ignore tap during drag
+            if (wave != null && wave.isDragging()) return;
 
             String fn  = sound.getFileName();
             long   now = System.currentTimeMillis();
             Long   lst = lastTapTime.get(fn);
 
             if (lst != null && (now - lst) < DOUBLE_TAP_MS) {
-                // Double tap = favourite toggle
-                lastTapTime.remove(fn);
-                haptic();
+                lastTapTime.remove(fn); haptic();
                 boolean f = prefs.isFavSound(fn);
                 if (f) prefs.removeFavSound(fn); else prefs.addFavSound(fn);
                 Toast.makeText(requireContext(),
@@ -274,7 +261,6 @@ public class SoundsFragment extends Fragment {
         return btn;
     }
 
-    // ── Button styling ────────────────────────────────────────────
     private void applyBtnShape(View btn, SoundItem sound, WaveView wave) {
         boolean playing = audioService != null && audioService.isSoundPlaying(sound.getFileName());
         float dp = getResources().getDisplayMetrics().density;
@@ -283,6 +269,7 @@ public class SoundsFragment extends Fragment {
         if (playing) { gd.setColor(colors.soundBtnActiveBg()); gd.setStroke((int)(1.5f*dp), colors.soundBtnActiveBorder()); }
         else           gd.setColor(colors.soundBtnBg());
         btn.setBackground(gd);
+
         if (wave != null) {
             if (playing) {
                 int wc = (colors.soundWaveColor() & 0x00FFFFFF) | 0x5A000000;
@@ -310,14 +297,14 @@ public class SoundsFragment extends Fragment {
             if (!(child instanceof LinearLayout)) continue;
             LinearLayout row = (LinearLayout) child;
             for (int j = 0; j < row.getChildCount(); j++) {
-                View btn    = row.getChildAt(j);
-                TextView tv = btn.findViewById(R.id.tvSoundName);
-                WaveView wv = btn.findViewById(R.id.waveView);
+                View     btn = row.getChildAt(j);
+                TextView tv  = btn.findViewById(R.id.tvSoundName);
+                WaveView wv  = btn.findViewById(R.id.waveView);
                 if (tv == null) continue;
-                String name = tv.getText().toString();
                 for (SoundCategory cat : categories)
                     for (SoundItem s : cat.getSounds())
-                        if (s.getName().equals(name)) applyBtnShape(btn, s, wv);
+                        if (s.getName().equals(tv.getText().toString()))
+                            applyBtnShape(btn, s, wv);
             }
         }
     }
@@ -354,6 +341,11 @@ public class SoundsFragment extends Fragment {
     public void applyTheme(View root) {
         if (root == null || colors == null) return;
         root.setBackgroundColor(colors.bgPrimary());
+
+        // Wire page header title colour
+        TextView title = root.findViewById(R.id.tvSoundsPageTitle);
+        if (title != null) title.setTextColor(colors.pageHeaderText());
+
         if (btnStopAll != null) {
             float dp = getResources().getDisplayMetrics().density;
             GradientDrawable gd = new GradientDrawable();

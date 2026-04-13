@@ -1,28 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Modern category header row.
-  Label is prominent (15sp, medium weight), badge shows station count,
-  arrow rotates on expand. No drag handle (drag lives in the dialog only).
+  Radio category header.  Background is set programmatically by RadioGroupAdapter
+  so it can respond to expanded/collapsed state with correct corner radii.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="52dp"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:paddingStart="4dp"
-    android:paddingEnd="8dp"
+    android:paddingStart="14dp"
+    android:paddingEnd="10dp"
+    android:layout_marginTop="6dp"
     android:clickable="true"
     android:focusable="true">
 
-    <!-- Accent left bar -->
-    <View
-        android:id="@+id/categoryAccentBar"
-        android:layout_width="3dp"
-        android:layout_height="22dp"
-        android:background="#6C63FF"
-        android:layout_marginEnd="10dp"/>
-
-    <!-- Category name — large, readable -->
+    <!-- Category name -->
     <TextView
         android:id="@+id/tvGroupLabel"
         android:layout_width="0dp"
@@ -31,7 +23,7 @@
         android:textColor="#8888AA"
         android:textSize="15sp"
         android:fontFamily="sans-serif-medium"
-        android:letterSpacing="0.04"
+        android:letterSpacing="0.02"
         android:maxLines="1"
         android:ellipsize="end"/>
 
@@ -40,17 +32,16 @@
         android:id="@+id/tvGroupCount"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textColor="#6C63FF"
         android:textSize="11sp"
         android:fontFamily="sans-serif-medium"
-        android:paddingStart="7dp"
-        android:paddingEnd="7dp"
-        android:paddingTop="2dp"
-        android:paddingBottom="2dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="3dp"
+        android:paddingBottom="3dp"
         android:layout_marginEnd="8dp"
         android:visibility="visible"/>
 
-    <!-- Expand arrow -->
+    <!-- Expand/collapse arrow -->
     <TextView
         android:id="@+id/tvGroupArrow"
         android:layout_width="24dp"

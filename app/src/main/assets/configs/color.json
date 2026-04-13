@@ -9,30 +9,24 @@
     "text_primary": "#FFFFFF",
     "text_secondary": "#8888AA",
     "text_section_title": "#FFFFFF",
-    "icon_note_color": "#6C63FF",
     "icon_note_vec_tint": "#6C63FF",
     "page_header_text": "#FFFFFF",
     "page_header_subtitle_text": "#8888AA"
   },
   "nav": {
     "bg": "#0D0D14",
-    "selected": "#FFFFFF",
-    "unselected": "#44445A",
     "label_selected": "#FFFFFF",
     "label_unselected": "#44445A"
   },
   "home": {
     "section_title": "#FFFFFF",
-    "card_bg": "#16161F",
     "chip_playing_bg": "#28265A",
     "chip_playing_border": "#6C63FF",
     "chip_text": "#FFFFFF",
     "empty_text": "#44445A",
-    "page_title": "#FFFFFF",
     "now_playing_anim": "#6C63FF",
     "now_playing_card_bg": "#1E1A3A",
     "now_playing_card_border": "#6C63FF",
-    "now_playing_icon_bg": "#28265A",
     "now_playing_icon_tint": "#6C63FF"
   },
   "radio": {
@@ -43,38 +37,33 @@
     "station_text_active": "#6C63FF",
     "station_click_glow": "#6C63FF",
     "eq_bar": "#6C63FF",
+    "group_header_bg": "#16161F",
+    "group_header_border": "#22223A",
     "group_name_text": "#6C63FF",
     "group_name_collapsed_text": "#8888AA",
+    "group_badge_bg": "#28265A",
+    "group_badge_text": "#6C63FF",
+    "station_card_bg": "#1A1A28",
+    "station_card_border": "#22223A",
     "search_bg": "#1E1E2A",
     "search_text": "#FFFFFF",
     "search_hint": "#8888AA",
-    "page_title": "#FFFFFF",
     "checkbox_color": "#6C63FF"
   },
   "sounds": {
     "btn_bg": "#1A1A26",
     "btn_active_bg": "#28265A",
     "btn_border_active": "#6C63FF",
-    "btn_click_glow": "#6C63FF",
     "btn_text": "#FFFFFF",
     "wave_color": "#6C63FF",
-    "wave_opacity_hex": "5A",
-    "vol_bar_track": "#44FFFFFF",
-    "vol_bar_fill": "#FFFFFF",
     "stop_all_bg": "#1E1E2A",
     "stop_all_border": "#6C63FF",
     "stop_all_text": "#FFFFFF"
-  },
-  "controls": {
-    "stop_bg": "#1E1E2A",
-    "stop_border": "#6C63FF",
-    "stop_text": "#FFFFFF"
   },
   "settings": {
     "card_bg": "#16161F",
     "card_border": "#22223A",
     "label_text": "#FFFFFF",
-    "header_text": "#8888AA",
     "hint_text": "#8888AA",
     "version_text": "#44445A",
     "input_bg": "#1E1E2A",
@@ -83,29 +72,15 @@
     "btn_bg": "#1E1E2A",
     "btn_border": "#6C63FF",
     "btn_text": "#FFFFFF",
-    "about_text": "#6C63FF",
     "divider": "#22223A",
-    "page_title": "#FFFFFF",
     "switch_thumb_on": "#6C63FF",
     "switch_track_on": "#3D3880",
     "switch_thumb_off": "#8888AA",
     "switch_track_off": "#2A2A3A",
     "made_by_text": "#44445A",
-    "made_by_brand": "#6C63FF",
-    "tune_icon_color": "#6C63FF"
+    "made_by_brand": "#6C63FF"
   },
   "notification": {
-    "bg": "#1A1A26",
     "icon_bg": "#6C63FF"
-  },
-  "onboarding": {
-    "bg": "#0D0D14",
-    "title_text": "#FFFFFF",
-    "subtitle_text": "#8888AA",
-    "body_text": "#CCCCCC",
-    "btn_bg": "#6C63FF",
-    "btn_text": "#FFFFFF",
-    "accent_line": "#6C63FF",
-    "credit_text": "#44445A"
   }
 }
