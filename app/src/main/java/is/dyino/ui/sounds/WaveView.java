@@ -38,9 +38,10 @@ public class WaveView extends View {
     private int   waveColor      = 0x556C63FF;
     private int   bgColor        = 0xFF1A1A26;
 
-    // ── Animation ─────────────────────────────────────────────────
+    // ── Animation & State ─────────────────────────────────────────
     private ValueAnimator animator;
     private boolean       wantWave = false;
+    private boolean       isPowerSaving = false;
 
     // ── Drag state ────────────────────────────────────────────────
     public interface VolumeDragListener { void onVolumeChanged(float vol); }
@@ -77,7 +78,15 @@ public class WaveView extends View {
 
     public void setVolumeDragListener(VolumeDragListener l) { dragListener = l; }
 
+    public void setPowerSaving(boolean powerSaving) {
+        this.isPowerSaving = powerSaving;
+        if (powerSaving) {
+            stopWave(); // Immediately halt animation if entering power saving mode
+        }
+    }
+
     public void startWave() {
+        if (isPowerSaving) return; // Prevent animation if power saving is on
         wantWave = true;
         if (animator != null && animator.isRunning()) return;
         doStartAnimator();
@@ -131,7 +140,9 @@ public class WaveView extends View {
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         super.onLayout(changed, l, t, r, b);
         clipRect.set(0, 0, r - l, b - t);
-        if (wantWave && (animator == null || !animator.isRunning())) doStartAnimator();
+        if (wantWave && !isPowerSaving && (animator == null || !animator.isRunning())) {
+            doStartAnimator();
+        }
     }
 
     // ── Animator ─────────────────────────────────────────────────
