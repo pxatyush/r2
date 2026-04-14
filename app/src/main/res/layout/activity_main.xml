@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Root layout is a FrameLayout so MainActivity can dynamically place
-  the nav bar (LinearLayout) on left, right, or bottom at runtime.
-  The fragment container fills remaining space.
+  Root FrameLayout lets MainActivity dynamically place navBar at start/end/bottom.
+  contentArea fills everything; its margins are adjusted in code.
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/rootLayout"
@@ -10,7 +9,7 @@
     android:layout_height="match_parent"
     android:background="#0D0D14">
 
-    <!-- Content area — margin applied by MainActivity based on nav position -->
+    <!-- Content: fragments live here; margins adjusted by MainActivity -->
     <FrameLayout
         android:id="@+id/contentArea"
         android:layout_width="match_parent"
@@ -32,12 +31,15 @@
     </FrameLayout>
 
     <!--
-      Nav bar — position (left/right/bottom) and orientation (vertical/horizontal)
-      are set programmatically in MainActivity.applyNavPosition().
+      Nav bar.  Layout_gravity, dimensions and orientation are
+      overwritten in MainActivity.applyNavPosition().
+
+      Default: left vertical bar.
+      Bottom: horizontal bar, items weighted equally, labels not rotated.
     -->
     <LinearLayout
         android:id="@+id/navBar"
-        android:layout_width="52dp"
+        android:layout_width="56dp"
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:gravity="bottom|center_horizontal"
@@ -47,8 +49,9 @@
 
         <View android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1"/>
 
+        <!-- Settings — top when vertical (farthest from thumb), rightmost when bottom -->
         <FrameLayout android:id="@+id/navSettings"
-            android:layout_width="52dp" android:layout_height="64dp"
+            android:layout_width="56dp" android:layout_height="64dp"
             android:clickable="true" android:focusable="true">
             <TextView android:id="@+id/navSettingsText"
                 android:layout_width="match_parent" android:layout_height="match_parent"
@@ -58,7 +61,7 @@
         </FrameLayout>
 
         <FrameLayout android:id="@+id/navSounds"
-            android:layout_width="52dp" android:layout_height="64dp"
+            android:layout_width="56dp" android:layout_height="64dp"
             android:clickable="true" android:focusable="true">
             <TextView android:id="@+id/navSoundsText"
                 android:layout_width="match_parent" android:layout_height="match_parent"
@@ -68,7 +71,7 @@
         </FrameLayout>
 
         <FrameLayout android:id="@+id/navRadio"
-            android:layout_width="52dp" android:layout_height="64dp"
+            android:layout_width="56dp" android:layout_height="64dp"
             android:clickable="true" android:focusable="true">
             <TextView android:id="@+id/navRadioText"
                 android:layout_width="match_parent" android:layout_height="match_parent"
@@ -77,8 +80,9 @@
                 android:rotation="-90" android:fontFamily="sans-serif-medium"/>
         </FrameLayout>
 
+        <!-- Home — bottom (closest to thumb), leftmost when bottom -->
         <FrameLayout android:id="@+id/navHome"
-            android:layout_width="52dp" android:layout_height="64dp"
+            android:layout_width="56dp" android:layout_height="64dp"
             android:clickable="true" android:focusable="true">
             <TextView android:id="@+id/navHomeText"
                 android:layout_width="match_parent" android:layout_height="match_parent"

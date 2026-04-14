@@ -50,7 +50,7 @@ public class ColorConfig {
     public int textSectionTitle(){ return color("global","text_section_title","#FFFFFF"); }
     public int iconNoteVecTint() { return color("global","icon_note_vec_tint","#6C63FF"); }
 
-    /** Big page-header title text ("Home", "Radio", "Sounds", "Settings"). */
+    /** Big page-header title ("Home","Radio","Sounds","Settings"). */
     public int pageHeaderText()         { return color("global","page_header_text",         "#FFFFFF"); }
     /** Page-header subtitle / tagline. */
     public int pageHeaderSubtitleText() { return color("global","page_header_subtitle_text","#8888AA"); }
@@ -70,6 +70,10 @@ public class ColorConfig {
     public int nowPlayingCardBg()     { return color("home","now_playing_card_bg",    "#1E1A3A"); }
     public int nowPlayingCardBorder() { return color("home","now_playing_card_border","#6C63FF"); }
     public int nowPlayingIconTint()   { return color("home","now_playing_icon_tint",  "#6C63FF"); }
+
+    // ── Visualizer ────────────────────────────────────────────────
+    public int visualizerBg()     { return color("home","visualizer_bg",   "#0D0D14"); }
+    public int visualizerBar()    { return color("home","visualizer_bar",  "#6C63FF"); }
 
     // ── Radio ─────────────────────────────────────────────────────
     public int stationBg()            { return color("radio","station_bg",               "#1E1E2A"); }

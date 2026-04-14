@@ -12,26 +12,27 @@ import java.util.Set;
 
 public class AppPrefs {
 
-    private static final String PREFS          = "dyino_prefs";
-    private static final String HAPTIC         = "haptic";
-    private static final String BTN_SND        = "btn_sound";
-    private static final String FAVOURITES     = "fav_stations";
-    private static final String FAV_SOUNDS     = "fav_sounds";
-    private static final String ARCHIVED       = "arch_stations";
-    private static final String FIRST_RUN      = "first_run";
-    private static final String RADIO_COUNTRY  = "radio_country";
-    private static final String RADIO_CACHE    = "radio_cache_json";
-    private static final String RADIO_CACHE_T  = "radio_cache_time";
-    private static final String PERSISTENT     = "persistent_playing";
-    private static final String GROUP_ORDER    = "radio_group_order";
-    private static final String HIDDEN_CATS    = "hidden_categories";
-    private static final String LAST_PLAYED    = "last_played";
-    private static final String ACTIVE_THEME   = "active_theme_name";
-    private static final String WAVE_NOTIF     = "wave_notif_enabled";
-    private static final String NAV_POSITION   = "nav_position"; // "left" | "right" | "bottom"
+    private static final String PREFS        = "dyino_prefs";
+    private static final String HAPTIC       = "haptic";
+    private static final String BTN_SND      = "btn_sound";
+    private static final String FAVOURITES   = "fav_stations";
+    private static final String FAV_SOUNDS   = "fav_sounds";
+    private static final String ARCHIVED     = "arch_stations";
+    private static final String FIRST_RUN    = "first_run";
+    private static final String RADIO_COUNTRY= "radio_country";
+    private static final String RADIO_CACHE  = "radio_cache_json";
+    private static final String RADIO_CACHE_T= "radio_cache_time";
+    private static final String PERSISTENT   = "persistent_playing";
+    private static final String GROUP_ORDER  = "radio_group_order";
+    private static final String HIDDEN_CATS  = "hidden_categories";
+    private static final String LAST_PLAYED  = "last_played";
+    private static final String ACTIVE_THEME = "active_theme_name";
+    private static final String WAVE_NOTIF   = "wave_notif_enabled";
+    private static final String NAV_POSITION = "nav_position";
+    private static final String POWER_SAVING = "power_saving";
 
-    private static final int  LAST_MAX    = 10;
-    private static final long CACHE_TTL   = 7L * 24 * 60 * 60 * 1000;
+    private static final int  LAST_MAX  = 10;
+    private static final long CACHE_TTL = 7L * 24 * 60 * 60 * 1000;
 
     public static final String ASSET_COLOR    = "configs/color.json";
     public static final String ASSET_SETTINGS = "configs/settings.json";
@@ -55,10 +56,14 @@ public class AppPrefs {
     public boolean isWaveNotifEnabled()           { return sp.getBoolean(WAVE_NOTIF, true); }
     public void    setWaveNotifEnabled(boolean v) { sp.edit().putBoolean(WAVE_NOTIF, v).apply(); }
 
+    /** Power saving: disables all animations (waves, visualizer) to save battery. */
+    public boolean isPowerSavingEnabled()           { return sp.getBoolean(POWER_SAVING, false); }
+    public void    setPowerSavingEnabled(boolean v) { sp.edit().putBoolean(POWER_SAVING, v).apply(); }
+
     public boolean isFirstRun()      { return sp.getBoolean(FIRST_RUN, true); }
     public void    setFirstRunDone() { sp.edit().putBoolean(FIRST_RUN, false).apply(); }
 
-    // ── Nav position ("left" / "right" / "bottom") ───────────────
+    // ── Nav position ("left" | "right" | "bottom") ───────────────
     public String getNavPosition()         { return sp.getString(NAV_POSITION, "left"); }
     public void   setNavPosition(String p) { sp.edit().putString(NAV_POSITION, p).apply(); }
 
@@ -112,9 +117,9 @@ public class AppPrefs {
     public boolean     isArchived(String k)   { return getArchived().contains(k); }
 
     // ── Hidden categories ─────────────────────────────────────────
-    public Set<String> getHiddenCategories()           { return new HashSet<>(sp.getStringSet(HIDDEN_CATS, new HashSet<>())); }
+    public Set<String> getHiddenCategories()            { return new HashSet<>(sp.getStringSet(HIDDEN_CATS, new HashSet<>())); }
     public void        setHiddenCategories(Set<String> c){ sp.edit().putStringSet(HIDDEN_CATS,c).apply(); }
-    public boolean     isCategoryHidden(String n)      { return getHiddenCategories().contains(n); }
+    public boolean     isCategoryHidden(String n)       { return getHiddenCategories().contains(n); }
 
     // ── Last played ───────────────────────────────────────────────
     public List<String> getLastPlayed() {

@@ -6,7 +6,7 @@
     android:orientation="vertical"
     android:background="#0D0D14">
 
-    <!-- Header (no icon) -->
+    <!-- Header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -62,89 +62,124 @@
                 android:visibility="gone"/>
 
             <!--
-              Radio now-playing card.
-              elevation + translationZ create the 3D raised effect.
-              CardView is avoided to keep custom corner radius from code.
+              Radio now-playing card — 3D raised.
+              Wave visualiser sits behind content.
+              Radio volume WaveView at bottom of card.
             -->
             <FrameLayout
                 android:id="@+id/nowPlayingRadioCard"
                 android:layout_width="match_parent"
-                android:layout_height="80dp"
-                android:layout_marginBottom="6dp"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
                 android:elevation="8dp"
-                android:translationZ="4dp"
                 android:clickable="true" android:focusable="true"
                 android:visibility="gone">
 
-                <!-- Wave visualiser behind content -->
-                <is.dyino.ui.sounds.WaveView
-                    android:id="@+id/radioWaveView"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:visibility="invisible"/>
-
-                <!-- Main content -->
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingLeft="14dp" android:paddingRight="10dp">
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
 
-                    <ImageView
-                        android:id="@+id/ivStationIcon"
-                        android:layout_width="40dp" android:layout_height="40dp"
-                        android:src="@drawable/ic_note_vec"
-                        android:scaleType="centerCrop"
-                        android:layout_marginEnd="12dp"/>
-
+                    <!-- Top row: icon + name + stop button -->
                     <LinearLayout
-                        android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1" android:orientation="vertical">
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingLeft="14dp" android:paddingRight="10dp"
+                        android:paddingTop="14dp" android:paddingBottom="8dp">
 
-                        <TextView
-                            android:layout_width="match_parent" android:layout_height="wrap_content"
-                            android:text="Radio" android:textColor="#8888AA" android:textSize="11sp"/>
+                        <ImageView
+                            android:id="@+id/ivStationIcon"
+                            android:layout_width="40dp" android:layout_height="40dp"
+                            android:src="@drawable/ic_note_vec"
+                            android:scaleType="centerCrop"
+                            android:layout_marginEnd="12dp"/>
 
-                        <TextView
-                            android:id="@+id/tvNowPlayingStation"
-                            android:layout_width="match_parent" android:layout_height="wrap_content"
-                            android:textColor="#FFFFFF" android:textSize="15sp"
-                            android:fontFamily="sans-serif-medium"
-                            android:singleLine="true" android:ellipsize="end"/>
+                        <LinearLayout
+                            android:layout_width="0dp" android:layout_height="wrap_content"
+                            android:layout_weight="1" android:orientation="vertical">
 
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Radio" android:textColor="#8888AA"
+                                android:textSize="11sp"/>
+
+                            <TextView
+                                android:id="@+id/tvNowPlayingStation"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:textColor="#FFFFFF" android:textSize="15sp"
+                                android:fontFamily="sans-serif-medium"
+                                android:singleLine="true" android:ellipsize="end"/>
+
+                            <TextView
+                                android:id="@+id/tvBuffering"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Buffering…" android:textColor="#6C63FF"
+                                android:textSize="11sp" android:paddingTop="1dp"
+                                android:visibility="gone"/>
+
+                        </LinearLayout>
+
+                        <!-- Stop button -->
                         <TextView
-                            android:id="@+id/tvBuffering"
-                            android:layout_width="match_parent" android:layout_height="wrap_content"
-                            android:text="Buffering…" android:textColor="#6C63FF"
-                            android:textSize="11sp" android:paddingTop="1dp"
-                            android:visibility="gone"/>
+                            android:id="@+id/tvNowPlayingStop"
+                            android:layout_width="32dp" android:layout_height="32dp"
+                            android:text="✕" android:textColor="#8888AA"
+                            android:textSize="16sp" android:gravity="center"
+                            android:clickable="true" android:focusable="true"/>
 
                     </LinearLayout>
 
-                    <!-- Sleep timer pill button -->
-                    <TextView
-                        android:id="@+id/btnSleepTimer"
-                        android:layout_width="wrap_content"
-                        android:layout_height="28dp"
-                        android:text="Sleep"
-                        android:textSize="11sp"
-                        android:textColor="#8888AA"
-                        android:gravity="center"
-                        android:paddingLeft="10dp" android:paddingRight="10dp"
-                        android:layout_marginEnd="6dp"
-                        android:clickable="true" android:focusable="true"/>
-
-                    <!-- Stop button -->
-                    <TextView
-                        android:id="@+id/tvNowPlayingStop"
-                        android:layout_width="32dp" android:layout_height="32dp"
-                        android:text="✕" android:textColor="#8888AA" android:textSize="16sp"
-                        android:gravity="center"
-                        android:clickable="true" android:focusable="true"/>
+                    <!-- Radio volume WaveView (drag up/down to adjust volume) -->
+                    <is.dyino.ui.sounds.WaveView
+                        android:id="@+id/radioVolumeWave"
+                        android:layout_width="match_parent"
+                        android:layout_height="36dp"
+                        android:layout_marginLeft="14dp"
+                        android:layout_marginRight="14dp"
+                        android:layout_marginBottom="12dp"
+                        android:visibility="visible"/>
 
                 </LinearLayout>
+
             </FrameLayout>
+
+            <!-- Sleep Timer — standalone pill below Now Playing, above visualizer -->
+            <TextView
+                android:id="@+id/btnSleepTimer"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="Sleep Timer"
+                android:textSize="12sp"
+                android:textColor="#8888AA"
+                android:gravity="center"
+                android:paddingLeft="18dp" android:paddingRight="18dp"
+                android:layout_gravity="start"
+                android:layout_marginBottom="12dp"
+                android:clickable="true" android:focusable="true"
+                android:visibility="gone"/>
+
+            <!-- VISUALIZER section -->
+            <TextView
+                android:id="@+id/tvVisualizerLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="VISUALIZER"
+                android:textColor="#FFFFFF" android:textSize="11sp"
+                android:letterSpacing="0.1" android:fontFamily="sans-serif-medium"
+                android:paddingBottom="8dp"
+                android:visibility="gone"/>
+
+            <is.dyino.ui.home.AudioVisualizerView
+                android:id="@+id/audioVisualizer"
+                android:layout_width="match_parent"
+                android:layout_height="72dp"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone"/>
 
             <!-- Active sounds label -->
             <TextView
@@ -154,10 +189,10 @@
                 android:text="ACTIVE SOUNDS"
                 android:textColor="#FFFFFF" android:textSize="11sp"
                 android:letterSpacing="0.1" android:fontFamily="sans-serif-medium"
-                android:paddingTop="10dp" android:paddingBottom="8dp"
+                android:paddingBottom="8dp"
                 android:visibility="gone"/>
 
-            <!-- Scrollable active-sound chips (each with WaveView + drag-vol) -->
+            <!-- Scrollable active sound chips -->
             <HorizontalScrollView
                 android:id="@+id/nowPlayingSoundsScroll"
                 android:layout_width="match_parent"

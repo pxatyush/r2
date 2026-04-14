@@ -36,14 +36,17 @@ import is.dyino.util.SleepTimerManager;
 public class MainActivity extends AppCompatActivity {
 
     private static final int PERM_NOTIF = 1001;
-    private static final int NAV_W_DP  = 52;
-    private static final int NAV_H_DP  = 56; // bottom nav item height
+
+    // Bottom nav height in dp (includes padding above system nav)
+    private static final int BOTTOM_NAV_H_DP = 60;
+    private static final int SIDE_NAV_W_DP   = 56;
 
     private AudioService audioService;
     private boolean      serviceBound = false;
 
     private TextView    navHomeText, navRadioText, navSoundsText, navSettingsText;
     private FrameLayout fragmentHome, fragmentRadio, fragmentSounds, fragmentSettings;
+    private FrameLayout navHome, navRadio, navSounds, navSettings;
     private LinearLayout navBar;
     private FrameLayout  contentArea;
 
@@ -79,12 +82,17 @@ public class MainActivity extends AppCompatActivity {
 
         requestNotifPermission();
 
+        // Start service — START_STICKY keeps it alive; bind for IPC
         Intent svc = new Intent(this, AudioService.class);
         startService(svc);
         bindService(svc, conn, BIND_AUTO_CREATE);
 
         navBar        = findViewById(R.id.navBar);
         contentArea   = findViewById(R.id.contentArea);
+        navHome       = findViewById(R.id.navHome);
+        navRadio      = findViewById(R.id.navRadio);
+        navSounds     = findViewById(R.id.navSounds);
+        navSettings   = findViewById(R.id.navSettings);
         navHomeText     = findViewById(R.id.navHomeText);
         navRadioText    = findViewById(R.id.navRadioText);
         navSoundsText   = findViewById(R.id.navSoundsText);
@@ -104,7 +112,6 @@ public class MainActivity extends AppCompatActivity {
                 colors = new ColorConfig(MainActivity.this);
                 applyWindowColors();
                 applyNavColors();
-                applyNavPosition(); // re-apply in case nav color changed
                 homeFragment.refreshTheme();
                 radioFragment.refresh();
                 soundsFragment.refresh();
@@ -125,10 +132,10 @@ public class MainActivity extends AppCompatActivity {
                 .add(R.id.fragmentSettings, settingsFragment)
                 .commit();
 
-        findViewById(R.id.navHome)    .setOnClickListener(v -> { doHaptic(); doClick(); switchTab(0); });
-        findViewById(R.id.navRadio)   .setOnClickListener(v -> { doHaptic(); doClick(); switchTab(1); });
-        findViewById(R.id.navSounds)  .setOnClickListener(v -> { doHaptic(); doClick(); switchTab(2); });
-        findViewById(R.id.navSettings).setOnClickListener(v -> { doHaptic(); doClick(); switchTab(3); });
+        navHome    .setOnClickListener(v -> { doHaptic(); doClick(); switchTab(0); });
+        navRadio   .setOnClickListener(v -> { doHaptic(); doClick(); switchTab(1); });
+        navSounds  .setOnClickListener(v -> { doHaptic(); doClick(); switchTab(2); });
+        navSettings.setOnClickListener(v -> { doHaptic(); doClick(); switchTab(3); });
 
         applyNavPosition();
         applyNavColors();
@@ -137,73 +144,133 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Nav position ──────────────────────────────────────────────
 
-    /**
-     * Repositions the nav bar and adjusts contentArea margins so content
-     * never overlaps the nav regardless of chosen position.
-     */
     public void applyNavPosition() {
         if (navBar == null || contentArea == null) return;
-        String pos = prefs.getNavPosition(); // "left" | "right" | "bottom"
-        float dp   = getResources().getDisplayMetrics().density;
-        int navSizePx = (int)(NAV_W_DP * dp);
-        int navHPx    = (int)(NAV_H_DP * dp);
+        String pos = prefs.getNavPosition();
+        float  dp  = getResources().getDisplayMetrics().density;
 
-        // Reset all margins
-        setContentMargins(0, 0, 0, 0);
-
-        FrameLayout.LayoutParams navLp;
         boolean isBottom = "bottom".equals(pos);
         boolean isRight  = "right".equals(pos);
 
         if (isBottom) {
-            // Horizontal bottom nav
-            navLp = new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, navHPx * 4);
-            navLp.gravity = Gravity.BOTTOM;
-            navBar.setOrientation(LinearLayout.HORIZONTAL);
-            navBar.setGravity(Gravity.CENTER);
-            navBar.setPadding(0, 0, 0, 0);
-            setContentMargins(0, 0, 0, navHPx * 4);
-            // Un-rotate labels for horizontal nav
-            setNavLabelRotation(0);
+            applyBottomNav(dp);
         } else if (isRight) {
-            navLp = new FrameLayout.LayoutParams(navSizePx,
-                    ViewGroup.LayoutParams.MATCH_PARENT);
-            navLp.gravity = Gravity.END;
-            navBar.setOrientation(LinearLayout.VERTICAL);
-            navBar.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-            navBar.setPadding(0, 0, 0, (int)(28 * dp));
-            setContentMargins(0, 0, navSizePx, 0);
-            setNavLabelRotation(90); // right-side rotated outward
+            applyVerticalNav(dp, Gravity.END, /* leftMargin */ 0, /* rightMargin */ (int)(SIDE_NAV_W_DP * dp));
+            setNavLabelRotation(90f);
         } else {
             // Default: left
-            navLp = new FrameLayout.LayoutParams(navSizePx,
-                    ViewGroup.LayoutParams.MATCH_PARENT);
-            navLp.gravity = Gravity.START;
-            navBar.setOrientation(LinearLayout.VERTICAL);
-            navBar.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-            navBar.setPadding(0, 0, 0, (int)(28 * dp));
-            setContentMargins(navSizePx, 0, 0, 0);
-            setNavLabelRotation(-90); // left-side rotated inward
+            applyVerticalNav(dp, Gravity.START, /* leftMargin */ (int)(SIDE_NAV_W_DP * dp), /* rightMargin */ 0);
+            setNavLabelRotation(-90f);
         }
-        navBar.setLayoutParams(navLp);
+
         navBar.setBackgroundColor(colors.bgNav());
         navBar.requestLayout();
+        contentArea.requestLayout();
     }
 
-    private void setContentMargins(int l, int t, int r, int b) {
-        if (contentArea == null) return;
-        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) contentArea.getLayoutParams();
-        if (lp == null) lp = new FrameLayout.LayoutParams(
+    /**
+     * Bottom nav:
+     *  • navBar is horizontal, MATCH_PARENT width, fixed height, gravity=BOTTOM
+     *  • Items are ordered HOME | RADIO | SOUNDS | SETTINGS (left → right)
+     *  • Each item gets weight=1 so they fill the bar evenly
+     *  • Labels are horizontal (no rotation)
+     *  • contentArea gets a bottom margin equal to nav height
+     */
+    private void applyBottomNav(float dp) {
+        int navH = (int)(BOTTOM_NAV_H_DP * dp);
+
+        // Resize navBar
+        FrameLayout.LayoutParams navLp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, navH);
+        navLp.gravity = Gravity.BOTTOM;
+        navBar.setLayoutParams(navLp);
+
+        // Make it horizontal
+        navBar.setOrientation(LinearLayout.HORIZONTAL);
+        navBar.setGravity(Gravity.CENTER);
+        navBar.setPadding(0, 0, 0, 0);
+
+        // Remove weight-spacer child if present (the spacer View added for vertical mode)
+        View spacer = navBar.findViewWithTag("nav_spacer");
+        if (spacer != null) navBar.removeView(spacer);
+
+        // Re-order children: HOME first, SETTINGS last
+        navBar.removeAllViews();
+
+        // Each nav item: weight=1, full bar height
+        addNavItemToBar(navHome,     navH, true);
+        addNavItemToBar(navRadio,    navH, true);
+        addNavItemToBar(navSounds,   navH, true);
+        addNavItemToBar(navSettings, navH, true);
+
+        // Labels: no rotation for bottom bar
+        setNavLabelRotation(0f);
+
+        // Content fills screen minus nav bar height
+        FrameLayout.LayoutParams cLp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        lp.setMargins(l, t, r, b);
-        contentArea.setLayoutParams(lp);
+        cLp.setMargins(0, 0, 0, navH);
+        contentArea.setLayoutParams(cLp);
+    }
+
+    private void addNavItemToBar(FrameLayout item, int h, boolean weighted) {
+        if (item.getParent() != null) ((ViewGroup) item.getParent()).removeView(item);
+        LinearLayout.LayoutParams lp;
+        if (weighted)
+            lp = new LinearLayout.LayoutParams(0, h, 1f);
+        else
+            lp = new LinearLayout.LayoutParams(h, h);
+        item.setLayoutParams(lp);
+        navBar.addView(item);
+    }
+
+    /**
+     * Side nav (left or right):
+     *  • navBar is vertical, fixed width, MATCH_PARENT height
+     *  • Items stack bottom → top (Home at bottom, Settings at top)
+     *  • Content gets a side margin equal to nav width
+     */
+    private void applyVerticalNav(float dp, int gravity, int leftMargin, int rightMargin) {
+        int navW = (int)(SIDE_NAV_W_DP * dp);
+
+        FrameLayout.LayoutParams navLp = new FrameLayout.LayoutParams(
+                navW, ViewGroup.LayoutParams.MATCH_PARENT);
+        navLp.gravity = gravity;
+        navBar.setLayoutParams(navLp);
+
+        navBar.setOrientation(LinearLayout.VERTICAL);
+        navBar.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        navBar.setPadding(0, 0, 0, (int)(28 * dp));
+
+        // Rebuild children: spacer + Settings + Sounds + Radio + Home (bottom)
+        navBar.removeAllViews();
+
+        View spacer = new View(this);
+        spacer.setTag("nav_spacer");
+        spacer.setLayoutParams(new LinearLayout.LayoutParams(1, 0, 1f));
+        navBar.addView(spacer);
+
+        addNavItemVertical(navSettings, navW, (int)(64 * dp));
+        addNavItemVertical(navSounds,   navW, (int)(64 * dp));
+        addNavItemVertical(navRadio,    navW, (int)(64 * dp));
+        addNavItemVertical(navHome,     navW, (int)(64 * dp));
+
+        // Content margins
+        FrameLayout.LayoutParams cLp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        cLp.setMargins(leftMargin, 0, rightMargin, 0);
+        contentArea.setLayoutParams(cLp);
+    }
+
+    private void addNavItemVertical(FrameLayout item, int w, int h) {
+        if (item.getParent() != null) ((ViewGroup) item.getParent()).removeView(item);
+        item.setLayoutParams(new LinearLayout.LayoutParams(w, h));
+        navBar.addView(item);
     }
 
     private void setNavLabelRotation(float deg) {
-        for (TextView tv : new TextView[]{navHomeText, navRadioText, navSoundsText, navSettingsText}) {
+        for (TextView tv : new TextView[]{navHomeText, navRadioText, navSoundsText, navSettingsText})
             if (tv != null) tv.setRotation(deg);
-        }
     }
 
     // ── Tab switching ─────────────────────────────────────────────
@@ -272,12 +339,11 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Permissions ───────────────────────────────────────────────
     private void requestNotifPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                    != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.POST_NOTIFICATIONS}, PERM_NOTIF);
-            }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                        != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.POST_NOTIFICATIONS}, PERM_NOTIF);
         }
     }
 

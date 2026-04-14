@@ -37,25 +37,24 @@ public class SettingsFragment extends Fragment {
     public interface OnSettingsChanged {
         void onThemeChanged();
         void onButtonSoundChanged(boolean enabled);
-        /** Called when nav position pref changes so MainActivity can update layout. */
         void onNavPositionChanged();
     }
     private OnSettingsChanged listener;
     public void setListener(OnSettingsChanged l) { this.listener = l; }
 
-    // ── Views present in XML ──────────────────────────────────────
+    // ── Static XML views ──────────────────────────────────────────
     private SwitchCompat swHaptic, swBtnSound, swPersistent;
     private EditText     etColorCfg, etStationUrl, etCountry;
     private TextView     btnSaveColor, btnFetch, tvFetchStatus, btnSaveCountry;
-    private TextView     tvCountryNote, tvVersion, tvMadeBy, tvSettingsTitle;
+    private TextView     tvVersion, tvMadeBy, tvSettingsTitle;
     private LinearLayout cardToggles, cardTheme, cardStations, cardAdvanced;
     private LinearLayout themePresetsContainer;
     private LinearLayout customEditorWrap;
     private View         settingsDivider;
 
-    // ── Dynamically created toggles (no XML IDs needed) ───────────
-    private SwitchCompat swWaveNotif;
-    private LinearLayout navPositionRow;
+    // ── Dynamically injected toggles (avoids XML ID issues) ───────
+    private SwitchCompat swWaveNotif, swPowerSaving;
+    private LinearLayout navBtnsRow;
 
     @Nullable @Override
     public View onCreateView(@NonNull LayoutInflater inf, @Nullable ViewGroup c, @Nullable Bundle s) {
@@ -83,123 +82,106 @@ public class SettingsFragment extends Fragment {
         btnSaveColor         = view.findViewById(R.id.btnSaveColors);
         etCountry            = view.findViewById(R.id.etCountry);
         btnSaveCountry       = view.findViewById(R.id.btnSaveCountry);
-        tvCountryNote        = view.findViewById(R.id.tvCountryNote);
         etStationUrl         = view.findViewById(R.id.etStationUrl);
         btnFetch             = view.findViewById(R.id.btnFetchStations);
         tvFetchStatus        = view.findViewById(R.id.tvFetchStatus);
         tvMadeBy             = view.findViewById(R.id.tvMadeBy);
         tvVersion            = view.findViewById(R.id.tvVersion);
 
-        // Populate existing toggles
-        if (swHaptic     != null) swHaptic.setChecked(prefs.isHapticEnabled());
-        if (swBtnSound   != null) swBtnSound.setChecked(prefs.isButtonSoundEnabled());
-        if (swPersistent != null) swPersistent.setChecked(prefs.isPersistentPlayingEnabled());
-        if (etColorCfg   != null) etColorCfg.setText(colors.readRaw());
-        if (etCountry    != null) etCountry.setText(prefs.getRadioCountry());
+        if (swHaptic   != null) swHaptic.setChecked(prefs.isHapticEnabled());
+        if (swBtnSound != null) swBtnSound.setChecked(prefs.isButtonSoundEnabled());
+        if (swPersistent!=null) swPersistent.setChecked(prefs.isPersistentPlayingEnabled());
+        if (etColorCfg != null) etColorCfg.setText(colors.readRaw());
+        if (etCountry  != null) etCountry.setText(prefs.getRadioCountry());
 
-        // Inject extra rows into cardToggles programmatically (avoids missing XML ID errors)
-        injectExtraToggles();
+        if (swHaptic   != null) swHaptic.setOnCheckedChangeListener((b,v)->prefs.setHapticEnabled(v));
+        if (swBtnSound != null) swBtnSound.setOnCheckedChangeListener((b,v)->{prefs.setButtonSoundEnabled(v);if(listener!=null)listener.onButtonSoundChanged(v);});
+        if (swPersistent!=null) swPersistent.setOnCheckedChangeListener((b,v)->prefs.setPersistentPlayingEnabled(v));
 
-        // Existing listeners
-        if (swHaptic   != null) swHaptic.setOnCheckedChangeListener((b, v) -> prefs.setHapticEnabled(v));
-        if (swBtnSound != null) swBtnSound.setOnCheckedChangeListener((b, v) -> {
-            prefs.setButtonSoundEnabled(v); if (listener != null) listener.onButtonSoundChanged(v);
-        });
-        if (swPersistent != null) swPersistent.setOnCheckedChangeListener((b, v) -> prefs.setPersistentPlayingEnabled(v));
-
-        if (btnSaveColor != null) btnSaveColor.setOnClickListener(v -> {
-            if (etColorCfg == null) return;
+        if (btnSaveColor!=null) btnSaveColor.setOnClickListener(v->{
+            if(etColorCfg==null)return;
             colors.saveRaw(etColorCfg.getText().toString());
             prefs.setActiveThemeName("Custom");
-            if (listener != null) listener.onThemeChanged();
+            if(listener!=null)listener.onThemeChanged();
+            // Immediately re-apply theme in this fragment
+            colors=new ColorConfig(requireContext());
+            applyTheme(getView());
             buildThemePresets();
-            Toast.makeText(requireContext(), "Custom theme saved", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(),"Custom theme saved",Toast.LENGTH_SHORT).show();
         });
-        if (btnSaveCountry != null) btnSaveCountry.setOnClickListener(v -> {
-            if (etCountry == null) return;
-            String c = etCountry.getText().toString().trim(); prefs.setRadioCountry(c); prefs.saveRadioCache("");
+        if (btnSaveCountry!=null) btnSaveCountry.setOnClickListener(v->{
+            if(etCountry==null)return;
+            String c=etCountry.getText().toString().trim();prefs.setRadioCountry(c);prefs.saveRadioCache("");
             Toast.makeText(requireContext(),"Set to \""+(c.isEmpty()?"Global":c)+"\". Go to Radio tab.",Toast.LENGTH_LONG).show();
         });
-        if (btnFetch != null) btnFetch.setOnClickListener(v -> {
-            if (etStationUrl == null) return;
-            String url = etStationUrl.getText().toString().trim();
-            if (url.isEmpty()) { if (tvFetchStatus!=null) tvFetchStatus.setText("Enter a URL first"); return; }
-            if (tvFetchStatus != null) tvFetchStatus.setText("Fetching…");
-            fetchAndMerge(url);
+        if (btnFetch!=null) btnFetch.setOnClickListener(v->{
+            if(etStationUrl==null)return;
+            String url=etStationUrl.getText().toString().trim();
+            if(url.isEmpty()){if(tvFetchStatus!=null)tvFetchStatus.setText("Enter a URL first");return;}
+            if(tvFetchStatus!=null)tvFetchStatus.setText("Fetching…");fetchAndMerge(url);
         });
 
+        injectExtraToggles();
         buildThemePresets();
         applyTheme(view);
     }
 
-    // ── Inject extra toggles into cardToggles at bottom ──────────
+    // ── Inject extra toggles programmatically ────────────────────
     private void injectExtraToggles() {
         if (cardToggles == null) return;
         float dp = density();
 
-        // Divider
-        View div1 = new View(requireContext());
-        div1.setBackgroundColor(colors.divider());
-        div1.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1));
-        ((LinearLayout.LayoutParams) div1.getLayoutParams()).setMargins((int)(16*dp), 0, 0, 0);
-        cardToggles.addView(div1);
-
-        // Wave notification toggle row
-        LinearLayout waveRow = new LinearLayout(requireContext());
-        waveRow.setOrientation(LinearLayout.HORIZONTAL); waveRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        waveRow.setPadding((int)(16*dp), 0, (int)(12*dp), 0);
-        waveRow.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(56*dp)));
-
-        LinearLayout waveTextWrap = new LinearLayout(requireContext()); waveTextWrap.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        waveTextWrap.setLayoutParams(wlp); waveTextWrap.setPadding(0,(int)(10*dp),0,(int)(10*dp));
-
-        TextView waveLabel = new TextView(requireContext());
-        waveLabel.setText("Wave Notification Visualiser");
-        waveLabel.setTextColor(colors.textSettingsLabel()); waveLabel.setTextSize(14f); waveTextWrap.addView(waveLabel);
-
-        TextView waveSub = new TextView(requireContext());
-        waveSub.setText("Animated waveform in media notification");
-        waveSub.setTextColor(colors.textSettingsHint()); waveSub.setTextSize(12f);
-        waveSub.setPadding(0,(int)(2*dp),0,0); waveTextWrap.addView(waveSub);
-
-        waveRow.addView(waveTextWrap);
+        // Wave Notif toggle
+        addDivider(cardToggles, dp);
+        LinearLayout wRow = makeSwitchRow("Wave Notification Visualiser",
+                "Animated waveform in media notification", dp);
         swWaveNotif = new SwitchCompat(requireContext());
         swWaveNotif.setChecked(prefs.isWaveNotifEnabled());
-        swWaveNotif.setOnCheckedChangeListener((b, v) -> prefs.setWaveNotifEnabled(v));
-        waveRow.addView(swWaveNotif);
-        cardToggles.addView(waveRow);
+        swWaveNotif.setOnCheckedChangeListener((b,v)->prefs.setWaveNotifEnabled(v));
+        wRow.addView(swWaveNotif);
+        cardToggles.addView(wRow);
 
-        // Divider
-        View div2 = new View(requireContext());
-        div2.setBackgroundColor(colors.divider());
-        div2.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1));
-        ((LinearLayout.LayoutParams) div2.getLayoutParams()).setMargins((int)(16*dp), 0, 0, 0);
-        cardToggles.addView(div2);
+        // Power Saving toggle
+        addDivider(cardToggles, dp);
+        LinearLayout psRow = makeSwitchRow("Power Saving Mode",
+                "Disables waves & visualizer — saves battery", dp);
+        swPowerSaving = new SwitchCompat(requireContext());
+        swPowerSaving.setChecked(prefs.isPowerSavingEnabled());
+        swPowerSaving.setOnCheckedChangeListener((b,v)->prefs.setPowerSavingEnabled(v));
+        psRow.addView(swPowerSaving);
+        cardToggles.addView(psRow);
 
-        // Navigation position row
-        navPositionRow = new LinearLayout(requireContext());
-        navPositionRow.setOrientation(LinearLayout.VERTICAL);
-        navPositionRow.setPadding((int)(16*dp),(int)(12*dp),(int)(12*dp),(int)(12*dp));
+        // Nav position
+        addDivider(cardToggles, dp);
+        LinearLayout navSection = new LinearLayout(requireContext());
+        navSection.setOrientation(LinearLayout.VERTICAL);
+        navSection.setPadding((int)(16*dp),(int)(12*dp),(int)(12*dp),(int)(12*dp));
 
         TextView navLabel = new TextView(requireContext());
-        navLabel.setText("Navigation Position");
-        navLabel.setTextColor(colors.textSettingsLabel()); navLabel.setTextSize(14f); navPositionRow.addView(navLabel);
+        navLabel.setText("Navigation Position"); navLabel.setTextColor(colors.textSettingsLabel());
+        navLabel.setTextSize(14f); navSection.addView(navLabel);
 
-        LinearLayout navBtns = new LinearLayout(requireContext());
-        navBtns.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams navBtnLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        navBtnLp.setMargins(0,(int)(8*dp),0,0); navBtns.setLayoutParams(navBtnLp);
+        navBtnsRow = new LinearLayout(requireContext());
+        navBtnsRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams nblp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
+        nblp.setMargins(0,(int)(8*dp),0,0); navBtnsRow.setLayoutParams(nblp);
+        rebuildNavBtns(dp);
+        navSection.addView(navBtnsRow);
+        cardToggles.addView(navSection);
+    }
 
+    private void rebuildNavBtns(float dp) {
+        if (navBtnsRow == null) return;
+        navBtnsRow.removeAllViews();
         String current = prefs.getNavPosition();
         String[][] opts = {{"Left","left"},{"Right","right"},{"Bottom","bottom"}};
         for (String[] opt : opts) {
-            String label = opt[0], val = opt[1];
+            String lbl=opt[0], val=opt[1];
             TextView btn = new TextView(requireContext());
-            btn.setText(label); btn.setGravity(android.view.Gravity.CENTER); btn.setTextSize(13f);
+            btn.setText(lbl); btn.setGravity(android.view.Gravity.CENTER); btn.setTextSize(13f);
             btn.setPadding((int)(14*dp),(int)(9*dp),(int)(14*dp),(int)(9*dp));
             btn.setClickable(true); btn.setFocusable(true);
-            LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
             blp.setMargins(0,0,(int)(6*dp),0); btn.setLayoutParams(blp);
 
             GradientDrawable gd = new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(8*dp);
@@ -210,32 +192,37 @@ public class SettingsFragment extends Fragment {
             btn.setOnClickListener(v -> {
                 prefs.setNavPosition(val);
                 if (listener != null) listener.onNavPositionChanged();
-                // Rebuild nav position row to update highlights
-                cardToggles.removeView(navPositionRow);
-                cardToggles.removeView(div2);
-                cardToggles.addView(div2);
-                cardToggles.addView(navPositionRow);
-                injectNavBtnsHighlight(navBtns, val);
+                rebuildNavBtns(dp);
             });
-            navBtns.addView(btn);
+            navBtnsRow.addView(btn);
         }
-        navPositionRow.addView(navBtns);
-        cardToggles.addView(navPositionRow);
     }
 
-    private void injectNavBtnsHighlight(LinearLayout container, String selected) {
-        float dp = density();
-        for (int i = 0; i < container.getChildCount(); i++) {
-            View child = container.getChildAt(i);
-            if (!(child instanceof TextView)) continue;
-            TextView btn = (TextView) child;
-            // Determine which option this button represents by its text
-            String val = btn.getText().toString().toLowerCase();
-            GradientDrawable gd = new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(8*dp);
-            if (val.equals(selected)) { gd.setColor(colors.accent()); btn.setTextColor(0xFFFFFFFF); }
-            else { gd.setColor(colors.bgCard2()); gd.setStroke((int)(1*dp),colors.divider()); btn.setTextColor(colors.textSecondary()); }
-            btn.setBackground(gd);
-        }
+    private void addDivider(LinearLayout parent, float dp) {
+        View div = new View(requireContext()); div.setBackgroundColor(colors.divider());
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,1);
+        lp.setMargins((int)(16*dp),0,0,0); div.setLayoutParams(lp); parent.addView(div);
+    }
+
+    private LinearLayout makeSwitchRow(String title, String sub, float dp) {
+        LinearLayout row = new LinearLayout(requireContext());
+        row.setOrientation(LinearLayout.HORIZONTAL); row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setPadding((int)(16*dp),0,(int)(12*dp),0);
+        row.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT));
+        row.setMinimumHeight((int)(56*dp));
+
+        LinearLayout text = new LinearLayout(requireContext()); text.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
+        text.setLayoutParams(tlp); text.setPadding(0,(int)(10*dp),0,(int)(10*dp));
+
+        TextView tvTitle = new TextView(requireContext()); tvTitle.setText(title);
+        tvTitle.setTextColor(colors.textSettingsLabel()); tvTitle.setTextSize(14f); text.addView(tvTitle);
+        TextView tvSub   = new TextView(requireContext()); tvSub.setText(sub);
+        tvSub.setTextColor(colors.textSettingsHint()); tvSub.setTextSize(12f);
+        tvSub.setPadding(0,(int)(2*dp),0,0); text.addView(tvSub);
+
+        row.addView(text);
+        return row;
     }
 
     // ── 30 Themes ─────────────────────────────────────────────────
@@ -283,7 +270,8 @@ public class SettingsFragment extends Fragment {
                "\"home\":{\"section_title\":\""+tP+"\",\"chip_playing_bg\":\""+accD+"\"," +
                "\"chip_playing_border\":\""+acc+"\",\"chip_text\":\""+tP+"\",\"empty_text\":\""+nU+"\"," +
                "\"now_playing_anim\":\""+acc+"\",\"now_playing_card_bg\":\""+c2+"\"," +
-               "\"now_playing_card_border\":\""+acc+"\",\"now_playing_icon_tint\":\""+acc+"\"}," +
+               "\"now_playing_card_border\":\""+acc+"\",\"now_playing_icon_tint\":\""+acc+"\"," +
+               "\"visualizer_bg\":\""+bg+"\",\"visualizer_bar\":\""+acc+"\"}," +
                "\"radio\":{\"station_bg\":\""+c2+"\",\"station_bg_active\":\""+accD+"\"," +
                "\"station_border_active\":\""+acc+"\",\"station_text\":\""+tP+"\"," +
                "\"station_text_active\":\""+acc+"\",\"station_click_glow\":\""+acc+"\"," +
@@ -314,35 +302,29 @@ public class SettingsFragment extends Fragment {
         float dp = density();
 
         for (String[] t : THEMES) {
-            final String name = t[0], json = buildJson(t);
-            addPresetBtn(name, dp, false, name.equals(active), () -> applyThemeJson(json, name));
+            final String name=t[0], json=buildJson(t);
+            addPresetBtn(name, dp, false, name.equals(active), ()->applyThemeJson(json,name));
         }
 
-        // User asset themes
         try {
             String[] assetThemes = requireContext().getAssets().list("themes");
             if (assetThemes != null) for (String file : assetThemes) {
                 if (!file.endsWith(".json")) continue;
                 String name = cap(file.replace(".json",""));
-                final String fname = file;
-                addPresetBtn(name, dp, false, name.equals(active), () -> {
-                    try {
-                        BufferedReader br = new BufferedReader(new InputStreamReader(
-                                requireContext().getAssets().open("themes/"+fname)));
-                        StringBuilder sb = new StringBuilder(); String line;
-                        while ((line=br.readLine())!=null) sb.append(line).append('\n');
-                        br.close(); applyThemeJson(sb.toString(), name);
-                    } catch (Exception e) { Toast.makeText(requireContext(),"Failed",Toast.LENGTH_SHORT).show(); }
+                final String fname=file;
+                addPresetBtn(name,dp,false,name.equals(active),()->{
+                    try{BufferedReader br=new BufferedReader(new InputStreamReader(requireContext().getAssets().open("themes/"+fname)));
+                        StringBuilder sb=new StringBuilder();String line;while((line=br.readLine())!=null)sb.append(line).append('\n');br.close();applyThemeJson(sb.toString(),name);}
+                    catch(Exception e){Toast.makeText(requireContext(),"Failed",Toast.LENGTH_SHORT).show();}
                 });
             }
         } catch (Exception ignored) {}
 
-        // Custom toggle (always last)
-        addPresetBtn("Custom ✎", dp, true, "Custom".equals(active), () -> {
-            if (customEditorWrap != null) {
-                boolean show = customEditorWrap.getVisibility() != View.VISIBLE;
-                customEditorWrap.setVisibility(show ? View.VISIBLE : View.GONE);
-                if (show && etColorCfg != null) etColorCfg.setText(colors.readRaw());
+        addPresetBtn("Custom ✎", dp, true, "Custom".equals(active), ()->{
+            if(customEditorWrap!=null){
+                boolean show=customEditorWrap.getVisibility()!=View.VISIBLE;
+                customEditorWrap.setVisibility(show?View.VISIBLE:View.GONE);
+                if(show&&etColorCfg!=null)etColorCfg.setText(colors.readRaw());
             }
         });
     }
@@ -353,32 +335,31 @@ public class SettingsFragment extends Fragment {
         btn.setPadding((int)(16*dp),(int)(10*dp),(int)(16*dp),(int)(10*dp));
         btn.setClickable(true); btn.setFocusable(true);
         if (isActive) styleBtnActive(btn); else if (isCustom) styleBtnAccent(btn); else styleBtn(btn);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0,0,(int)(8*dp),0); btn.setLayoutParams(lp);
-        btn.setOnClickListener(v -> action.run());
+        btn.setOnClickListener(v->action.run());
         themePresetsContainer.addView(btn);
     }
 
     private void applyThemeJson(String json, String name) {
         colors.saveRaw(json); prefs.setActiveThemeName(name);
         colors = new ColorConfig(requireContext());
+        // Apply to this fragment immediately — before broadcasting to activity
+        applyTheme(getView());
+        buildThemePresets();
         if (listener != null) listener.onThemeChanged();
         if (etColorCfg != null) etColorCfg.setText(colors.readRaw());
-        applyTheme(getView()); buildThemePresets();
         Toast.makeText(requireContext(), name + " applied", Toast.LENGTH_SHORT).show();
     }
 
-    // ── Network ──────────────────────────────────────────────────
     private void fetchAndMerge(String url) {
-        new OkHttpClient().newCall(new Request.Builder().url(url).build()).enqueue(new Callback() {
-            @Override public void onFailure(Call c, IOException e) {
-                requireActivity().runOnUiThread(()->{ if(tvFetchStatus!=null)tvFetchStatus.setText("Failed: "+e.getMessage()); });
-            }
-            @Override public void onResponse(Call c, Response r) throws IOException {
-                if (!r.isSuccessful()){ requireActivity().runOnUiThread(()->{ if(tvFetchStatus!=null)tvFetchStatus.setText("HTTP "+r.code()); }); return; }
+        new OkHttpClient().newCall(new Request.Builder().url(url).build()).enqueue(new Callback(){
+            @Override public void onFailure(Call c,IOException e){requireActivity().runOnUiThread(()->{if(tvFetchStatus!=null)tvFetchStatus.setText("Failed: "+e.getMessage());});}
+            @Override public void onResponse(Call c,Response r)throws IOException{
+                if(!r.isSuccessful()){requireActivity().runOnUiThread(()->{if(tvFetchStatus!=null)tvFetchStatus.setText("HTTP "+r.code());});return;}
                 String body=r.body()!=null?r.body().string():"";
-                try{ java.io.File f=new java.io.File(requireContext().getFilesDir(),"radio_extra.cfg"); java.io.FileWriter fw=new java.io.FileWriter(f,true); fw.write("\n"+body); fw.close(); }catch(Exception ignored){}
-                requireActivity().runOnUiThread(()->{ if(tvFetchStatus!=null)tvFetchStatus.setText("Done. Go to Radio tab."); });
+                try{java.io.File f=new java.io.File(requireContext().getFilesDir(),"radio_extra.cfg");java.io.FileWriter fw=new java.io.FileWriter(f,true);fw.write("\n"+body);fw.close();}catch(Exception ignored){}
+                requireActivity().runOnUiThread(()->{if(tvFetchStatus!=null)tvFetchStatus.setText("Done. Go to Radio tab.");});
             }
         });
     }
@@ -412,73 +393,26 @@ public class SettingsFragment extends Fragment {
         if (tvVersion     != null) tvVersion.setTextColor(colors.textSettingsVersion());
         if (tvMadeBy      != null) applyMadeByColors();
         styleSwitches();
+        if (navBtnsRow != null) rebuildNavBtns(density());
     }
 
     private void styleSwitches() {
-        ColorStateList thumb = new ColorStateList(
-                new int[][]{ new int[]{android.R.attr.state_checked}, new int[]{} },
-                new int[]{ colors.settingsSwitchThumbOn(), colors.settingsSwitchThumbOff() });
-        ColorStateList track = new ColorStateList(
-                new int[][]{ new int[]{android.R.attr.state_checked}, new int[]{} },
-                new int[]{ colors.settingsSwitchTrackOn(), colors.settingsSwitchTrackOff() });
-        for (SwitchCompat sw : new SwitchCompat[]{swHaptic, swBtnSound, swPersistent, swWaveNotif}) {
-            if (sw == null) continue;
-            sw.setThumbTintList(thumb); sw.setTrackTintList(track);
+        ColorStateList thumb=new ColorStateList(new int[][]{{android.R.attr.state_checked},{}},new int[]{colors.settingsSwitchThumbOn(),colors.settingsSwitchThumbOff()});
+        ColorStateList track=new ColorStateList(new int[][]{{android.R.attr.state_checked},{}},new int[]{colors.settingsSwitchTrackOn(),colors.settingsSwitchTrackOff()});
+        for(SwitchCompat sw:new SwitchCompat[]{swHaptic,swBtnSound,swPersistent,swWaveNotif,swPowerSaving}){
+            if(sw==null)continue; sw.setThumbTintList(thumb); sw.setTrackTintList(track);
         }
     }
 
-    private void styleCard(View card) {
-        if (card == null) return; float dp = density();
-        GradientDrawable gd = new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(12*dp);
-        gd.setColor(colors.bgSettingsCard()); gd.setStroke((int)(1*dp), colors.settingsCardBorder());
-        card.setBackground(gd);
-    }
-
-    private void styleInput(EditText et) {
-        if (et == null) return; float dp = density();
-        GradientDrawable gd = new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(8*dp);
-        gd.setColor(colors.settingsInputBg()); gd.setStroke((int)(1*dp), colors.settingsInputBorder());
-        et.setBackground(gd); et.setTextColor(colors.settingsInputText()); et.setHintTextColor(colors.textSettingsHint());
-    }
-
-    private void styleBtn(TextView btn) {
-        if (btn == null) return; float dp = density();
-        GradientDrawable gd = new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(10*dp);
-        gd.setColor(colors.settingsBtnBg()); gd.setStroke((int)(1.5f*dp), colors.settingsBtnBorder());
-        btn.setBackground(gd); btn.setTextColor(colors.settingsBtnText());
-    }
-
-    private void styleBtnActive(TextView btn) {
-        if (btn == null) return; float dp = density();
-        GradientDrawable gd = new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(10*dp);
-        gd.setColor(colors.accent()); gd.setStroke((int)(2f*dp), colors.accent());
-        btn.setBackground(gd);
-        btn.setTextColor(isLight(colors.accent()) ? 0xFF111111 : 0xFFFFFFFF);
-    }
-
-    private void styleBtnAccent(TextView btn) {
-        if (btn == null) return; float dp = density();
-        GradientDrawable gd = new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(10*dp);
-        gd.setColor(colors.accentDim()); gd.setStroke((int)(1.5f*dp), colors.accent());
-        btn.setBackground(gd); btn.setTextColor(colors.accent());
-    }
-
-    private static boolean isLight(int color) {
-        double r=((color>>16)&0xFF)/255.0, g=((color>>8)&0xFF)/255.0, b=(color&0xFF)/255.0;
-        return (0.299*r+0.587*g+0.114*b)>0.5;
-    }
-
-    private void lbl(View v) { if(v instanceof TextView) ((TextView)v).setTextColor(colors.textSettingsLabel()); }
-    private void sub(View v) { if(v instanceof TextView) ((TextView)v).setTextColor(colors.textSettingsHint()); }
-
-    private void applyMadeByColors() {
-        if (tvMadeBy == null) return;
-        android.text.SpannableString ss = new android.text.SpannableString("Made by pxatyush");
-        ss.setSpan(new android.text.style.ForegroundColorSpan(colors.settingsMadeByText()),0,8,android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-        ss.setSpan(new android.text.style.ForegroundColorSpan(colors.settingsMadeByBrand()),8,ss.length(),android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-        tvMadeBy.setText(ss);
-    }
-
-    private float density() { return getResources().getDisplayMetrics().density; }
-    private static String cap(String s) { return (s==null||s.isEmpty())?s:Character.toUpperCase(s.charAt(0))+s.substring(1); }
+    private void styleCard(View card){if(card==null)return;float dp=density();GradientDrawable gd=new GradientDrawable();gd.setShape(GradientDrawable.RECTANGLE);gd.setCornerRadius(12*dp);gd.setColor(colors.bgSettingsCard());gd.setStroke((int)(1*dp),colors.settingsCardBorder());card.setBackground(gd);}
+    private void styleInput(EditText et){if(et==null)return;float dp=density();GradientDrawable gd=new GradientDrawable();gd.setShape(GradientDrawable.RECTANGLE);gd.setCornerRadius(8*dp);gd.setColor(colors.settingsInputBg());gd.setStroke((int)(1*dp),colors.settingsInputBorder());et.setBackground(gd);et.setTextColor(colors.settingsInputText());et.setHintTextColor(colors.textSettingsHint());}
+    private void styleBtn(TextView btn){if(btn==null)return;float dp=density();GradientDrawable gd=new GradientDrawable();gd.setShape(GradientDrawable.RECTANGLE);gd.setCornerRadius(10*dp);gd.setColor(colors.settingsBtnBg());gd.setStroke((int)(1.5f*dp),colors.settingsBtnBorder());btn.setBackground(gd);btn.setTextColor(colors.settingsBtnText());}
+    private void styleBtnActive(TextView btn){if(btn==null)return;float dp=density();GradientDrawable gd=new GradientDrawable();gd.setShape(GradientDrawable.RECTANGLE);gd.setCornerRadius(10*dp);gd.setColor(colors.accent());gd.setStroke((int)(2f*dp),colors.accent());btn.setBackground(gd);btn.setTextColor(isLight(colors.accent())?0xFF111111:0xFFFFFFFF);}
+    private void styleBtnAccent(TextView btn){if(btn==null)return;float dp=density();GradientDrawable gd=new GradientDrawable();gd.setShape(GradientDrawable.RECTANGLE);gd.setCornerRadius(10*dp);gd.setColor(colors.accentDim());gd.setStroke((int)(1.5f*dp),colors.accent());btn.setBackground(gd);btn.setTextColor(colors.accent());}
+    private static boolean isLight(int c){double r=((c>>16)&0xFF)/255.0,g=((c>>8)&0xFF)/255.0,b=(c&0xFF)/255.0;return(0.299*r+0.587*g+0.114*b)>0.5;}
+    private void lbl(View v){if(v instanceof TextView)((TextView)v).setTextColor(colors.textSettingsLabel());}
+    private void sub(View v){if(v instanceof TextView)((TextView)v).setTextColor(colors.textSettingsHint());}
+    private void applyMadeByColors(){if(tvMadeBy==null)return;android.text.SpannableString ss=new android.text.SpannableString("Made by pxatyush");ss.setSpan(new android.text.style.ForegroundColorSpan(colors.settingsMadeByText()),0,8,android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);ss.setSpan(new android.text.style.ForegroundColorSpan(colors.settingsMadeByBrand()),8,ss.length(),android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);tvMadeBy.setText(ss);}
+    private float density(){return getResources().getDisplayMetrics().density;}
+    private static String cap(String s){return(s==null||s.isEmpty())?s:Character.toUpperCase(s.charAt(0))+s.substring(1);}
 }
