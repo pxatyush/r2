@@ -129,7 +129,7 @@ public class HomeFragment extends Fragment {
         nowPlayingSoundsScroll   = view.findViewById(R.id.nowPlayingSoundsScroll);
         nowPlayingSoundsContainer= view.findViewById(R.id.nowPlayingSoundsContainer);
         tvNowPlayingLabel        = view.findViewById(R.id.tvNowPlayingLabel);
-        // tvNowPlayingSoundsLabel  = view.findViewById(R.id.tvNowPlayingSoundsLabel); // Temporarily commented out to fix compile error
+        tvNowPlayingSoundsLabel  = view.findViewById(R.id.tvNowPlayingSoundsLabel);
         favRadioWrap             = view.findViewById(R.id.favRadioContainer);
         favSoundsWrap            = view.findViewById(R.id.favSoundsContainer);
         lastPlayedWrap           = view.findViewById(R.id.lastPlayedContainer);
@@ -325,10 +325,7 @@ public class HomeFragment extends Fragment {
                 nowPlayingSoundsContainer.addView(chip);
             }
         }
-        
-        if (tvNowPlayingSoundsLabel != null) {
-            tvNowPlayingSoundsLabel.setVisibility(soundsPlaying ? View.VISIBLE : View.GONE);
-        }
+        tvNowPlayingSoundsLabel.setVisibility(soundsPlaying ? View.VISIBLE : View.GONE);
         nowPlayingSoundsScroll.setVisibility(soundsPlaying ? View.VISIBLE : View.GONE);
 
         boolean anyPlaying = radioSelected || soundsPlaying;
