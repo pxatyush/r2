@@ -4,50 +4,61 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#EEF4FF">
+    android:background="#0D0D14">
 
-    <!-- Page header -->
+    <!-- Header — no icon -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingLeft="16dp" android:paddingRight="16dp"
-        android:paddingTop="20dp"  android:paddingBottom="12dp">
+        android:paddingTop="20dp"  android:paddingBottom="8dp">
 
         <TextView
             android:id="@+id/tvSoundsPageTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Sounds"
-            android:textColor="#0D1A33"
+            android:textColor="#FFFFFF"
             android:textSize="26sp"
             android:fontFamily="sans-serif-medium"/>
 
         <TextView
-            android:id="@+id/tvSoundsPageSubtitle"
+            android:id="@+id/tvActiveSoundsLabel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Mix ambient atmospheres"
-            android:textColor="#5577AA"
+            android:text="No sounds playing"
+            android:textColor="#8888AA"
             android:textSize="13sp"
             android:paddingTop="2dp"/>
 
     </LinearLayout>
 
-    <View android:layout_width="match_parent" android:layout_height="1dp"
-        android:background="#BBCCE8"/>
-
-    <!-- Active sounds count label -->
-    <TextView
-        android:id="@+id/tvActiveSoundsLabel"
+    <!-- Stop All -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="No sounds playing"
-        android:textColor="#5577AA"
-        android:textSize="12sp"
-        android:paddingLeft="16dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="2dp"/>
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingLeft="16dp" android:paddingRight="16dp"
+        android:paddingBottom="10dp">
+
+        <TextView
+            android:id="@+id/btnStopAll"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="Stop All"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:gravity="center"
+            android:paddingLeft="18dp" android:paddingRight="18dp"
+            android:background="@drawable/bg_stop_all_btn"
+            android:clickable="true" android:focusable="true"/>
+
+    </LinearLayout>
+
+    <View android:layout_width="match_parent" android:layout_height="1dp"
+        android:background="#22223A"/>
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -55,11 +66,6 @@
         android:layout_weight="1"
         android:overScrollMode="never">
 
-        <!--
-          soundsCategoriesContainer is populated programmatically.
-          Each category gets a label row + rows of 2 buttons.
-          Buttons have layout_weight=1 so they fill the full width equally.
-        -->
         <LinearLayout
             android:id="@+id/soundsCategoriesContainer"
             android:layout_width="match_parent"
@@ -68,19 +74,5 @@
             android:paddingBottom="24dp"/>
 
     </androidx.core.widget.NestedScrollView>
-
-    <!-- Stop All -->
-    <TextView
-        android:id="@+id/btnStopAll"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginLeft="16dp"
-        android:layout_marginRight="16dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="12dp"
-        android:text="Stop All Sounds"
-        android:textSize="14sp"
-        android:gravity="center"
-        android:clickable="true" android:focusable="true"/>
 
 </LinearLayout>

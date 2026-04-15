@@ -49,15 +49,15 @@ public class AudioService extends Service {
     private static final int    NID          = 1001;
     public  static final String ACTION_STOP  = "is.dyino.STOP_ALL";
     public  static final String ACTION_PAUSE = "is.dyino.PAUSE";
-    // FAV action kept for future use but NOT shown as notification button
     public  static final String ACTION_FAV   = "is.dyino.FAV_TOGGLE";
     public  static final String BROADCAST_STATE = "is.dyino.STATE_CHANGED";
 
     private static final int MAX_RECONNECT = 5;
 
-    // ── Wave notif animation ──────────────────────────────────────
+    // ── Wave notification ─────────────────────────────────────────
     private final Handler waveHandler = new Handler(Looper.getMainLooper());
     private float   wavePhase  = 0f;
+    private long    streamStart= 0L;
     private boolean waveRunning= false;
 
     // ── Binder ────────────────────────────────────────────────────
@@ -102,7 +102,6 @@ public class AudioService extends Service {
 
     public void setButtonSoundEnabled(boolean v) { buttonSoundEnabled = v; }
     public int  getRadioAudioSessionId()          { return radioAudioSession; }
-    public float getRadioVolume()                 { return radioVolume; }
 
     // ── Lifecycle ─────────────────────────────────────────────────
 
@@ -117,23 +116,29 @@ public class AudioService extends Service {
 
     @Override public IBinder onBind(Intent i) { return binder; }
 
+    /**
+     * START_STICKY ensures Android restarts the service after kill.
+     * We re-post the foreground notification immediately so Android
+     * does not consider this a crash.
+     */
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null) {
             String a = intent.getAction();
             if (ACTION_STOP.equals(a))  { stopRadio(); stopAllSounds(); }
             if (ACTION_PAUSE.equals(a)) { togglePauseAll(); }
-            // FAV action still handled if triggered externally
             if (ACTION_FAV.equals(a))   { toggleFavCurrentStation(); }
         }
-        return START_STICKY;
+        return START_STICKY; // critical for persistent playing
     }
 
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         AppPrefs prefs = new AppPrefs(this);
         if (prefs.isPersistentPlayingEnabled()) {
+            // Keep service alive: schedule an alarm to restart if Android kills us
             scheduleRestart();
+            // Also re-promote foreground so Android thinks we're still active
             if (fgStarted) {
                 Notification n = buildNotif(
                         radioPlaying ? "▶  " + currentName : "Sounds",
@@ -141,14 +146,18 @@ public class AudioService extends Service {
                 NotificationManagerCompat.from(this).notify(NID, n);
             }
         } else {
-            stopRadio(); stopAllSounds(); stopSelf();
+            stopRadio();
+            stopAllSounds();
+            stopSelf();
         }
         super.onTaskRemoved(rootIntent);
     }
 
     @Override
     public void onDestroy() {
-        stopWaveAnimation(); stopRadio(); stopAllSounds();
+        stopWaveAnimation();
+        stopRadio();
+        stopAllSounds();
         if (clickPool    != null) { clickPool.release(); clickPool = null; }
         if (mediaSession != null) { mediaSession.release(); mediaSession = null; }
         releaseWakeLocks();
@@ -162,7 +171,7 @@ public class AudioService extends Service {
         if (pm != null) {
             wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "dyino:audio");
             wakeLock.setReferenceCounted(false);
-            wakeLock.acquire(12 * 60 * 60 * 1000L);
+            wakeLock.acquire(12 * 60 * 60 * 1000L); // 12 hours max
         }
         WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         if (wm != null) {
@@ -173,8 +182,8 @@ public class AudioService extends Service {
     }
 
     private void releaseWakeLocks() {
-        try { if (wakeLock!=null&&wakeLock.isHeld()) wakeLock.release(); } catch (Exception ignored) {}
-        try { if (wifiLock!=null&&wifiLock.isHeld()) wifiLock.release(); } catch (Exception ignored) {}
+        try { if (wakeLock != null && wakeLock.isHeld()) wakeLock.release(); } catch (Exception ignored) {}
+        try { if (wifiLock != null && wifiLock.isHeld()) wifiLock.release(); } catch (Exception ignored) {}
     }
 
     private void scheduleRestart() {
@@ -244,18 +253,21 @@ public class AudioService extends Service {
 
     private void pushPlaybackState(boolean playing) {
         if (mediaSession == null) return;
-        long pos = playing ? (SystemClock.elapsedRealtime() - 0L) : 0L;
+        long pos = playing ? (SystemClock.elapsedRealtime() - streamStart) : 0L;
         PlaybackStateCompat state = new PlaybackStateCompat.Builder()
                 .setState(playing ? PlaybackStateCompat.STATE_PLAYING
                                   : PlaybackStateCompat.STATE_PAUSED,
                           pos, playing ? 1f : 0f, SystemClock.elapsedRealtime())
-                .setActions(PlaybackStateCompat.ACTION_PLAY | PlaybackStateCompat.ACTION_PAUSE)
+                .setActions(PlaybackStateCompat.ACTION_PLAY
+                          | PlaybackStateCompat.ACTION_PAUSE
+                          | PlaybackStateCompat.ACTION_STOP)
                 .build();
         mediaSession.setPlaybackState(state);
         mediaSession.setMetadata(new MediaMetadataCompat.Builder()
                 .putString(MediaMetadataCompat.METADATA_KEY_TITLE,
                            currentName.isEmpty() ? "dyino" : currentName)
-                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, "dyino").build());
+                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, "dyino")
+                .build());
     }
 
     // ── Click sound ───────────────────────────────────────────────
@@ -276,13 +288,23 @@ public class AudioService extends Service {
             clickPool.play(clickId, 0.4f, 0.4f, 1, 0, 1f);
     }
 
+    // ── Fav from notification ─────────────────────────────────────
+
     private void toggleFavCurrentStation() {
         if (currentName.isEmpty() || currentRadioUrl.isEmpty()) return;
         AppPrefs prefs = new AppPrefs(this);
         String key = AppPrefs.stationKey(currentName, currentRadioUrl, "");
         if (prefs.isFavourite(key)) prefs.removeFavourite(key);
         else                        prefs.addFavourite(key);
+        // Re-build notification so heart icon flips immediately
+        postNotif(radioPlaying ? "▶  " + currentName : "⏸  " + currentName, "Live radio");
         broadcast();
+    }
+
+    public boolean isCurrentStationFavourite() {
+        if (currentRadioUrl.isEmpty()) return false;
+        return new AppPrefs(this)
+                .isFavourite(AppPrefs.stationKey(currentName, currentRadioUrl, ""));
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -295,6 +317,7 @@ public class AudioService extends Service {
         currentRadioUrl   = url;
         radioPaused       = false;
         reconnectCount    = 0;
+        streamStart       = SystemClock.elapsedRealtime();
 
         ensureFg("Buffering…", name);
         stopRadioInternal();
@@ -318,9 +341,10 @@ public class AudioService extends Service {
             radioPlayer.setDataSource(url);
             radioPlayer.setOnPreparedListener(mp -> {
                 mp.start();
-                radioPlaying      = true;
-                radioPaused       = false;
-                reconnectCount    = 0;
+                radioPlaying    = true;
+                radioPaused     = false;
+                reconnectCount  = 0;
+                streamStart     = SystemClock.elapsedRealtime();
                 radioAudioSession = mp.getAudioSessionId();
                 pushPlaybackState(true);
                 startWaveAnimation();
@@ -329,74 +353,115 @@ public class AudioService extends Service {
                 broadcast();
             });
             radioPlayer.setOnErrorListener((mp, what, extra) -> {
-                Log.w(TAG, "radio error what="+what+" extra="+extra);
-                radioPlaying = false; stopWaveAnimation();
+                Log.w(TAG, "radio error what=" + what + " extra=" + extra);
+                radioPlaying = false;
+                stopWaveAnimation();
                 if (!radioPaused && reconnectCount < MAX_RECONNECT) {
                     reconnectCount++;
-                    mainHandler.postDelayed(() -> { stopRadioInternal(); doPlayRadio(currentRadioUrl, currentName); if(radioListener!=null)radioListener.onBuffering(); }, 2000L * reconnectCount);
-                } else { if(radioListener!=null)radioListener.onError("Stream error"); }
-                broadcast(); return true;
+                    mainHandler.postDelayed(() -> {
+                        stopRadioInternal();
+                        doPlayRadio(currentRadioUrl, currentName);
+                        if (radioListener != null) radioListener.onBuffering();
+                    }, 2000L * reconnectCount);
+                } else {
+                    if (radioListener != null) radioListener.onError("Stream error");
+                }
+                broadcast();
+                return true;
             });
             radioPlayer.setOnInfoListener((mp, what, extra) -> {
-                if (what==MediaPlayer.MEDIA_INFO_BUFFERING_START&&radioListener!=null) radioListener.onBuffering();
-                if (what==MediaPlayer.MEDIA_INFO_BUFFERING_END &&radioListener!=null) radioListener.onPlaybackStarted(currentName);
+                if (what == MediaPlayer.MEDIA_INFO_BUFFERING_START && radioListener != null)
+                    radioListener.onBuffering();
+                if (what == MediaPlayer.MEDIA_INFO_BUFFERING_END && radioListener != null)
+                    radioListener.onPlaybackStarted(currentName);
                 return true;
             });
             radioPlayer.setOnCompletionListener(mp -> {
                 stopWaveAnimation();
                 if (!radioPaused && reconnectCount < MAX_RECONNECT) {
                     reconnectCount++;
-                    mainHandler.postDelayed(() -> { stopRadioInternal(); doPlayRadio(currentRadioUrl, currentName); }, 1500);
-                } else { radioPlaying=false; if(radioListener!=null)radioListener.onPlaybackStopped(); broadcast(); }
+                    mainHandler.postDelayed(() -> {
+                        stopRadioInternal();
+                        doPlayRadio(currentRadioUrl, currentName);
+                    }, 1500);
+                } else {
+                    radioPlaying = false;
+                    if (radioListener != null) radioListener.onPlaybackStopped();
+                    broadcast();
+                }
             });
             radioPlayer.prepareAsync();
-        } catch (Exception e) { if(radioListener!=null)radioListener.onError(e.getMessage()); }
+        } catch (Exception e) {
+            if (radioListener != null) radioListener.onError(e.getMessage());
+        }
     }
 
     public void stopRadio() {
-        stopWaveAnimation(); stopRadioInternal();
-        currentName=""; currentFaviconUrl=""; currentRadioUrl=""; radioPaused=false; radioAudioSession=0;
-        if (soundPlayers.isEmpty()) stopFgIfIdle(); else postNotif("Sounds", buildSoundSubtext());
+        stopWaveAnimation();
+        stopRadioInternal();
+        currentName = ""; currentFaviconUrl = ""; currentRadioUrl = "";
+        radioPaused = false; radioAudioSession = 0;
+        if (soundPlayers.isEmpty()) stopFgIfIdle();
+        else postNotif("Sounds", buildSoundSubtext());
         pushPlaybackState(false);
-        if (radioListener!=null) radioListener.onPlaybackStopped();
+        if (radioListener != null) radioListener.onPlaybackStopped();
         broadcast();
     }
 
     private void stopRadioInternal() {
-        if (radioPlayer!=null) { try{radioPlayer.stop();}catch(Exception ignored){} radioPlayer.release(); radioPlayer=null; }
-        radioPlaying=false;
+        if (radioPlayer != null) {
+            try { radioPlayer.stop(); } catch (Exception ignored) {}
+            radioPlayer.release(); radioPlayer = null;
+        }
+        radioPlaying = false;
     }
 
     public void pauseAll() {
-        if (radioPlayer!=null&&radioPlayer.isPlaying()) { radioPlayer.pause(); radioPlaying=false; radioPaused=true; }
-        for (MediaPlayer[]p:soundPlayers.values()) if(p[0]!=null&&p[0].isPlaying())p[0].pause();
+        if (radioPlayer != null && radioPlayer.isPlaying()) {
+            radioPlayer.pause(); radioPlaying = false; radioPaused = true;
+        }
+        for (MediaPlayer[] p : soundPlayers.values())
+            if (p[0] != null && p[0].isPlaying()) p[0].pause();
         stopWaveAnimation();
-        postNotif("  Paused","Tap to resume");
-        pushPlaybackState(false); broadcast();
-    }
-
-    public void resumeAll() {
-        radioPaused=false;
-        if (radioPlayer!=null&&!radioPlayer.isPlaying()) { radioPlayer.start(); radioPlaying=true; }
-        for (MediaPlayer[]p:soundPlayers.values()) if(p[0]!=null&&!p[0].isPlaying())p[0].start();
-        pushPlaybackState(true);
-        if (radioPlaying) startWaveAnimation();
-        postNotif(radioPlaying?"▶  "+currentName:"Sounds", radioPlaying?"Live radio":buildSoundSubtext());
+        postNotif("⏸  Paused", "Tap to resume");
+        pushPlaybackState(false);
         broadcast();
     }
 
-    public void togglePauseAll() { if(isAnythingPlaying())pauseAll();else resumeAll(); }
+    public void resumeAll() {
+        radioPaused = false;
+        if (radioPlayer != null && !radioPlayer.isPlaying()) {
+            radioPlayer.start(); radioPlaying = true;
+        }
+        for (MediaPlayer[] p : soundPlayers.values())
+            if (p[0] != null && !p[0].isPlaying()) p[0].start();
+        pushPlaybackState(true);
+        if (radioPlaying) startWaveAnimation();
+        String title = radioPlaying ? "▶  " + currentName : "Sounds";
+        postNotif(title, radioPlaying ? "Live radio" : buildSoundSubtext());
+        broadcast();
+    }
+
+    public void togglePauseAll() {
+        if (isAnythingPlaying()) pauseAll(); else resumeAll();
+    }
 
     public boolean isAnythingPlaying() {
-        if (radioPlayer!=null&&radioPlayer.isPlaying()) return true;
-        for (MediaPlayer[]p:soundPlayers.values()) if(p[0]!=null&&p[0].isPlaying()) return true;
+        if (radioPlayer != null && radioPlayer.isPlaying()) return true;
+        for (MediaPlayer[] p : soundPlayers.values())
+            if (p[0] != null && p[0].isPlaying()) return true;
         return false;
     }
 
-    public void setRadioVolume(float vol) { radioVolume=vol; if(radioPlayer!=null)radioPlayer.setVolume(vol,vol); }
-    public boolean isRadioPlaying()  { return radioPlayer!=null&&radioPlayer.isPlaying(); }
+    public void setRadioVolume(float vol) {
+        radioVolume = vol;
+        if (radioPlayer != null) radioPlayer.setVolume(vol, vol);
+    }
+
+    public float getRadioVolume()    { return radioVolume; }
+    public boolean isRadioPlaying()  { return radioPlayer != null && radioPlayer.isPlaying(); }
     public boolean isRadioPaused()   { return radioPaused; }
-    public boolean isRadioSelected() { return !currentName.isEmpty()&&!currentRadioUrl.isEmpty(); }
+    public boolean isRadioSelected() { return !currentName.isEmpty() && !currentRadioUrl.isEmpty(); }
     public String  getCurrentName()     { return currentName; }
     public String  getCurrentFavicon()  { return currentFaviconUrl; }
     public String  getCurrentRadioUrl() { return currentRadioUrl; }
@@ -407,124 +472,244 @@ public class AudioService extends Service {
 
     public void playSound(String fileName, float volume) {
         if (soundPlayers.containsKey(fileName)) {
-            MediaPlayer[]pair=soundPlayers.get(fileName);
-            if(pair!=null)for(MediaPlayer mp:pair)if(mp!=null)mp.setVolume(volume,volume);
-            soundVolumes.put(fileName,volume); return;
+            MediaPlayer[] pair = soundPlayers.get(fileName);
+            if (pair != null) for (MediaPlayer mp : pair) if (mp != null) mp.setVolume(volume, volume);
+            soundVolumes.put(fileName, volume);
+            return;
         }
-        ensureFg("Sounds",buildSoundSubtext()); soundVolumes.put(fileName,volume);
-        MediaPlayer mpA=buildMediaPlayer(fileName,volume); if(mpA==null)return;
-        soundPlayers.put(fileName,new MediaPlayer[]{mpA,null});
-        mpA.setOnPreparedListener(mp->{
-            MediaPlayer mpB=buildMediaPlayer(fileName,soundVolumes.getOrDefault(fileName,volume));
-            if(mpB!=null){mpB.setOnPreparedListener(next->{try{mp.setNextMediaPlayer(next);MediaPlayer[]p=soundPlayers.get(fileName);if(p!=null)p[1]=next;}catch(Exception ignored){}});try{mpB.prepareAsync();}catch(Exception ignored){}}
-            mp.start(); postNotif(radioPlaying?"▶  "+currentName:"Sounds",buildSoundSubtext()); broadcast();
+        ensureFg("Sounds", buildSoundSubtext());
+        soundVolumes.put(fileName, volume);
+        MediaPlayer mpA = buildMediaPlayer(fileName, volume);
+        if (mpA == null) return;
+        soundPlayers.put(fileName, new MediaPlayer[]{mpA, null});
+        mpA.setOnPreparedListener(mp -> {
+            MediaPlayer mpB = buildMediaPlayer(fileName, soundVolumes.getOrDefault(fileName, volume));
+            if (mpB != null) {
+                mpB.setOnPreparedListener(next -> {
+                    try { mp.setNextMediaPlayer(next);
+                        MediaPlayer[] p = soundPlayers.get(fileName);
+                        if (p != null) p[1] = next; }
+                    catch (Exception ignored) {}
+                });
+                try { mpB.prepareAsync(); } catch (Exception ignored) {}
+            }
+            mp.start();
+            postNotif(radioPlaying ? "▶  " + currentName : "Sounds", buildSoundSubtext());
+            broadcast();
         });
-        mpA.setOnCompletionListener(mp->chainNext(fileName,mp));
-        try{mpA.prepareAsync();}catch(Exception ignored){}
+        mpA.setOnCompletionListener(mp -> chainNext(fileName, mp));
+        try { mpA.prepareAsync(); } catch (Exception ignored) {}
     }
 
-    private void chainNext(String fn,MediaPlayer finished){
-        MediaPlayer[]pair=soundPlayers.get(fn); if(pair==null)return;
-        float vol=soundVolumes.getOrDefault(fn,0.8f); MediaPlayer cur=pair[1]; if(cur==null)return;
-        pair[0]=cur; pair[1]=null; try{finished.release();}catch(Exception ignored){}
-        MediaPlayer next=buildMediaPlayer(fn,vol);
-        if(next!=null){next.setOnPreparedListener(np->{try{cur.setNextMediaPlayer(np);MediaPlayer[]p=soundPlayers.get(fn);if(p!=null)p[1]=np;}catch(Exception ignored){}});next.setOnCompletionListener(mp2->chainNext(fn,mp2));cur.setOnCompletionListener(mp2->chainNext(fn,mp2));try{next.prepareAsync();}catch(Exception ignored){}}
+    private void chainNext(String fn, MediaPlayer finished) {
+        MediaPlayer[] pair = soundPlayers.get(fn);
+        if (pair == null) return;
+        float vol = soundVolumes.getOrDefault(fn, 0.8f);
+        MediaPlayer cur = pair[1]; if (cur == null) return;
+        pair[0] = cur; pair[1] = null;
+        try { finished.release(); } catch (Exception ignored) {}
+        MediaPlayer next = buildMediaPlayer(fn, vol);
+        if (next != null) {
+            next.setOnPreparedListener(np -> {
+                try { cur.setNextMediaPlayer(np);
+                    MediaPlayer[] p = soundPlayers.get(fn); if (p != null) p[1] = np; }
+                catch (Exception ignored) {}
+            });
+            next.setOnCompletionListener(mp2 -> chainNext(fn, mp2));
+            cur.setOnCompletionListener(mp2 -> chainNext(fn, mp2));
+            try { next.prepareAsync(); } catch (Exception ignored) {}
+        }
     }
 
-    private MediaPlayer buildMediaPlayer(String fn,float vol){
-        try{MediaPlayer mp=new MediaPlayer();mp.setWakeMode(getApplicationContext(),PowerManager.PARTIAL_WAKE_LOCK);mp.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());android.content.res.AssetFileDescriptor afd=getAssets().openFd("sounds/"+fn);mp.setDataSource(afd.getFileDescriptor(),afd.getStartOffset(),afd.getLength());afd.close();mp.setVolume(vol,vol);mp.setLooping(false);return mp;}
-        catch(Exception e){Log.e(TAG,"buildMP:"+fn,e);return null;}
+    private MediaPlayer buildMediaPlayer(String fn, float vol) {
+        try {
+            MediaPlayer mp = new MediaPlayer();
+            mp.setWakeMode(getApplicationContext(), PowerManager.PARTIAL_WAKE_LOCK);
+            mp.setAudioAttributes(new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
+            android.content.res.AssetFileDescriptor afd = getAssets().openFd("sounds/" + fn);
+            mp.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+            afd.close();
+            mp.setVolume(vol, vol); mp.setLooping(false);
+            return mp;
+        } catch (Exception e) { Log.e(TAG, "buildMediaPlayer: " + fn, e); return null; }
     }
 
-    public void stopSound(String fn){
-        MediaPlayer[]pair=soundPlayers.remove(fn);
-        if(pair!=null)for(MediaPlayer mp:pair)if(mp!=null){try{mp.stop();}catch(Exception ignored){}mp.release();}
+    public void stopSound(String fn) {
+        MediaPlayer[] pair = soundPlayers.remove(fn);
+        if (pair != null) for (MediaPlayer mp : pair)
+            if (mp != null) { try { mp.stop(); } catch (Exception ignored) {} mp.release(); }
         soundVolumes.remove(fn);
-        if(soundPlayers.isEmpty()&&!radioPlaying)stopFgIfIdle();else postNotif(radioPlaying?"▶  "+currentName:"Sounds",buildSoundSubtext());
+        if (soundPlayers.isEmpty() && !radioPlaying) stopFgIfIdle();
+        else postNotif(radioPlaying ? "▶  " + currentName : "Sounds", buildSoundSubtext());
         broadcast();
     }
 
-    public void setSoundVolume(String fn,float vol){soundVolumes.put(fn,vol);MediaPlayer[]pair=soundPlayers.get(fn);if(pair!=null)for(MediaPlayer mp:pair)if(mp!=null)mp.setVolume(vol,vol);}
-    public boolean isSoundPlaying(String fn){MediaPlayer[]p=soundPlayers.get(fn);return p!=null&&p[0]!=null&&p[0].isPlaying();}
-    public float   getSoundVolume(String fn){Float v=soundVolumes.get(fn);return v!=null?v:0.8f;}
-    public Map<String,Float> getAllPlayingSounds(){Map<String,Float>r=new HashMap<>();for(String fn:soundPlayers.keySet())r.put(fn,getSoundVolume(fn));return r;}
+    public void setSoundVolume(String fn, float vol) {
+        soundVolumes.put(fn, vol);
+        MediaPlayer[] pair = soundPlayers.get(fn);
+        if (pair != null) for (MediaPlayer mp : pair) if (mp != null) mp.setVolume(vol, vol);
+    }
 
-    public void stopAllSounds(){
-        for(MediaPlayer[]pair:soundPlayers.values())for(MediaPlayer mp:pair)if(mp!=null){try{mp.stop();}catch(Exception ignored){}mp.release();}
-        soundPlayers.clear();soundVolumes.clear();
-        if(!radioPlaying)stopFgIfIdle();else postNotif("▶  "+currentName,"Live radio");
+    public boolean isSoundPlaying(String fn) {
+        MediaPlayer[] p = soundPlayers.get(fn);
+        return p != null && p[0] != null && p[0].isPlaying();
+    }
+
+    public float getSoundVolume(String fn) {
+        Float v = soundVolumes.get(fn); return v != null ? v : 0.8f;
+    }
+
+    public Map<String, Float> getAllPlayingSounds() {
+        Map<String, Float> r = new HashMap<>();
+        for (String fn : soundPlayers.keySet()) r.put(fn, getSoundVolume(fn));
+        return r;
+    }
+
+    public void stopAllSounds() {
+        for (MediaPlayer[] pair : soundPlayers.values())
+            for (MediaPlayer mp : pair)
+                if (mp != null) { try { mp.stop(); } catch (Exception ignored) {} mp.release(); }
+        soundPlayers.clear(); soundVolumes.clear();
+        if (!radioPlaying) stopFgIfIdle();
+        else postNotif("▶  " + currentName, "Live radio");
         broadcast();
     }
 
-    private String buildSoundSubtext(){int n=soundPlayers.size();return n==0?"Tap to open":n+" sound"+(n>1?"s":"")+" playing";}
+    private String buildSoundSubtext() {
+        int n = soundPlayers.size();
+        return n == 0 ? "Tap to open" : n + " sound" + (n > 1 ? "s" : "") + " playing";
+    }
 
-    private void stopFgIfIdle(){stopWaveAnimation();if(fgStarted){stopForeground(true);fgStarted=false;}}
+    private void stopFgIfIdle() {
+        stopWaveAnimation();
+        if (fgStarted) { stopForeground(true); fgStarted = false; }
+    }
 
     // ══════════════════════════════════════════════════════════════
-    // NOTIFICATION — only Play/Pause + Stop.  No fav/heart button.
+    // NOTIFICATION  (heart button always visible for radio)
     // ══════════════════════════════════════════════════════════════
 
     private void createChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel ch=new NotificationChannel(CH_ID,"dyino Playback",NotificationManager.IMPORTANCE_LOW);
-            ch.setDescription("Radio & ambient sounds"); ch.setSound(null,null);
+            NotificationChannel ch = new NotificationChannel(
+                    CH_ID, "dyino Playback", NotificationManager.IMPORTANCE_LOW);
+            ch.setDescription("Radio & ambient sounds");
+            ch.setSound(null, null);
             getSystemService(NotificationManager.class).createNotificationChannel(ch);
         }
     }
 
     private Notification buildNotif(String title, String text) {
-        PendingIntent openPi = PendingIntent.getActivity(this,0,
-                new Intent(this,MainActivity.class),
-                PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+        // Tap opens app
+        PendingIntent openPi = PendingIntent.getActivity(this, 0,
+                new Intent(this, MainActivity.class),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        Intent pauseI=new Intent(this,AudioService.class).setAction(ACTION_PAUSE);
-        PendingIntent pausePi=PendingIntent.getService(this,2,pauseI,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+        // Pause/resume
+        Intent pauseI = new Intent(this, AudioService.class).setAction(ACTION_PAUSE);
+        PendingIntent pausePi = PendingIntent.getService(this, 2, pauseI,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        Intent stopI=new Intent(this,AudioService.class).setAction(ACTION_STOP);
-        PendingIntent stopPi=PendingIntent.getService(this,1,stopI,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+        // Stop
+        Intent stopI = new Intent(this, AudioService.class).setAction(ACTION_STOP);
+        PendingIntent stopPi = PendingIntent.getService(this, 1, stopI,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        boolean playing=isAnythingPlaying();
-        ColorConfig colors=new ColorConfig(this);
-        AppPrefs prefs=new AppPrefs(this);
-        int iconBg=colors.notifIconBg();
+        // Heart / favourite
+        Intent favI = new Intent(this, AudioService.class).setAction(ACTION_FAV);
+        PendingIntent favPi = PendingIntent.getService(this, 3, favI,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        Bitmap largeIcon=(radioPlaying&&prefs.isWaveNotifEnabled()&&!prefs.isPowerSavingEnabled())
-                ?buildWaveBitmap(iconBg):buildIconBitmap(iconBg);
+        boolean playing = isAnythingPlaying();
+        boolean isFav   = isCurrentStationFavourite();
 
-        NotificationCompat.Builder b=new NotificationCompat.Builder(this,CH_ID)
-                .setContentTitle(title).setContentText(text)
+        ColorConfig colors = new ColorConfig(this);
+        AppPrefs    prefs  = new AppPrefs(this);
+        int iconBg = colors.notifIconBg();
+
+        Bitmap largeIcon = (radioPlaying && prefs.isWaveNotifEnabled() && !prefs.isPowerSavingEnabled())
+                ? buildWaveBitmap(iconBg)
+                : buildIconBitmap(iconBg);
+
+        NotificationCompat.Builder b = new NotificationCompat.Builder(this, CH_ID)
+                .setContentTitle(title)
+                .setContentText(text)
                 .setSmallIcon(R.drawable.ic_note_vec)
-                .setColor(iconBg).setColorized(true).setLargeIcon(largeIcon)
-                .setContentIntent(openPi).setOngoing(playing).setSilent(true)
+                .setColor(iconBg)
+                .setColorized(true)
+                .setLargeIcon(largeIcon)
+                .setContentIntent(openPi)
+                .setOngoing(playing)
+                .setSilent(true)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                // Only play/pause — no close, no fav
-                .addAction(playing?android.R.drawable.ic_media_pause:android.R.drawable.ic_media_play,
-                           playing?"Pause":"Resume",pausePi);
+                // Pause / Resume
+                .addAction(playing ? android.R.drawable.ic_media_pause
+                                   : android.R.drawable.ic_media_play,
+                           playing ? "Pause" : "Resume", pausePi);
 
-        if (mediaSession!=null) {
+        // Heart button — always shown when a radio station is loaded
+        if (!currentRadioUrl.isEmpty()) {
+            int heartIcon = isFav ? R.drawable.ic_heart_filled : R.drawable.ic_heart_outline;
+            b.addAction(heartIcon, isFav ? "Unfavourite" : "Favourite", favPi);
+        }
+
+        // Stop
+        b.addAction(android.R.drawable.ic_delete, "Stop", stopPi);
+
+        if (mediaSession != null) {
             b.setStyle(new androidx.media.app.NotificationCompat.MediaStyle()
                     .setMediaSession(mediaSession.getSessionToken())
-                    .setShowActionsInCompactView(0)); // only play/pause in compact
+                    .setShowActionsInCompactView(0, 1));
         }
         return b.build();
     }
 
     private Bitmap buildWaveBitmap(int bgColor) {
-        final int W=256,H=128; Bitmap bmp=Bitmap.createBitmap(W,H,Bitmap.Config.ARGB_8888); Canvas c=new Canvas(bmp);
-        Paint bg=new Paint(Paint.ANTI_ALIAS_FLAG); bg.setColor(bgColor); c.drawRoundRect(new RectF(0,0,W,H),W*.15f,H*.15f,bg);
-        Paint line=new Paint(Paint.ANTI_ALIAS_FLAG); line.setColor(0xDDFFFFFF); line.setStyle(Paint.Style.STROKE); line.setStrokeWidth(5f); line.setStrokeCap(Paint.Cap.ROUND);
-        float cy=H/2f,amp=H*.30f; Path p=new Path();
-        for(int i=0;i<=80;i++){float t=(float)i/80,x=W*t;float y=cy+(float)(Math.sin(t*2*Math.PI*2.5+wavePhase)*amp*.65)+(float)(Math.sin(t*2*Math.PI*5+wavePhase*1.6)*amp*.20)+(float)(Math.sin(t*2*Math.PI+wavePhase*.4)*amp*.15);if(i==0)p.moveTo(x,y);else p.lineTo(x,y);}
-        c.drawPath(p,line); return bmp;
-    }
-
-    private Bitmap buildIconBitmap(int bgColor) {
-        final int S=128; Bitmap bmp=Bitmap.createBitmap(S,S,Bitmap.Config.ARGB_8888); Canvas c=new Canvas(bmp);
-        Paint p=new Paint(Paint.ANTI_ALIAS_FLAG); p.setColor(bgColor); c.drawRoundRect(new RectF(0,0,S,S),S*.25f,S*.25f,p);
-        p.setColor(Color.WHITE); c.drawRect(S*.55f,S*.20f,S*.65f,S*.72f,p); c.drawCircle(S*.46f,S*.72f,S*.13f,p); c.drawRect(S*.55f,S*.20f,S*.78f,S*.28f,p);
+        final int W = 256, H = 128;
+        Bitmap bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(bmp);
+        Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG); bg.setColor(bgColor);
+        c.drawRoundRect(new RectF(0, 0, W, H), W * 0.15f, H * 0.15f, bg);
+        Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
+        line.setColor(0xDDFFFFFF); line.setStyle(Paint.Style.STROKE);
+        line.setStrokeWidth(5f); line.setStrokeCap(Paint.Cap.ROUND);
+        float cy = H / 2f, amp = H * 0.30f;
+        Path p = new Path();
+        for (int i = 0; i <= 80; i++) {
+            float t = (float) i / 80, x = W * t;
+            float y = cy
+                + (float)(Math.sin(t * 2 * Math.PI * 2.5 + wavePhase) * amp * 0.65)
+                + (float)(Math.sin(t * 2 * Math.PI * 5   + wavePhase * 1.6) * amp * 0.20)
+                + (float)(Math.sin(t * 2 * Math.PI       + wavePhase * 0.4) * amp * 0.15);
+            if (i == 0) p.moveTo(x, y); else p.lineTo(x, y);
+        }
+        c.drawPath(p, line);
         return bmp;
     }
 
-    private void postNotif(String title,String text){if(!fgStarted)return;try{NotificationManagerCompat.from(this).notify(NID,buildNotif(title,text));}catch(Exception ignored){}}
-    private void broadcast(){sendBroadcast(new Intent(BROADCAST_STATE));}
+    private Bitmap buildIconBitmap(int bgColor) {
+        final int S = 128;
+        Bitmap bmp = Bitmap.createBitmap(S, S, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(bmp);
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setColor(bgColor);
+        c.drawRoundRect(new RectF(0, 0, S, S), S * 0.25f, S * 0.25f, p);
+        p.setColor(Color.WHITE);
+        c.drawRect(S * 0.55f, S * 0.20f, S * 0.65f, S * 0.72f, p);
+        c.drawCircle(S * 0.46f, S * 0.72f, S * 0.13f, p);
+        c.drawRect(S * 0.55f, S * 0.20f, S * 0.78f, S * 0.28f, p);
+        return bmp;
+    }
+
+    private void postNotif(String title, String text) {
+        if (!fgStarted) return;
+        try { NotificationManagerCompat.from(this).notify(NID, buildNotif(title, text)); }
+        catch (Exception ignored) {}
+    }
+
+    private void broadcast() {
+        sendBroadcast(new Intent(BROADCAST_STATE));
+    }
 }
