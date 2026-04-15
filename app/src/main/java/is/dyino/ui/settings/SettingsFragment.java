@@ -52,7 +52,7 @@ public class SettingsFragment extends Fragment {
     private LinearLayout customEditorWrap;
     private View         settingsDivider;
 
-    // ── Dynamically injected toggles (avoids XML ID issues) ───────
+    // ── Dynamically injected (avoids XML ID issues) ───────────────
     private SwitchCompat swWaveNotif, swPowerSaving;
     private LinearLayout navBtnsRow;
 
@@ -88,26 +88,23 @@ public class SettingsFragment extends Fragment {
         tvMadeBy             = view.findViewById(R.id.tvMadeBy);
         tvVersion            = view.findViewById(R.id.tvVersion);
 
-        if (swHaptic   != null) swHaptic.setChecked(prefs.isHapticEnabled());
-        if (swBtnSound != null) swBtnSound.setChecked(prefs.isButtonSoundEnabled());
-        if (swPersistent!=null) swPersistent.setChecked(prefs.isPersistentPlayingEnabled());
-        if (etColorCfg != null) etColorCfg.setText(colors.readRaw());
-        if (etCountry  != null) etCountry.setText(prefs.getRadioCountry());
+        if (swHaptic   !=null) swHaptic.setChecked(prefs.isHapticEnabled());
+        if (swBtnSound !=null) swBtnSound.setChecked(prefs.isButtonSoundEnabled());
+        if (swPersistent!=null)swPersistent.setChecked(prefs.isPersistentPlayingEnabled());
+        if (etColorCfg !=null) etColorCfg.setText(colors.readRaw());
+        if (etCountry  !=null) etCountry.setText(prefs.getRadioCountry());
 
-        if (swHaptic   != null) swHaptic.setOnCheckedChangeListener((b,v)->prefs.setHapticEnabled(v));
-        if (swBtnSound != null) swBtnSound.setOnCheckedChangeListener((b,v)->{prefs.setButtonSoundEnabled(v);if(listener!=null)listener.onButtonSoundChanged(v);});
-        if (swPersistent!=null) swPersistent.setOnCheckedChangeListener((b,v)->prefs.setPersistentPlayingEnabled(v));
+        if (swHaptic   !=null) swHaptic.setOnCheckedChangeListener((b,v)->prefs.setHapticEnabled(v));
+        if (swBtnSound !=null) swBtnSound.setOnCheckedChangeListener((b,v)->{prefs.setButtonSoundEnabled(v);if(listener!=null)listener.onButtonSoundChanged(v);});
+        if (swPersistent!=null)swPersistent.setOnCheckedChangeListener((b,v)->prefs.setPersistentPlayingEnabled(v));
 
         if (btnSaveColor!=null) btnSaveColor.setOnClickListener(v->{
             if(etColorCfg==null)return;
-            colors.saveRaw(etColorCfg.getText().toString());
-            prefs.setActiveThemeName("Custom");
-            if(listener!=null)listener.onThemeChanged();
-            // Immediately re-apply theme in this fragment
+            colors.saveRaw(etColorCfg.getText().toString()); prefs.setActiveThemeName("Custom");
             colors=new ColorConfig(requireContext());
-            applyTheme(getView());
-            buildThemePresets();
-            Toast.makeText(requireContext(),"Custom theme saved",Toast.LENGTH_SHORT).show();
+            applyTheme(getView()); buildThemePresets();
+            if(listener!=null)listener.onThemeChanged();
+            // No toast — silent apply
         });
         if (btnSaveCountry!=null) btnSaveCountry.setOnClickListener(v->{
             if(etCountry==null)return;
@@ -126,106 +123,60 @@ public class SettingsFragment extends Fragment {
         applyTheme(view);
     }
 
-    // ── Inject extra toggles programmatically ────────────────────
+    // ── Extra toggles injected programmatically ───────────────────
     private void injectExtraToggles() {
-        if (cardToggles == null) return;
-        float dp = density();
+        if (cardToggles==null)return; float dp=density();
 
-        // Wave Notif toggle
-        addDivider(cardToggles, dp);
-        LinearLayout wRow = makeSwitchRow("Wave Notification Visualiser",
-                "Animated waveform in media notification", dp);
-        swWaveNotif = new SwitchCompat(requireContext());
-        swWaveNotif.setChecked(prefs.isWaveNotifEnabled());
-        swWaveNotif.setOnCheckedChangeListener((b,v)->prefs.setWaveNotifEnabled(v));
-        wRow.addView(swWaveNotif);
-        cardToggles.addView(wRow);
+        addDivider(cardToggles,dp);
+        LinearLayout wRow=makeSwitchRow("Wave Notification","Animated waveform in media notification",dp);
+        swWaveNotif=new SwitchCompat(requireContext()); swWaveNotif.setChecked(prefs.isWaveNotifEnabled());
+        swWaveNotif.setOnCheckedChangeListener((b,v)->prefs.setWaveNotifEnabled(v)); wRow.addView(swWaveNotif); cardToggles.addView(wRow);
 
-        // Power Saving toggle
-        addDivider(cardToggles, dp);
-        LinearLayout psRow = makeSwitchRow("Power Saving Mode",
-                "Disables waves & visualizer — saves battery", dp);
-        swPowerSaving = new SwitchCompat(requireContext());
-        swPowerSaving.setChecked(prefs.isPowerSavingEnabled());
-        swPowerSaving.setOnCheckedChangeListener((b,v)->prefs.setPowerSavingEnabled(v));
-        psRow.addView(swPowerSaving);
-        cardToggles.addView(psRow);
+        addDivider(cardToggles,dp);
+        LinearLayout psRow=makeSwitchRow("Power Saving Mode","Disables waves & visualizer — saves battery",dp);
+        swPowerSaving=new SwitchCompat(requireContext()); swPowerSaving.setChecked(prefs.isPowerSavingEnabled());
+        swPowerSaving.setOnCheckedChangeListener((b,v)->prefs.setPowerSavingEnabled(v)); psRow.addView(swPowerSaving); cardToggles.addView(psRow);
 
-        // Nav position
-        addDivider(cardToggles, dp);
-        LinearLayout navSection = new LinearLayout(requireContext());
-        navSection.setOrientation(LinearLayout.VERTICAL);
-        navSection.setPadding((int)(16*dp),(int)(12*dp),(int)(12*dp),(int)(12*dp));
-
-        TextView navLabel = new TextView(requireContext());
-        navLabel.setText("Navigation Position"); navLabel.setTextColor(colors.textSettingsLabel());
-        navLabel.setTextSize(14f); navSection.addView(navLabel);
-
-        navBtnsRow = new LinearLayout(requireContext());
-        navBtnsRow.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams nblp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
+        addDivider(cardToggles,dp);
+        LinearLayout navSec=new LinearLayout(requireContext()); navSec.setOrientation(LinearLayout.VERTICAL);
+        navSec.setPadding((int)(16*dp),(int)(12*dp),(int)(12*dp),(int)(12*dp));
+        TextView navLbl=new TextView(requireContext()); navLbl.setText("Navigation Position");
+        navLbl.setTextColor(colors.textSettingsLabel()); navLbl.setTextSize(14f); navSec.addView(navLbl);
+        navBtnsRow=new LinearLayout(requireContext()); navBtnsRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams nblp=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
         nblp.setMargins(0,(int)(8*dp),0,0); navBtnsRow.setLayoutParams(nblp);
-        rebuildNavBtns(dp);
-        navSection.addView(navBtnsRow);
-        cardToggles.addView(navSection);
+        rebuildNavBtns(dp); navSec.addView(navBtnsRow); cardToggles.addView(navSec);
     }
 
     private void rebuildNavBtns(float dp) {
-        if (navBtnsRow == null) return;
-        navBtnsRow.removeAllViews();
-        String current = prefs.getNavPosition();
-        String[][] opts = {{"Left","left"},{"Right","right"},{"Bottom","bottom"}};
-        for (String[] opt : opts) {
-            String lbl=opt[0], val=opt[1];
-            TextView btn = new TextView(requireContext());
+        if(navBtnsRow==null)return; navBtnsRow.removeAllViews();
+        String cur=prefs.getNavPosition();
+        for(String[]opt:new String[][]{{"Left","left"},{"Right","right"},{"Bottom","bottom"}}){
+            String lbl=opt[0],val=opt[1]; TextView btn=new TextView(requireContext());
             btn.setText(lbl); btn.setGravity(android.view.Gravity.CENTER); btn.setTextSize(13f);
-            btn.setPadding((int)(14*dp),(int)(9*dp),(int)(14*dp),(int)(9*dp));
-            btn.setClickable(true); btn.setFocusable(true);
-            LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
+            btn.setPadding((int)(14*dp),(int)(9*dp),(int)(14*dp),(int)(9*dp)); btn.setClickable(true); btn.setFocusable(true);
+            LinearLayout.LayoutParams blp=new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
             blp.setMargins(0,0,(int)(6*dp),0); btn.setLayoutParams(blp);
-
-            GradientDrawable gd = new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(8*dp);
-            if (val.equals(current)) { gd.setColor(colors.accent()); btn.setTextColor(0xFFFFFFFF); }
-            else { gd.setColor(colors.bgCard2()); gd.setStroke((int)(1*dp),colors.divider()); btn.setTextColor(colors.textSecondary()); }
+            GradientDrawable gd=new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(8*dp);
+            if(val.equals(cur)){gd.setColor(colors.accent());btn.setTextColor(0xFFFFFFFF);}
+            else{gd.setColor(colors.bgCard2());gd.setStroke((int)(1*dp),colors.divider());btn.setTextColor(colors.textSecondary());}
             btn.setBackground(gd);
-
-            btn.setOnClickListener(v -> {
-                prefs.setNavPosition(val);
-                if (listener != null) listener.onNavPositionChanged();
-                rebuildNavBtns(dp);
-            });
+            btn.setOnClickListener(v->{prefs.setNavPosition(val);if(listener!=null)listener.onNavPositionChanged();rebuildNavBtns(dp);});
             navBtnsRow.addView(btn);
         }
     }
 
-    private void addDivider(LinearLayout parent, float dp) {
-        View div = new View(requireContext()); div.setBackgroundColor(colors.divider());
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,1);
-        lp.setMargins((int)(16*dp),0,0,0); div.setLayoutParams(lp); parent.addView(div);
+    private void addDivider(LinearLayout parent,float dp){View div=new View(requireContext());div.setBackgroundColor(colors.divider());LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,1);lp.setMargins((int)(16*dp),0,0,0);div.setLayoutParams(lp);parent.addView(div);}
+    private LinearLayout makeSwitchRow(String title,String sub,float dp){
+        LinearLayout row=new LinearLayout(requireContext());row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setPadding((int)(16*dp),0,(int)(12*dp),0);row.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT));row.setMinimumHeight((int)(56*dp));
+        LinearLayout text=new LinearLayout(requireContext());text.setOrientation(LinearLayout.VERTICAL);LinearLayout.LayoutParams tlp=new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);text.setLayoutParams(tlp);text.setPadding(0,(int)(10*dp),0,(int)(10*dp));
+        TextView tvT=new TextView(requireContext());tvT.setText(title);tvT.setTextColor(colors.textSettingsLabel());tvT.setTextSize(14f);text.addView(tvT);
+        TextView tvS=new TextView(requireContext());tvS.setText(sub);tvS.setTextColor(colors.textSettingsHint());tvS.setTextSize(12f);tvS.setPadding(0,(int)(2*dp),0,0);text.addView(tvS);
+        row.addView(text);return row;
     }
 
-    private LinearLayout makeSwitchRow(String title, String sub, float dp) {
-        LinearLayout row = new LinearLayout(requireContext());
-        row.setOrientation(LinearLayout.HORIZONTAL); row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        row.setPadding((int)(16*dp),0,(int)(12*dp),0);
-        row.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT));
-        row.setMinimumHeight((int)(56*dp));
-
-        LinearLayout text = new LinearLayout(requireContext()); text.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
-        text.setLayoutParams(tlp); text.setPadding(0,(int)(10*dp),0,(int)(10*dp));
-
-        TextView tvTitle = new TextView(requireContext()); tvTitle.setText(title);
-        tvTitle.setTextColor(colors.textSettingsLabel()); tvTitle.setTextSize(14f); text.addView(tvTitle);
-        TextView tvSub   = new TextView(requireContext()); tvSub.setText(sub);
-        tvSub.setTextColor(colors.textSettingsHint()); tvSub.setTextSize(12f);
-        tvSub.setPadding(0,(int)(2*dp),0,0); text.addView(tvSub);
-
-        row.addView(text);
-        return row;
-    }
-
-    // ── 30 Themes ─────────────────────────────────────────────────
+    // ── Theme presets ─────────────────────────────────────────────
     private static final String[][] THEMES = {
       {"Dark",         "#0D0D14","#16161F","#1E1E2A","#6C63FF","#3D3880","#22223A","#FFFFFF","#8888AA","#44445A","#0D0D14"},
       {"AMOLED",       "#000000","#0A0A0A","#111111","#6C63FF","#2A2880","#1A1A1A","#FFFFFF","#888888","#333333","#000000"},
@@ -259,120 +210,64 @@ public class SettingsFragment extends Fragment {
       {"Aurora",       "#060C14","#0A1522","#0F1E30","#69FF47","#1B7A00","#102218","#E8FFE0","#66AA66","#204A28","#060C14"},
     };
 
-    private String buildJson(String[] t) {
+    private String buildJson(String[]t){
         String bg=t[1],card=t[2],c2=t[3],acc=t[4],accD=t[5],div=t[6],tP=t[7],tS=t[8],nU=t[9],nBg=t[10];
-        return "{\"global\":{\"bg_primary\":\""+bg+"\",\"bg_card\":\""+card+"\",\"bg_card2\":\""+c2+"\"," +
-               "\"accent\":\""+acc+"\",\"accent_dim\":\""+accD+"\",\"divider\":\""+div+"\"," +
-               "\"text_primary\":\""+tP+"\",\"text_secondary\":\""+tS+"\",\"text_section_title\":\""+tP+"\"," +
-               "\"icon_note_vec_tint\":\""+acc+"\",\"page_header_text\":\""+tP+"\"," +
-               "\"page_header_subtitle_text\":\""+tS+"\"}," +
-               "\"nav\":{\"bg\":\""+nBg+"\",\"label_selected\":\""+tP+"\",\"label_unselected\":\""+nU+"\"}," +
-               "\"home\":{\"section_title\":\""+tP+"\",\"chip_playing_bg\":\""+accD+"\"," +
-               "\"chip_playing_border\":\""+acc+"\",\"chip_text\":\""+tP+"\",\"empty_text\":\""+nU+"\"," +
-               "\"now_playing_anim\":\""+acc+"\",\"now_playing_card_bg\":\""+c2+"\"," +
-               "\"now_playing_card_border\":\""+acc+"\",\"now_playing_icon_tint\":\""+acc+"\"," +
-               "\"visualizer_bg\":\""+bg+"\",\"visualizer_bar\":\""+acc+"\"}," +
-               "\"radio\":{\"station_bg\":\""+c2+"\",\"station_bg_active\":\""+accD+"\"," +
-               "\"station_border_active\":\""+acc+"\",\"station_text\":\""+tP+"\"," +
-               "\"station_text_active\":\""+acc+"\",\"station_click_glow\":\""+acc+"\"," +
-               "\"eq_bar\":\""+acc+"\",\"group_header_bg\":\""+card+"\",\"group_header_border\":\""+div+"\"," +
-               "\"group_name_text\":\""+acc+"\",\"group_name_collapsed_text\":\""+tS+"\"," +
-               "\"group_badge_bg\":\""+accD+"\",\"group_badge_text\":\""+acc+"\"," +
-               "\"station_card_bg\":\""+c2+"\",\"station_card_border\":\""+div+"\"," +
-               "\"search_bg\":\""+c2+"\",\"search_text\":\""+tP+"\",\"search_hint\":\""+tS+"\"," +
-               "\"checkbox_color\":\""+acc+"\"}," +
-               "\"sounds\":{\"btn_bg\":\""+card+"\",\"btn_active_bg\":\""+accD+"\"," +
-               "\"btn_border_active\":\""+acc+"\",\"btn_text\":\""+tP+"\"," +
-               "\"wave_color\":\""+acc+"\",\"stop_all_bg\":\""+c2+"\"," +
-               "\"stop_all_border\":\""+acc+"\",\"stop_all_text\":\""+tP+"\"}," +
-               "\"settings\":{\"card_bg\":\""+card+"\",\"card_border\":\""+div+"\"," +
-               "\"label_text\":\""+tP+"\",\"hint_text\":\""+tS+"\",\"version_text\":\""+nU+"\"," +
-               "\"input_bg\":\""+c2+"\",\"input_border\":\""+div+"\",\"input_text\":\""+tP+"\"," +
-               "\"btn_bg\":\""+c2+"\",\"btn_border\":\""+acc+"\",\"btn_text\":\""+tP+"\"," +
-               "\"divider\":\""+div+"\",\"switch_thumb_on\":\""+acc+"\",\"switch_track_on\":\""+accD+"\"," +
-               "\"switch_thumb_off\":\""+tS+"\",\"switch_track_off\":\""+c2+"\"," +
-               "\"made_by_text\":\""+nU+"\",\"made_by_brand\":\""+acc+"\"}," +
-               "\"notification\":{\"icon_bg\":\""+acc+"\"}}";
+        return "{\"global\":{\"bg_primary\":\""+bg+"\",\"bg_card\":\""+card+"\",\"bg_card2\":\""+c2+"\",\"accent\":\""+acc+"\",\"accent_dim\":\""+accD+"\",\"divider\":\""+div+"\",\"text_primary\":\""+tP+"\",\"text_secondary\":\""+tS+"\",\"text_section_title\":\""+tP+"\",\"icon_note_vec_tint\":\""+acc+"\",\"page_header_text\":\""+tP+"\",\"page_header_subtitle_text\":\""+tS+"\"},"
+             +"\"nav\":{\"bg\":\""+nBg+"\",\"label_selected\":\""+tP+"\",\"label_unselected\":\""+nU+"\"},"
+             +"\"home\":{\"section_title\":\""+tP+"\",\"chip_playing_bg\":\""+accD+"\",\"chip_playing_border\":\""+acc+"\",\"chip_text\":\""+tP+"\",\"empty_text\":\""+nU+"\",\"now_playing_anim\":\""+acc+"\",\"now_playing_card_bg\":\""+card+"\",\"now_playing_card_border\":\""+acc+"\",\"now_playing_icon_tint\":\""+acc+"\",\"visualizer_bg\":\""+bg+"\",\"visualizer_bar\":\""+acc+"\"},"
+             +"\"radio\":{\"station_bg\":\""+c2+"\",\"station_bg_active\":\""+accD+"\",\"station_border_active\":\""+acc+"\",\"station_text\":\""+tP+"\",\"station_text_active\":\""+acc+"\",\"station_click_glow\":\""+acc+"\",\"eq_bar\":\""+acc+"\",\"group_header_bg\":\""+card+"\",\"group_header_border\":\""+div+"\",\"group_name_text\":\""+acc+"\",\"group_name_collapsed_text\":\""+tS+"\",\"group_badge_bg\":\""+accD+"\",\"group_badge_text\":\""+acc+"\",\"station_card_bg\":\""+c2+"\",\"station_card_border\":\""+div+"\",\"search_bg\":\""+c2+"\",\"search_text\":\""+tP+"\",\"search_hint\":\""+tS+"\",\"checkbox_color\":\""+acc+"\"},"
+             +"\"sounds\":{\"btn_bg\":\""+card+"\",\"btn_active_bg\":\""+accD+"\",\"btn_border_active\":\""+acc+"\",\"btn_text\":\""+tP+"\",\"wave_color\":\""+acc+"\",\"stop_all_bg\":\""+c2+"\",\"stop_all_border\":\""+acc+"\",\"stop_all_text\":\""+tP+"\"},"
+             +"\"settings\":{\"card_bg\":\""+card+"\",\"card_border\":\""+div+"\",\"label_text\":\""+tP+"\",\"hint_text\":\""+tS+"\",\"version_text\":\""+nU+"\",\"input_bg\":\""+c2+"\",\"input_border\":\""+div+"\",\"input_text\":\""+tP+"\",\"btn_bg\":\""+c2+"\",\"btn_border\":\""+acc+"\",\"btn_text\":\""+tP+"\",\"divider\":\""+div+"\",\"switch_thumb_on\":\""+acc+"\",\"switch_track_on\":\""+accD+"\",\"switch_thumb_off\":\""+tS+"\",\"switch_track_off\":\""+c2+"\",\"made_by_text\":\""+nU+"\",\"made_by_brand\":\""+acc+"\"},"
+             +"\"notification\":{\"icon_bg\":\""+acc+"\"}}";
     }
 
-    private void buildThemePresets() {
-        if (themePresetsContainer == null) return;
-        themePresetsContainer.removeAllViews();
-        String active = prefs.getActiveThemeName();
-        float dp = density();
-
-        for (String[] t : THEMES) {
-            final String name=t[0], json=buildJson(t);
-            addPresetBtn(name, dp, false, name.equals(active), ()->applyThemeJson(json,name));
-        }
-
-        try {
-            String[] assetThemes = requireContext().getAssets().list("themes");
-            if (assetThemes != null) for (String file : assetThemes) {
-                if (!file.endsWith(".json")) continue;
-                String name = cap(file.replace(".json",""));
-                final String fname=file;
-                addPresetBtn(name,dp,false,name.equals(active),()->{
-                    try{BufferedReader br=new BufferedReader(new InputStreamReader(requireContext().getAssets().open("themes/"+fname)));
-                        StringBuilder sb=new StringBuilder();String line;while((line=br.readLine())!=null)sb.append(line).append('\n');br.close();applyThemeJson(sb.toString(),name);}
-                    catch(Exception e){Toast.makeText(requireContext(),"Failed",Toast.LENGTH_SHORT).show();}
-                });
-            }
-        } catch (Exception ignored) {}
-
-        addPresetBtn("Custom ✎", dp, true, "Custom".equals(active), ()->{
-            if(customEditorWrap!=null){
-                boolean show=customEditorWrap.getVisibility()!=View.VISIBLE;
-                customEditorWrap.setVisibility(show?View.VISIBLE:View.GONE);
-                if(show&&etColorCfg!=null)etColorCfg.setText(colors.readRaw());
-            }
-        });
+    private void buildThemePresets(){
+        if(themePresetsContainer==null)return; themePresetsContainer.removeAllViews();
+        String active=prefs.getActiveThemeName(); float dp=density();
+        for(String[]t:THEMES){final String name=t[0],json=buildJson(t);addPresetBtn(name,dp,false,name.equals(active),()->applyThemeJson(json,name));}
+        try{String[]at=requireContext().getAssets().list("themes");if(at!=null)for(String file:at){if(!file.endsWith(".json"))continue;String name=cap(file.replace(".json",""));final String fname=file;addPresetBtn(name,dp,false,name.equals(active),()->{try{BufferedReader br=new BufferedReader(new InputStreamReader(requireContext().getAssets().open("themes/"+fname)));StringBuilder sb=new StringBuilder();String line;while((line=br.readLine())!=null)sb.append(line).append('\n');br.close();applyThemeJson(sb.toString(),name);}catch(Exception e){Toast.makeText(requireContext(),"Failed",Toast.LENGTH_SHORT).show();}});}}catch(Exception ignored){}
+        addPresetBtn("Custom ✎",dp,true,"Custom".equals(active),()->{if(customEditorWrap!=null){boolean show=customEditorWrap.getVisibility()!=View.VISIBLE;customEditorWrap.setVisibility(show?View.VISIBLE:View.GONE);if(show&&etColorCfg!=null)etColorCfg.setText(colors.readRaw());}});
     }
 
-    private void addPresetBtn(String label, float dp, boolean isCustom, boolean isActive, Runnable action) {
-        TextView btn = new TextView(requireContext());
-        btn.setText(label); btn.setGravity(android.view.Gravity.CENTER); btn.setTextSize(13f);
-        btn.setPadding((int)(16*dp),(int)(10*dp),(int)(16*dp),(int)(10*dp));
-        btn.setClickable(true); btn.setFocusable(true);
-        if (isActive) styleBtnActive(btn); else if (isCustom) styleBtnAccent(btn); else styleBtn(btn);
+    private void addPresetBtn(String label,float dp,boolean isCustom,boolean isActive,Runnable action){
+        TextView btn=new TextView(requireContext());btn.setText(label);btn.setGravity(android.view.Gravity.CENTER);btn.setTextSize(13f);
+        btn.setPadding((int)(16*dp),(int)(10*dp),(int)(16*dp),(int)(10*dp));btn.setClickable(true);btn.setFocusable(true);
+        if(isActive)styleBtnActive(btn);else if(isCustom)styleBtnAccent(btn);else styleBtn(btn);
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.setMargins(0,0,(int)(8*dp),0); btn.setLayoutParams(lp);
-        btn.setOnClickListener(v->action.run());
+        lp.setMargins(0,0,(int)(8*dp),0);btn.setLayoutParams(lp);btn.setOnClickListener(v->action.run());
         themePresetsContainer.addView(btn);
     }
 
+    /** Apply theme silently — no Toast. */
     private void applyThemeJson(String json, String name) {
         colors.saveRaw(json); prefs.setActiveThemeName(name);
         colors = new ColorConfig(requireContext());
-        // Apply to this fragment immediately — before broadcasting to activity
+        // Apply to self immediately
         applyTheme(getView());
         buildThemePresets();
+        // Then propagate to activity (which updates other fragments)
         if (listener != null) listener.onThemeChanged();
         if (etColorCfg != null) etColorCfg.setText(colors.readRaw());
-        Toast.makeText(requireContext(), name + " applied", Toast.LENGTH_SHORT).show();
+        // No Toast — silent
     }
 
-    private void fetchAndMerge(String url) {
+    private void fetchAndMerge(String url){
         new OkHttpClient().newCall(new Request.Builder().url(url).build()).enqueue(new Callback(){
             @Override public void onFailure(Call c,IOException e){requireActivity().runOnUiThread(()->{if(tvFetchStatus!=null)tvFetchStatus.setText("Failed: "+e.getMessage());});}
-            @Override public void onResponse(Call c,Response r)throws IOException{
-                if(!r.isSuccessful()){requireActivity().runOnUiThread(()->{if(tvFetchStatus!=null)tvFetchStatus.setText("HTTP "+r.code());});return;}
-                String body=r.body()!=null?r.body().string():"";
-                try{java.io.File f=new java.io.File(requireContext().getFilesDir(),"radio_extra.cfg");java.io.FileWriter fw=new java.io.FileWriter(f,true);fw.write("\n"+body);fw.close();}catch(Exception ignored){}
-                requireActivity().runOnUiThread(()->{if(tvFetchStatus!=null)tvFetchStatus.setText("Done. Go to Radio tab.");});
-            }
+            @Override public void onResponse(Call c,Response r)throws IOException{if(!r.isSuccessful()){requireActivity().runOnUiThread(()->{if(tvFetchStatus!=null)tvFetchStatus.setText("HTTP "+r.code());});return;}String body=r.body()!=null?r.body().string():"";try{java.io.File f=new java.io.File(requireContext().getFilesDir(),"radio_extra.cfg");java.io.FileWriter fw=new java.io.FileWriter(f,true);fw.write("\n"+body);fw.close();}catch(Exception ignored){}requireActivity().runOnUiThread(()->{if(tvFetchStatus!=null)tvFetchStatus.setText("Done. Go to Radio tab.");});}
         });
     }
 
     // ── Theming ───────────────────────────────────────────────────
     public void applyTheme(View root) {
-        if (root == null || colors == null) return;
+        if (root==null||colors==null) return;
         root.setBackgroundColor(colors.bgPrimary());
-        if (tvSettingsTitle != null) tvSettingsTitle.setTextColor(colors.pageHeaderText());
-        if (settingsDivider != null) settingsDivider.setBackgroundColor(colors.settingsDivider());
-
+        // Header text
+        if (tvSettingsTitle!=null) tvSettingsTitle.setTextColor(colors.pageHeaderText());
+        if (settingsDivider!=null) settingsDivider.setBackgroundColor(colors.settingsDivider());
+        // Cards
         styleCard(cardToggles); styleCard(cardTheme); styleCard(cardStations); styleCard(cardAdvanced);
-
+        // All labels / sub-labels wired from color.json
         lbl(root.findViewById(R.id.tvToggleHeader));
         lbl(root.findViewById(R.id.tvHapticLabel));
         lbl(root.findViewById(R.id.tvBtnSoundLabel));
@@ -384,24 +279,21 @@ public class SettingsFragment extends Fragment {
         lbl(root.findViewById(R.id.tvCountryNote));
         lbl(root.findViewById(R.id.tvAdvancedHeader));
         lbl(root.findViewById(R.id.tvStationsHeader));
-
+        // Inputs and buttons
         styleInput(etColorCfg); styleInput(etCountry); styleInput(etStationUrl);
         styleBtn(btnSaveColor); styleBtn(btnSaveCountry); styleBtn(btnFetch);
         buildThemePresets();
-
-        if (tvFetchStatus != null) tvFetchStatus.setTextColor(colors.textSettingsHint());
-        if (tvVersion     != null) tvVersion.setTextColor(colors.textSettingsVersion());
-        if (tvMadeBy      != null) applyMadeByColors();
+        if (tvFetchStatus!=null) tvFetchStatus.setTextColor(colors.textSettingsHint());
+        if (tvVersion    !=null) tvVersion.setTextColor(colors.textSettingsVersion());
+        if (tvMadeBy     !=null) applyMadeByColors();
         styleSwitches();
-        if (navBtnsRow != null) rebuildNavBtns(density());
+        if (navBtnsRow!=null) rebuildNavBtns(density());
     }
 
-    private void styleSwitches() {
+    private void styleSwitches(){
         ColorStateList thumb=new ColorStateList(new int[][]{{android.R.attr.state_checked},{}},new int[]{colors.settingsSwitchThumbOn(),colors.settingsSwitchThumbOff()});
         ColorStateList track=new ColorStateList(new int[][]{{android.R.attr.state_checked},{}},new int[]{colors.settingsSwitchTrackOn(),colors.settingsSwitchTrackOff()});
-        for(SwitchCompat sw:new SwitchCompat[]{swHaptic,swBtnSound,swPersistent,swWaveNotif,swPowerSaving}){
-            if(sw==null)continue; sw.setThumbTintList(thumb); sw.setTrackTintList(track);
-        }
+        for(SwitchCompat sw:new SwitchCompat[]{swHaptic,swBtnSound,swPersistent,swWaveNotif,swPowerSaving}){if(sw==null)continue;sw.setThumbTintList(thumb);sw.setTrackTintList(track);}
     }
 
     private void styleCard(View card){if(card==null)return;float dp=density();GradientDrawable gd=new GradientDrawable();gd.setShape(GradientDrawable.RECTANGLE);gd.setCornerRadius(12*dp);gd.setColor(colors.bgSettingsCard());gd.setStroke((int)(1*dp),colors.settingsCardBorder());card.setBackground(gd);}

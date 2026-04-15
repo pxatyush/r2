@@ -278,6 +278,9 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             h.eq1Anim = animEq(h.eq1, 400, 4, 14);
             h.eq2Anim = animEq(h.eq2, 600, 8, 18);
             h.eq3Anim = animEq(h.eq3, 500, 3, 12);
+            tintEqBar(h.eq1);
+            tintEqBar(h.eq2);
+            tintEqBar(h.eq3);
         } else {
             stationBg.setColor(isArch ? colors.bgCard2() : colors.radioCardBg());
             if (!isArch) stationBg.setStroke(1, colors.radioCardBorder());
@@ -369,6 +372,15 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         });
         a.start();
         return a;
+    }
+
+    private void tintEqBar(View bar) {
+        if (bar == null) return;
+        android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
+        gd.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        gd.setCornerRadius(bar.getContext().getResources().getDisplayMetrics().density * 1.5f);
+        gd.setColor(colors.eqBar());
+        bar.setBackground(gd);
     }
 
     private void haptic(View v) {

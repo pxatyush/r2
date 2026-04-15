@@ -1,55 +1,67 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!--
+  item_radio_station.xml
+  Station row inside a category card.
+
+  The three EQ bars (eq1, eq2, eq3) inside equalizerView are tinted programmatically
+  in RadioGroupAdapter using colors.eqBar() which reads "radio.eq_bar" from color.json.
+  This means they adapt to every theme automatically.
+
+  To change EQ bar color:  set  "radio": { "eq_bar": "#YOURCOLOR" }  in color.json.
+  The adapter calls  barPaint.setColor(colors.eqBar())  on each ValueAnimator tick.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/stationRoot"
     android:layout_width="match_parent"
     android:layout_height="52dp"
-    android:clickable="true"
-    android:focusable="true"
-    android:background="@drawable/bg_radio_item"
-    android:layout_marginBottom="2dp">
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingLeft="16dp" android:paddingRight="14dp">
 
+    <!-- Station name -->
+    <TextView
+        android:id="@+id/tvStationName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textSize="14sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="#0D1A33"/>
+
+    <!-- EQ animation — only visible on active station -->
     <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:id="@+id/equalizerView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingLeft="16dp"
-        android:paddingRight="16dp">
+        android:visibility="gone">
 
-        <LinearLayout
-            android:id="@+id/equalizerView"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:visibility="gone"
-            android:layout_marginRight="10dp">
+        <!--
+          Bar widths are fixed; heights are animated by RadioGroupAdapter.
+          Colors are set in code via colors.eqBar() so they respect the theme.
+        -->
+        <View
+            android:id="@+id/eq1"
+            android:layout_width="3dp"
+            android:layout_height="8dp"
+            android:layout_marginEnd="2dp"
+            android:background="#2979FF"/>
 
-            <View android:id="@+id/eq1"
-                android:layout_width="3dp"
-                android:layout_height="8dp"
-                android:background="#6C63FF"
-                android:layout_marginRight="2dp" />
-            <View android:id="@+id/eq2"
-                android:layout_width="3dp"
-                android:layout_height="14dp"
-                android:background="#6C63FF"
-                android:layout_marginRight="2dp" />
-            <View android:id="@+id/eq3"
-                android:layout_width="3dp"
-                android:layout_height="6dp"
-                android:background="#6C63FF" />
+        <View
+            android:id="@+id/eq2"
+            android:layout_width="3dp"
+            android:layout_height="14dp"
+            android:layout_marginEnd="2dp"
+            android:background="#2979FF"/>
 
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/tvStationName"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:textColor="@color/text_primary"
-            android:textSize="14sp" />
+        <View
+            android:id="@+id/eq3"
+            android:layout_width="3dp"
+            android:layout_height="6dp"
+            android:background="#2979FF"/>
 
     </LinearLayout>
 
-</FrameLayout>
+</LinearLayout>
