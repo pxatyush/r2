@@ -9,15 +9,25 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.fragment.app.Fragment;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+
 import is.dyino.R;
 import is.dyino.util.AppPrefs;
 import is.dyino.util.ColorConfig;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 public class SettingsFragment extends Fragment {
 
@@ -34,15 +44,15 @@ public class SettingsFragment extends Fragment {
 
     // ── Static XML views ──────────────────────────────────────────
     private SwitchCompat swHaptic, swBtnSound, swPersistent;
-    private EditText     etColorCfg, etCountry;
-    private TextView     btnSaveColor, tvSaveCountry, tvFetchStatus, btnFetchCountry;
+    private EditText     etColorCfg, etStationUrl, etCountry;
+    private TextView     btnSaveColor, btnFetch, tvFetchStatus, btnSaveCountry;
     private TextView     tvVersion, tvMadeBy, tvSettingsTitle;
     private LinearLayout cardToggles, cardTheme, cardStations, cardAdvanced;
     private LinearLayout themePresetsContainer;
     private LinearLayout customEditorWrap;
     private View         settingsDivider;
 
-    // ── Dynamically injected toggles ─────────────────────────────
+    // ── Dynamically injected toggles (avoids XML ID issues) ───────
     private SwitchCompat swWaveNotif, swPowerSaving;
     private LinearLayout navBtnsRow;
 
@@ -71,7 +81,9 @@ public class SettingsFragment extends Fragment {
         etColorCfg           = view.findViewById(R.id.etColorCfg);
         btnSaveColor         = view.findViewById(R.id.btnSaveColors);
         etCountry            = view.findViewById(R.id.etCountry);
-        tvSaveCountry        = view.findViewById(R.id.btnSaveCountry);
+        btnSaveCountry       = view.findViewById(R.id.btnSaveCountry);
+        etStationUrl         = view.findViewById(R.id.etStationUrl);
+        btnFetch             = view.findViewById(R.id.btnFetchStations);
         tvFetchStatus        = view.findViewById(R.id.tvFetchStatus);
         tvMadeBy             = view.findViewById(R.id.tvMadeBy);
         tvVersion            = view.findViewById(R.id.tvVersion);
@@ -91,21 +103,23 @@ public class SettingsFragment extends Fragment {
             colors.saveRaw(etColorCfg.getText().toString());
             prefs.setActiveThemeName("Custom");
             if(listener!=null)listener.onThemeChanged();
+            // Immediately re-apply theme in this fragment
             colors=new ColorConfig(requireContext());
             applyTheme(getView());
             buildThemePresets();
+            Toast.makeText(requireContext(),"Custom theme saved",Toast.LENGTH_SHORT).show();
         });
-        if (tvSaveCountry!=null) tvSaveCountry.setOnClickListener(v->{
+        if (btnSaveCountry!=null) btnSaveCountry.setOnClickListener(v->{
             if(etCountry==null)return;
-            String c=etCountry.getText().toString().trim();
-            prefs.setRadioCountry(c);
+            String c=etCountry.getText().toString().trim();prefs.setRadioCountry(c);prefs.saveRadioCache("");
+            Toast.makeText(requireContext(),"Set to \""+(c.isEmpty()?"Global":c)+"\". Go to Radio tab.",Toast.LENGTH_LONG).show();
         });
-
-        // Remove fetch stations section (merged URLs feature removed)
-        LinearLayout stationsCard = view.findViewById(R.id.cardStations);
-        if (stationsCard != null) {
-            stationsCard.setVisibility(View.GONE);
-        }
+        if (btnFetch!=null) btnFetch.setOnClickListener(v->{
+            if(etStationUrl==null)return;
+            String url=etStationUrl.getText().toString().trim();
+            if(url.isEmpty()){if(tvFetchStatus!=null)tvFetchStatus.setText("Enter a URL first");return;}
+            if(tvFetchStatus!=null)tvFetchStatus.setText("Fetching…");fetchAndMerge(url);
+        });
 
         injectExtraToggles();
         buildThemePresets();
@@ -144,10 +158,8 @@ public class SettingsFragment extends Fragment {
         navSection.setPadding((int)(16*dp),(int)(12*dp),(int)(12*dp),(int)(12*dp));
 
         TextView navLabel = new TextView(requireContext());
-        navLabel.setText("Navigation Position"); 
-        navLabel.setTextColor(colors.settingsNavPosLabel());
-        navLabel.setTextSize(14f); 
-        navSection.addView(navLabel);
+        navLabel.setText("Navigation Position"); navLabel.setTextColor(colors.textSettingsLabel());
+        navLabel.setTextSize(14f); navSection.addView(navLabel);
 
         navBtnsRow = new LinearLayout(requireContext());
         navBtnsRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -174,7 +186,7 @@ public class SettingsFragment extends Fragment {
 
             GradientDrawable gd = new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(8*dp);
             if (val.equals(current)) { gd.setColor(colors.accent()); btn.setTextColor(0xFFFFFFFF); }
-            else { gd.setColor(colors.bgCard2()); gd.setStroke((int)(1*dp),colors.divider()); btn.setTextColor(colors.settingsNavPosText()); }
+            else { gd.setColor(colors.bgCard2()); gd.setStroke((int)(1*dp),colors.divider()); btn.setTextColor(colors.textSecondary()); }
             btn.setBackground(gd);
 
             btn.setOnClickListener(v -> {
@@ -279,10 +291,7 @@ public class SettingsFragment extends Fragment {
                "\"btn_bg\":\""+c2+"\",\"btn_border\":\""+acc+"\",\"btn_text\":\""+tP+"\"," +
                "\"divider\":\""+div+"\",\"switch_thumb_on\":\""+acc+"\",\"switch_track_on\":\""+accD+"\"," +
                "\"switch_thumb_off\":\""+tS+"\",\"switch_track_off\":\""+c2+"\"," +
-               "\"made_by_text\":\""+nU+"\",\"made_by_brand\":\""+acc+"\"," +
-               "\"wave_notif_label\":\""+tP+"\",\"wave_notif_hint\":\""+tS+"\"," +
-               "\"power_saving_label\":\""+tP+"\",\"power_saving_hint\":\""+tS+"\"," +
-               "\"nav_pos_label\":\""+tP+"\",\"nav_pos_text\":\""+tP+"\"}," +
+               "\"made_by_text\":\""+nU+"\",\"made_by_brand\":\""+acc+"\"}," +
                "\"notification\":{\"icon_bg\":\""+acc+"\"}}";
     }
 
@@ -304,9 +313,9 @@ public class SettingsFragment extends Fragment {
                 String name = cap(file.replace(".json",""));
                 final String fname=file;
                 addPresetBtn(name,dp,false,name.equals(active),()->{
-                    try{java.io.BufferedReader br=new java.io.BufferedReader(new java.io.InputStreamReader(requireContext().getAssets().open("themes/"+fname)));
+                    try{BufferedReader br=new BufferedReader(new InputStreamReader(requireContext().getAssets().open("themes/"+fname)));
                         StringBuilder sb=new StringBuilder();String line;while((line=br.readLine())!=null)sb.append(line).append('\n');br.close();applyThemeJson(sb.toString(),name);}
-                    catch(Exception e){}
+                    catch(Exception e){Toast.makeText(requireContext(),"Failed",Toast.LENGTH_SHORT).show();}
                 });
             }
         } catch (Exception ignored) {}
@@ -333,13 +342,26 @@ public class SettingsFragment extends Fragment {
     }
 
     private void applyThemeJson(String json, String name) {
-        colors.saveRaw(json); 
-        prefs.setActiveThemeName(name);
+        colors.saveRaw(json); prefs.setActiveThemeName(name);
         colors = new ColorConfig(requireContext());
+        // Apply to this fragment immediately — before broadcasting to activity
         applyTheme(getView());
         buildThemePresets();
         if (listener != null) listener.onThemeChanged();
         if (etColorCfg != null) etColorCfg.setText(colors.readRaw());
+        Toast.makeText(requireContext(), name + " applied", Toast.LENGTH_SHORT).show();
+    }
+
+    private void fetchAndMerge(String url) {
+        new OkHttpClient().newCall(new Request.Builder().url(url).build()).enqueue(new Callback(){
+            @Override public void onFailure(Call c,IOException e){requireActivity().runOnUiThread(()->{if(tvFetchStatus!=null)tvFetchStatus.setText("Failed: "+e.getMessage());});}
+            @Override public void onResponse(Call c,Response r)throws IOException{
+                if(!r.isSuccessful()){requireActivity().runOnUiThread(()->{if(tvFetchStatus!=null)tvFetchStatus.setText("HTTP "+r.code());});return;}
+                String body=r.body()!=null?r.body().string():"";
+                try{java.io.File f=new java.io.File(requireContext().getFilesDir(),"radio_extra.cfg");java.io.FileWriter fw=new java.io.FileWriter(f,true);fw.write("\n"+body);fw.close();}catch(Exception ignored){}
+                requireActivity().runOnUiThread(()->{if(tvFetchStatus!=null)tvFetchStatus.setText("Done. Go to Radio tab.");});
+            }
+        });
     }
 
     // ── Theming ───────────────────────────────────────────────────
@@ -349,7 +371,7 @@ public class SettingsFragment extends Fragment {
         if (tvSettingsTitle != null) tvSettingsTitle.setTextColor(colors.pageHeaderText());
         if (settingsDivider != null) settingsDivider.setBackgroundColor(colors.settingsDivider());
 
-        styleCard(cardToggles); styleCard(cardTheme); styleCard(cardAdvanced);
+        styleCard(cardToggles); styleCard(cardTheme); styleCard(cardStations); styleCard(cardAdvanced);
 
         lbl(root.findViewById(R.id.tvToggleHeader));
         lbl(root.findViewById(R.id.tvHapticLabel));
@@ -361,11 +383,10 @@ public class SettingsFragment extends Fragment {
         lbl(root.findViewById(R.id.tvCountryHeader));
         lbl(root.findViewById(R.id.tvCountryNote));
         lbl(root.findViewById(R.id.tvAdvancedHeader));
+        lbl(root.findViewById(R.id.tvStationsHeader));
 
-        styleInput(etColorCfg); 
-        styleInput(etCountry);
-        styleBtn(btnSaveColor); 
-        styleBtn(tvSaveCountry);
+        styleInput(etColorCfg); styleInput(etCountry); styleInput(etStationUrl);
+        styleBtn(btnSaveColor); styleBtn(btnSaveCountry); styleBtn(btnFetch);
         buildThemePresets();
 
         if (tvFetchStatus != null) tvFetchStatus.setTextColor(colors.textSettingsHint());

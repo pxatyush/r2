@@ -50,7 +50,9 @@ public class ColorConfig {
     public int textSectionTitle(){ return color("global","text_section_title","#FFFFFF"); }
     public int iconNoteVecTint() { return color("global","icon_note_vec_tint","#6C63FF"); }
 
+    /** Big page-header title ("Home","Radio","Sounds","Settings"). */
     public int pageHeaderText()         { return color("global","page_header_text",         "#FFFFFF"); }
+    /** Page-header subtitle / tagline. */
     public int pageHeaderSubtitleText() { return color("global","page_header_subtitle_text","#8888AA"); }
 
     // ── Nav ───────────────────────────────────────────────────────
@@ -58,7 +60,7 @@ public class ColorConfig {
     public int navLabelSelected()   { return color("nav","label_selected",  "#FFFFFF"); }
     public int navLabelUnselected() { return color("nav","label_unselected","#44445A"); }
 
-    // ── Home ──────────────────────────────────────────────────────
+    // ── Home ─────────────────────────────────────────────────────
     public int homeSectionTitle()     { return color("home","section_title",          "#FFFFFF"); }
     public int homeChipPlayBg()       { return color("home","chip_playing_bg",        "#28265A"); }
     public int homeChipBorder()       { return color("home","chip_playing_border",    "#6C63FF"); }
@@ -104,7 +106,7 @@ public class ColorConfig {
     public int stopAllBorder()        { return color("sounds","stop_all_border", "#6C63FF"); }
     public int stopAllText()          { return color("sounds","stop_all_text",   "#FFFFFF"); }
 
-    // ── Settings ──────────────────────────────────────────────────
+    // ── Settings ─────────────────────────────────────────────────
     public int bgSettingsCard()       { return color("settings","card_bg",        "#16161F"); }
     public int settingsCardBorder()   { return color("settings","card_border",    "#22223A"); }
     public int textSettingsLabel()    { return color("settings","label_text",     "#FFFFFF"); }
@@ -123,23 +125,11 @@ public class ColorConfig {
     public int settingsSwitchTrackOff() { return color("settings","switch_track_off", "#2A2A3A"); }
     public int settingsMadeByText()     { return color("settings","made_by_text",  "#44445A"); }
     public int settingsMadeByBrand()    { return color("settings","made_by_brand", "#6C63FF"); }
-    
-    // NEW: Wave notif toggle label and hint
-    public int settingsWaveNotifLabel() { return color("settings","wave_notif_label","#FFFFFF"); }
-    public int settingsWaveNotifHint()  { return color("settings","wave_notif_hint", "#8888AA"); }
-    
-    // NEW: Power saving toggle label and hint
-    public int settingsPowerSavingLabel() { return color("settings","power_saving_label","#FFFFFF"); }
-    public int settingsPowerSavingHint()  { return color("settings","power_saving_hint", "#8888AA"); }
-    
-    // NEW: Nav position button labels
-    public int settingsNavPosLabel()    { return color("settings","nav_pos_label","#FFFFFF"); }
-    public int settingsNavPosText()     { return color("settings","nav_pos_text", "#FFFFFF"); }
 
-    // ── Notification ──────────────────────────────────────────────
+    // ── Notification ─────────────────────────────────────────────
     public int notifIconBg() { return color("notification","icon_bg","#6C63FF"); }
 
-    // ── Persist ───────────────────────────────────────────────────
+    // ── Persist ──────────────────────────────────────────────────
     public void saveRaw(String raw) {
         try {
             new JSONObject(raw);

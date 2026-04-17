@@ -27,9 +27,7 @@
     "now_playing_anim": "#6C63FF",
     "now_playing_card_bg": "#1E1A3A",
     "now_playing_card_border": "#6C63FF",
-    "now_playing_icon_tint": "#6C63FF",
-    "visualizer_bg": "#0D0D14",
-    "visualizer_bar": "#6C63FF"
+    "now_playing_icon_tint": "#6C63FF"
   },
   "radio": {
     "station_bg": "#1E1E2A",
@@ -80,13 +78,7 @@
     "switch_thumb_off": "#8888AA",
     "switch_track_off": "#2A2A3A",
     "made_by_text": "#44445A",
-    "made_by_brand": "#6C63FF",
-    "wave_notif_label": "#FFFFFF",
-    "wave_notif_hint": "#8888AA",
-    "power_saving_label": "#FFFFFF",
-    "power_saving_hint": "#8888AA",
-    "nav_pos_label": "#FFFFFF",
-    "nav_pos_text": "#FFFFFF"
+    "made_by_brand": "#6C63FF"
   },
   "notification": {
     "icon_bg": "#6C63FF"

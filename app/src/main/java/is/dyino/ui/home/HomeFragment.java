@@ -160,8 +160,7 @@ public class HomeFragment extends Fragment {
         try { requireContext().unregisterReceiver(stateReceiver); } catch (Exception ignored) {}
     }
 
-    @Override public void onResume() { super.onResume(); 
-    if (getView() != null) refresh(); }
+    @Override public void onResume() { super.onResume(); refresh(); }
 
     // ═══════════════════════════════════════════════════════════════
     public void refresh() {
