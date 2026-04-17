@@ -21,10 +21,12 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -48,6 +50,7 @@ import is.dyino.model.RadioStation;
 import is.dyino.service.AudioService;
 import is.dyino.util.AppPrefs;
 import is.dyino.util.ColorConfig;
+import is.dyino.util.CountryLoader;
 import is.dyino.util.RadioLoader;
 
 public class RadioFragment extends Fragment {
@@ -149,7 +152,7 @@ public class RadioFragment extends Fragment {
         try { requireContext().unregisterReceiver(stateReceiver); } catch (Exception ignored) {}
     }
 
-    // ── Country dialog ───────────────────────────────────────────
+    // ── Country dialog with dropdown ──────────────────────────────
     private void showCountryDialog() {
         float dp = getResources().getDisplayMetrics().density;
         LinearLayout container = new LinearLayout(requireContext());
@@ -158,50 +161,87 @@ public class RadioFragment extends Fragment {
         int pad = (int)(24 * dp); container.setPadding(pad, pad, pad, pad);
 
         TextView title = new TextView(requireContext());
-        title.setText("Radio Country"); title.setTextColor(colors.textPrimary()); title.setTextSize(20f);
+        title.setText("Select Radio Country"); title.setTextColor(colors.textPrimary()); title.setTextSize(20f);
         title.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
         container.addView(title);
 
         TextView sub = new TextView(requireContext());
-        sub.setText("Enter your country to fetch local stations");
+        sub.setText("Choose your country to get local radio stations");
         sub.setTextColor(colors.textSecondary()); sub.setTextSize(13f);
         LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         subLp.setMargins(0,(int)(6*dp),0,(int)(20*dp)); sub.setLayoutParams(subLp); container.addView(sub);
 
-        EditText input = new EditText(requireContext());
-        input.setHint("India, Germany, USA…"); input.setTextColor(colors.radioSearchText());
-        input.setHintTextColor(colors.radioSearchHint()); input.setTextSize(15f);
-        input.setPadding((int)(14*dp),(int)(12*dp),(int)(14*dp),(int)(12*dp)); input.setSingleLine(true);
-        GradientDrawable inputBg = new GradientDrawable();
-        inputBg.setShape(GradientDrawable.RECTANGLE); inputBg.setCornerRadius(10*dp);
-        inputBg.setColor(colors.settingsInputBg()); inputBg.setStroke((int)(1*dp), colors.divider());
-        input.setBackground(inputBg);
-        LinearLayout.LayoutParams inputLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        inputLp.setMargins(0,0,0,(int)(20*dp)); input.setLayoutParams(inputLp); container.addView(input);
+        Spinner spinner = new Spinner(requireContext());
+        spinner.setBackground(makeSpinnerBg(dp));
+        LinearLayout.LayoutParams spinnerLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        spinnerLp.setMargins(0,0,0,(int)(20*dp)); spinner.setLayoutParams(spinnerLp);
 
-        LinearLayout btnRow = new LinearLayout(requireContext()); btnRow.setOrientation(LinearLayout.HORIZONTAL);
-        TextView btnSkip = makeDialogBtn("Use Global", false), btnFetch = makeDialogBtn("Fetch", true);
-        LinearLayout.LayoutParams bpSkip = new LinearLayout.LayoutParams(0,(int)(44*dp),1f);
-        bpSkip.setMargins(0,0,(int)(8*dp),0); btnSkip.setLayoutParams(bpSkip);
-        btnFetch.setLayoutParams(new LinearLayout.LayoutParams(0,(int)(44*dp),1f));
-        btnRow.addView(btnSkip); btnRow.addView(btnFetch); container.addView(btnRow);
+        // Load countries
+        CountryLoader.load(requireContext(), countries -> {
+            List<String> countryNames = new ArrayList<>();
+            List<String> countryCodes = new ArrayList<>();
+            countryNames.add("Global (All Stations)");
+            countryCodes.add("");
+            for (CountryLoader.Country c : countries) {
+                countryNames.add(c.name + " (" + c.stationCount + ")");
+                countryCodes.add(c.iso);
+            }
 
-        AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(container).setCancelable(false).create();
-        if (dialog.getWindow()!=null) dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-        btnSkip.setOnClickListener(v -> { prefs.setRadioCountry(""); loadRadioStations(); dialog.dismiss(); });
-        btnFetch.setOnClickListener(v -> { prefs.setRadioCountry(input.getText().toString().trim()); loadRadioStations(); dialog.dismiss(); });
-        dialog.show();
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                    requireContext(),
+                    android.R.layout.simple_spinner_item,
+                    countryNames
+            );
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            spinner.setAdapter(adapter);
+
+            // Set default to device country
+            String deviceCountry = getDeviceCountry();
+            if (!deviceCountry.isEmpty()) {
+                int pos = countryCodes.indexOf(deviceCountry);
+                if (pos >= 0) spinner.setSelection(pos);
+            }
+
+            container.addView(spinner);
+
+            LinearLayout btnRow = new LinearLayout(requireContext()); 
+            btnRow.setOrientation(LinearLayout.HORIZONTAL);
+            TextView btnSkip = makeDialogBtn("Skip", false), btnFetch = makeDialogBtn("Fetch", true);
+            LinearLayout.LayoutParams bpSkip = new LinearLayout.LayoutParams(0,(int)(44*dp),1f);
+            bpSkip.setMargins(0,0,(int)(8*dp),0); btnSkip.setLayoutParams(bpSkip);
+            btnFetch.setLayoutParams(new LinearLayout.LayoutParams(0,(int)(44*dp),1f));
+            btnRow.addView(btnSkip); btnRow.addView(btnFetch); container.addView(btnRow);
+
+            AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(container).setCancelable(false).create();
+            if (dialog.getWindow()!=null) dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            
+            btnSkip.setOnClickListener(v -> { prefs.setRadioCountry(""); loadRadioStations(); dialog.dismiss(); });
+            btnFetch.setOnClickListener(v -> {
+                int selected = spinner.getSelectedItemPosition();
+                String code = countryCodes.get(selected);
+                prefs.setRadioCountry(code);
+                loadRadioStations();
+                dialog.dismiss();
+            });
+            dialog.show();
+        });
     }
 
-    private TextView makeDialogBtn(String label, boolean primary) {
-        float dp = getResources().getDisplayMetrics().density;
-        TextView tv = new TextView(requireContext());
-        tv.setText(label); tv.setGravity(Gravity.CENTER); tv.setTextSize(14f);
-        GradientDrawable gd = new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(10*dp);
-        if (primary) { gd.setColor(colors.accent()); tv.setTextColor(0xFFFFFFFF); }
-        else { gd.setColor(colors.bgCard2()); gd.setStroke((int)(1*dp),colors.divider()); tv.setTextColor(colors.textSecondary()); }
-        tv.setBackground(gd); tv.setClickable(true); tv.setFocusable(true);
-        return tv;
+    private String getDeviceCountry() {
+        try {
+            return java.util.Locale.getDefault().getCountry();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private GradientDrawable makeSpinnerBg(float dp) {
+        GradientDrawable gd = new GradientDrawable();
+        gd.setShape(GradientDrawable.RECTANGLE);
+        gd.setCornerRadius(10*dp);
+        gd.setColor(colors.settingsInputBg());
+        gd.setStroke((int)(1*dp), colors.divider());
+        return gd;
     }
 
     // ── Category manager ─────────────────────────────────────────
@@ -383,7 +423,6 @@ public class RadioFragment extends Fragment {
     public void applyTheme(View root) {
         if (root == null || colors == null) return;
         root.setBackgroundColor(colors.bgPrimary());
-        // Wire page header title colour
         if (tvRadioPageTitle != null) tvRadioPageTitle.setTextColor(colors.pageHeaderText());
         if (tvNowPlaying    != null) tvNowPlaying.setTextColor(colors.textSecondary());
         if (etSearch != null) {
