@@ -5,7 +5,7 @@
     android:orientation="vertical"
     android:background="#0D0D14">
 
-    <!-- Header — no icon -->
+    <!-- Header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -23,6 +23,7 @@
             android:fontFamily="sans-serif-medium"/>
 
         <TextView
+            android:id="@+id/tvSettingsSubtitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Customise your experience"
@@ -106,6 +107,8 @@
                         android:checked="false"/>
                 </LinearLayout>
 
+                <!-- Extra toggles (Wave Notif, Power Saving, Nav Position) are injected here in code -->
+
             </LinearLayout>
 
             <!-- ── Theme Presets ── -->
@@ -124,15 +127,13 @@
                     android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:scrollbars="none" android:overScrollMode="never"
                     android:paddingBottom="2dp">
-
                     <LinearLayout
                         android:id="@+id/themePresetsContainer"
                         android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:orientation="horizontal"/>
-
                 </HorizontalScrollView>
 
-                <!-- Custom JSON editor (hidden until Custom is tapped) -->
+                <!-- Custom JSON editor -->
                 <LinearLayout
                     android:id="@+id/customEditorWrap"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -199,44 +200,7 @@
 
             </LinearLayout>
 
-            <!-- ── Advanced ── -->
-            <LinearLayout android:id="@+id/cardAdvanced"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp" android:layout_marginBottom="12dp">
-
-                <TextView android:id="@+id/tvAdvancedHeader"
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="ADVANCED"
-                    android:textColor="#8888AA" android:textSize="11sp" android:letterSpacing="0.1"
-                    android:paddingBottom="10dp"/>
-
-                <TextView android:id="@+id/tvStationsHeader"
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="Merge stations from URL"
-                    android:textColor="#8888AA" android:textSize="12sp"
-                    android:paddingBottom="8dp"/>
-
-                <EditText android:id="@+id/etStationUrl"
-                    android:layout_width="match_parent" android:layout_height="44dp"
-                    android:textSize="13sp" android:paddingLeft="12dp" android:paddingRight="12dp"
-                    android:hint="https://…/radio.cfg"
-                    android:imeOptions="actionDone" android:inputType="textUri"
-                    android:singleLine="true"/>
-
-                <TextView android:id="@+id/btnFetchStations"
-                    android:layout_width="wrap_content" android:layout_height="40dp"
-                    android:text="Fetch &amp; Merge" android:textSize="13sp" android:gravity="center"
-                    android:paddingLeft="20dp" android:paddingRight="20dp"
-                    android:layout_marginTop="8dp"
-                    android:clickable="true" android:focusable="true"/>
-
-                <TextView android:id="@+id/tvFetchStatus"
-                    android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="" android:textSize="12sp" android:paddingTop="6dp"/>
-
-            </LinearLayout>
-
+            <!-- Footer -->
             <TextView android:id="@+id/tvMadeBy"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:text="Made by pxatyush"

@@ -36,17 +36,17 @@ import is.dyino.util.SleepTimerManager;
 public class MainActivity extends AppCompatActivity {
 
     private static final int PERM_NOTIF = 1001;
+    private static final int PERM_AUDIO = 1002;
 
-    // Bottom nav height in dp (includes padding above system nav)
     private static final int BOTTOM_NAV_H_DP = 60;
     private static final int SIDE_NAV_W_DP   = 56;
 
     private AudioService audioService;
     private boolean      serviceBound = false;
 
-    private TextView    navHomeText, navRadioText, navSoundsText, navSettingsText;
-    private FrameLayout fragmentHome, fragmentRadio, fragmentSounds, fragmentSettings;
-    private FrameLayout navHome, navRadio, navSounds, navSettings;
+    private TextView     navHomeText, navRadioText, navSoundsText, navSettingsText;
+    private FrameLayout  fragmentHome, fragmentRadio, fragmentSounds, fragmentSettings;
+    private FrameLayout  navHome, navRadio, navSounds, navSettings;
     private LinearLayout navBar;
     private FrameLayout  contentArea;
 
@@ -67,6 +67,8 @@ public class MainActivity extends AppCompatActivity {
             radioFragment.setAudioService(audioService);
             soundsFragment.setAudioService(audioService);
             audioService.setButtonSoundEnabled(prefs.isButtonSoundEnabled());
+            // Refresh home immediately after bind so now-playing shows correctly
+            homeFragment.refresh();
         }
         @Override public void onServiceDisconnected(ComponentName n) { serviceBound = false; }
     };
@@ -81,18 +83,18 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         requestNotifPermission();
+        requestAudioPermission();
 
-        // Start service — START_STICKY keeps it alive; bind for IPC
         Intent svc = new Intent(this, AudioService.class);
         startService(svc);
         bindService(svc, conn, BIND_AUTO_CREATE);
 
-        navBar        = findViewById(R.id.navBar);
-        contentArea   = findViewById(R.id.contentArea);
-        navHome       = findViewById(R.id.navHome);
-        navRadio      = findViewById(R.id.navRadio);
-        navSounds     = findViewById(R.id.navSounds);
-        navSettings   = findViewById(R.id.navSettings);
+        navBar          = findViewById(R.id.navBar);
+        contentArea     = findViewById(R.id.contentArea);
+        navHome         = findViewById(R.id.navHome);
+        navRadio        = findViewById(R.id.navRadio);
+        navSounds       = findViewById(R.id.navSounds);
+        navSettings     = findViewById(R.id.navSettings);
         navHomeText     = findViewById(R.id.navHomeText);
         navRadioText    = findViewById(R.id.navRadioText);
         navSoundsText   = findViewById(R.id.navSoundsText);
@@ -120,9 +122,7 @@ public class MainActivity extends AppCompatActivity {
             @Override public void onButtonSoundChanged(boolean en) {
                 if (audioService != null) audioService.setButtonSoundEnabled(en);
             }
-            @Override public void onNavPositionChanged() {
-                applyNavPosition();
-            }
+            @Override public void onNavPositionChanged() { applyNavPosition(); }
         });
 
         getSupportFragmentManager().beginTransaction()
@@ -142,6 +142,28 @@ public class MainActivity extends AppCompatActivity {
         switchTab(0);
     }
 
+    /** Called when notification taps bring an already-running activity to foreground */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        switchTab(0);
+        if (serviceBound && audioService != null) {
+            homeFragment.setAudioService(audioService);
+            homeFragment.refresh();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Ensures home page always reflects current state, e.g. after returning from notification
+        if (serviceBound && audioService != null) {
+            homeFragment.setAudioService(audioService);
+            homeFragment.refresh();
+        }
+    }
+
     // ── Nav position ──────────────────────────────────────────────
 
     public void applyNavPosition() {
@@ -155,11 +177,10 @@ public class MainActivity extends AppCompatActivity {
         if (isBottom) {
             applyBottomNav(dp);
         } else if (isRight) {
-            applyVerticalNav(dp, Gravity.END, /* leftMargin */ 0, /* rightMargin */ (int)(SIDE_NAV_W_DP * dp));
+            applyVerticalNav(dp, Gravity.END, 0, (int)(SIDE_NAV_W_DP * dp));
             setNavLabelRotation(90f);
         } else {
-            // Default: left
-            applyVerticalNav(dp, Gravity.START, /* leftMargin */ (int)(SIDE_NAV_W_DP * dp), /* rightMargin */ 0);
+            applyVerticalNav(dp, Gravity.START, (int)(SIDE_NAV_W_DP * dp), 0);
             setNavLabelRotation(-90f);
         }
 
@@ -168,45 +189,26 @@ public class MainActivity extends AppCompatActivity {
         contentArea.requestLayout();
     }
 
-    /**
-     * Bottom nav:
-     *  • navBar is horizontal, MATCH_PARENT width, fixed height, gravity=BOTTOM
-     *  • Items are ordered HOME | RADIO | SOUNDS | SETTINGS (left → right)
-     *  • Each item gets weight=1 so they fill the bar evenly
-     *  • Labels are horizontal (no rotation)
-     *  • contentArea gets a bottom margin equal to nav height
-     */
     private void applyBottomNav(float dp) {
         int navH = (int)(BOTTOM_NAV_H_DP * dp);
-
-        // Resize navBar
         FrameLayout.LayoutParams navLp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, navH);
         navLp.gravity = Gravity.BOTTOM;
         navBar.setLayoutParams(navLp);
-
-        // Make it horizontal
         navBar.setOrientation(LinearLayout.HORIZONTAL);
         navBar.setGravity(Gravity.CENTER);
         navBar.setPadding(0, 0, 0, 0);
 
-        // Remove weight-spacer child if present (the spacer View added for vertical mode)
         View spacer = navBar.findViewWithTag("nav_spacer");
         if (spacer != null) navBar.removeView(spacer);
-
-        // Re-order children: HOME first, SETTINGS last
         navBar.removeAllViews();
 
-        // Each nav item: weight=1, full bar height
         addNavItemToBar(navHome,     navH, true);
         addNavItemToBar(navRadio,    navH, true);
         addNavItemToBar(navSounds,   navH, true);
         addNavItemToBar(navSettings, navH, true);
-
-        // Labels: no rotation for bottom bar
         setNavLabelRotation(0f);
 
-        // Content fills screen minus nav bar height
         FrameLayout.LayoutParams cLp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         cLp.setMargins(0, 0, 0, navH);
@@ -215,36 +217,24 @@ public class MainActivity extends AppCompatActivity {
 
     private void addNavItemToBar(FrameLayout item, int h, boolean weighted) {
         if (item.getParent() != null) ((ViewGroup) item.getParent()).removeView(item);
-        LinearLayout.LayoutParams lp;
-        if (weighted)
-            lp = new LinearLayout.LayoutParams(0, h, 1f);
-        else
-            lp = new LinearLayout.LayoutParams(h, h);
+        LinearLayout.LayoutParams lp = weighted
+                ? new LinearLayout.LayoutParams(0, h, 1f)
+                : new LinearLayout.LayoutParams(h, h);
         item.setLayoutParams(lp);
         navBar.addView(item);
     }
 
-    /**
-     * Side nav (left or right):
-     *  • navBar is vertical, fixed width, MATCH_PARENT height
-     *  • Items stack bottom → top (Home at bottom, Settings at top)
-     *  • Content gets a side margin equal to nav width
-     */
     private void applyVerticalNav(float dp, int gravity, int leftMargin, int rightMargin) {
         int navW = (int)(SIDE_NAV_W_DP * dp);
-
         FrameLayout.LayoutParams navLp = new FrameLayout.LayoutParams(
                 navW, ViewGroup.LayoutParams.MATCH_PARENT);
         navLp.gravity = gravity;
         navBar.setLayoutParams(navLp);
-
         navBar.setOrientation(LinearLayout.VERTICAL);
         navBar.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
         navBar.setPadding(0, 0, 0, (int)(28 * dp));
 
-        // Rebuild children: spacer + Settings + Sounds + Radio + Home (bottom)
         navBar.removeAllViews();
-
         View spacer = new View(this);
         spacer.setTag("nav_spacer");
         spacer.setLayoutParams(new LinearLayout.LayoutParams(1, 0, 1f));
@@ -255,7 +245,6 @@ public class MainActivity extends AppCompatActivity {
         addNavItemVertical(navRadio,    navW, (int)(64 * dp));
         addNavItemVertical(navHome,     navW, (int)(64 * dp));
 
-        // Content margins
         FrameLayout.LayoutParams cLp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         cLp.setMargins(leftMargin, 0, rightMargin, 0);
@@ -274,6 +263,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // ── Tab switching ─────────────────────────────────────────────
+
     private void switchTab(int tab) {
         currentTab = tab;
         fragmentHome.setVisibility(tab == 0     ? View.VISIBLE : View.GONE);
@@ -282,11 +272,8 @@ public class MainActivity extends AppCompatActivity {
         fragmentSettings.setVisibility(tab == 3 ? View.VISIBLE : View.GONE);
         setNavSelected(tab);
 
-        if (tab == 0 && serviceBound && audioService != null) {
-            homeFragment.setAudioService(audioService);
-            homeFragment.refresh();
-        }
         if (serviceBound && audioService != null) {
+            if (tab == 0) { homeFragment.setAudioService(audioService); homeFragment.refresh(); }
             if (tab == 1) radioFragment.setAudioService(audioService);
             if (tab == 2) soundsFragment.setAudioService(audioService);
         }
@@ -316,6 +303,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // ── Haptic ────────────────────────────────────────────────────
+
     private void doHaptic() {
         if (!prefs.isHapticEnabled()) return;
         try {
@@ -338,6 +326,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // ── Permissions ───────────────────────────────────────────────
+
     private void requestNotifPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
@@ -347,9 +336,18 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void requestAudioPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.RECORD_AUDIO}, PERM_AUDIO);
+        }
+    }
+
     @Override
     public void onRequestPermissionsResult(int req, @NonNull String[] perms, @NonNull int[] res) {
         super.onRequestPermissionsResult(req, perms, res);
+        // RECORD_AUDIO granted — the visualizer will work on next radio play
     }
 
     @Override

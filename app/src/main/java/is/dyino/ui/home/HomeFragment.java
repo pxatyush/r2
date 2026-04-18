@@ -37,12 +37,15 @@ import java.util.List;
 import java.util.Map;
 
 import is.dyino.R;
+import is.dyino.model.RadioGroup;
+import is.dyino.model.RadioStation;
 import is.dyino.model.SoundCategory;
 import is.dyino.model.SoundItem;
 import is.dyino.service.AudioService;
 import is.dyino.ui.sounds.WaveView;
 import is.dyino.util.AppPrefs;
 import is.dyino.util.ColorConfig;
+import is.dyino.util.RadioLoader;
 import is.dyino.util.SettingsConfig;
 import is.dyino.util.SleepTimerManager;
 import is.dyino.util.SoundLoader;
@@ -55,7 +58,8 @@ public class HomeFragment extends Fragment {
     private AudioVisualizerView audioVisualizer;
     private ImageView           ivStationIcon;
     private TextView            tvStationName, tvBuffering, tvNowPlayingStop;
-    private TextView            btnSleepTimer;
+    private LinearLayout        actionButtonsRow;
+    private TextView            btnSleepTimer, btnDiscoverStation;
     private TextView            tvVisualizerLabel;
     private View                nowPlayingSoundsScroll;
     private LinearLayout        nowPlayingSoundsContainer;
@@ -75,7 +79,6 @@ public class HomeFragment extends Fragment {
     private static final long DOUBLE_TAP_MS = 350;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    // ── Drag state for radio volume wave ──────────────────────────
     private float   radioWaveDownY  = 0f;
     private boolean radioWaveInDrag = false;
 
@@ -86,13 +89,10 @@ public class HomeFragment extends Fragment {
         }
     };
 
-    // ── Sleep timer tick ──────────────────────────────────────────
     private final SleepTimerManager.Listener timerListener = new SleepTimerManager.Listener() {
         @Override public void onTick(long ms)  { mainHandler.post(() -> updateSleepBtn(ms)); }
         @Override public void onFinish()       { mainHandler.post(() -> { updateSleepBtn(0); refresh(); }); }
     };
-
-    // ─────────────────────────────────────────────────────────────
 
     public void setAudioService(AudioService svc) {
         this.audioService = svc;
@@ -124,7 +124,9 @@ public class HomeFragment extends Fragment {
         tvStationName            = view.findViewById(R.id.tvNowPlayingStation);
         tvBuffering              = view.findViewById(R.id.tvBuffering);
         tvNowPlayingStop         = view.findViewById(R.id.tvNowPlayingStop);
+        actionButtonsRow         = view.findViewById(R.id.actionButtonsRow);
         btnSleepTimer            = view.findViewById(R.id.btnSleepTimer);
+        btnDiscoverStation       = view.findViewById(R.id.btnDiscoverStation);
         tvVisualizerLabel        = view.findViewById(R.id.tvVisualizerLabel);
         nowPlayingSoundsScroll   = view.findViewById(R.id.nowPlayingSoundsScroll);
         nowPlayingSoundsContainer= view.findViewById(R.id.nowPlayingSoundsContainer);
@@ -163,6 +165,7 @@ public class HomeFragment extends Fragment {
     @Override public void onResume() { super.onResume(); refresh(); }
 
     // ═══════════════════════════════════════════════════════════════
+
     public void refresh() {
         if (getView() == null || colors == null) return;
         buildNowPlaying();
@@ -218,6 +221,7 @@ public class HomeFragment extends Fragment {
                 ? audioService.getAllPlayingSounds() : new java.util.HashMap<>();
         boolean soundsPlaying = !activeSounds.isEmpty();
         boolean powerSaving   = prefs.isPowerSavingEnabled();
+        boolean anyPlaying    = radioSelected || soundsPlaying;
 
         // ── Radio card ──
         if (radioSelected) {
@@ -228,7 +232,6 @@ public class HomeFragment extends Fragment {
             if (tvBuffering != null)
                 tvBuffering.setVisibility(!radioPlaying && !radioPaused ? View.VISIBLE : View.GONE);
 
-            // Station art / fallback
             if (favicon != null && !favicon.isEmpty()) {
                 if (ivStationIcon != null) ivStationIcon.clearColorFilter();
                 Glide.with(this).load(favicon)
@@ -242,9 +245,8 @@ public class HomeFragment extends Fragment {
                 }
             }
 
-            // Radio volume wave
             if (radioVolumeWave != null) {
-                float vol = audioService != null ? audioService.getRadioVolume() : 0.8f;
+                float vol = audioService.getRadioVolume();
                 radioVolumeWave.setVolume(vol);
                 radioVolumeWave.setPowerSaving(powerSaving);
                 int wc = (colors.nowPlayingAnimColor() & 0x00FFFFFF) | 0x55000000;
@@ -259,7 +261,6 @@ public class HomeFragment extends Fragment {
 
             style3DCard(nowPlayingRadioCard, radioPlaying);
 
-            // Single tap = pause/resume, double tap = favourite
             nowPlayingRadioCard.setOnClickListener(v -> {
                 long now = System.currentTimeMillis();
                 Long lst = lastTapTime.get("__np__");
@@ -276,15 +277,6 @@ public class HomeFragment extends Fragment {
                     if (audioService != null) audioService.stopRadio();
                     refresh();
                 });
-
-            // Sleep timer button
-            if (btnSleepTimer != null) {
-                btnSleepTimer.setVisibility(View.VISIBLE);
-                long rem = SleepTimerManager.get().isRunning()
-                        ? SleepTimerManager.get().getRemainingMs() : 0;
-                updateSleepBtn(rem);
-                btnSleepTimer.setOnClickListener(v -> showSleepTimerDialog());
-            }
 
             // Visualizer
             if (audioVisualizer != null && tvVisualizerLabel != null) {
@@ -305,10 +297,24 @@ public class HomeFragment extends Fragment {
 
         } else {
             nowPlayingRadioCard.setVisibility(View.GONE);
-            if (btnSleepTimer    != null) btnSleepTimer.setVisibility(View.GONE);
             if (audioVisualizer  != null) { audioVisualizer.release(); audioVisualizer.setVisibility(View.GONE); }
             if (tvVisualizerLabel != null) tvVisualizerLabel.setVisibility(View.GONE);
-            if (radioVolumeWave  != null) { radioVolumeWave.stopWave(); }
+            if (radioVolumeWave  != null) radioVolumeWave.stopWave();
+        }
+
+        // ── Action row: sleep timer + discover (shown if ANY audio playing) ──
+        if (actionButtonsRow != null) {
+            actionButtonsRow.setVisibility(anyPlaying ? View.VISIBLE : View.GONE);
+            if (anyPlaying) {
+                long rem = SleepTimerManager.get().isRunning()
+                        ? SleepTimerManager.get().getRemainingMs() : 0;
+                updateSleepBtn(rem);
+                if (btnSleepTimer != null)
+                    btnSleepTimer.setOnClickListener(v -> showSleepTimerDialog());
+                styleDiscoverBtn();
+                if (btnDiscoverStation != null)
+                    btnDiscoverStation.setOnClickListener(v -> discoverStation());
+            }
         }
 
         // ── Active sounds ──
@@ -328,7 +334,6 @@ public class HomeFragment extends Fragment {
         tvNowPlayingSoundsLabel.setVisibility(soundsPlaying ? View.VISIBLE : View.GONE);
         nowPlayingSoundsScroll.setVisibility(soundsPlaying ? View.VISIBLE : View.GONE);
 
-        boolean anyPlaying = radioSelected || soundsPlaying;
         tvNowPlayingLabel.setVisibility(anyPlaying ? View.VISIBLE : View.GONE);
         dividerNowPlaying.setVisibility(anyPlaying ? View.VISIBLE : View.GONE);
 
@@ -339,7 +344,35 @@ public class HomeFragment extends Fragment {
         tvEmpty.setVisibility(anything ? View.GONE : View.VISIBLE);
     }
 
-    // ── Sound chip with wave + drag vol ──────────────────────────
+    // ── Discover a random station ─────────────────────────────────
+    private void discoverStation() {
+        if (audioService == null) return;
+        java.util.Set<String> hidden   = prefs.getHiddenCategories();
+        java.util.Set<String> archived = prefs.getArchived();
+
+        RadioLoader.load(requireContext(), prefs, groups -> {
+            if (!isAdded()) return;
+            List<RadioStation> pool = new ArrayList<>();
+            for (RadioGroup g : groups) {
+                if ("__ARCHIVED__".equals(g.getName())) continue;
+                if (hidden.contains(g.getName())) continue;
+                for (RadioStation s : g.getStations()) {
+                    String key = AppPrefs.stationKey(s.getName(), s.getUrl(), s.getGroup());
+                    if (!archived.contains(key)) pool.add(s);
+                }
+            }
+            if (pool.isEmpty()) {
+                Toast.makeText(requireContext(), "No stations available", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            RadioStation picked = pool.get((int)(Math.random() * pool.size()));
+            prefs.addLastPlayed(AppPrefs.stationKey(picked.getName(), picked.getUrl(), picked.getGroup()));
+            audioService.playRadio(picked.getName(), picked.getUrl(), picked.getFaviconUrl());
+            refresh();
+        });
+    }
+
+    // ── Sound chip ────────────────────────────────────────────────
     @SuppressLint("ClickableViewAccessibility")
     private View buildSoundChip(String fn, String label, float vol, int w, int h, boolean powerSaving) {
         FrameLayout frame = new FrameLayout(requireContext());
@@ -397,11 +430,22 @@ public class HomeFragment extends Fragment {
         boolean running = ms > 0;
         btnSleepTimer.setText(running ? SleepTimerManager.formatRemaining(ms) : "Sleep Timer");
         GradientDrawable gd = new GradientDrawable();
-        gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(18 * dp);
+        gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(20 * dp);
         gd.setColor(running ? colors.accentDim() : colors.bgCard2());
         gd.setStroke((int)(1 * dp), running ? colors.accent() : colors.divider());
         btnSleepTimer.setBackground(gd);
         btnSleepTimer.setTextColor(running ? colors.accent() : colors.textSecondary());
+    }
+
+    private void styleDiscoverBtn() {
+        if (btnDiscoverStation == null) return;
+        float dp = getResources().getDisplayMetrics().density;
+        GradientDrawable gd = new GradientDrawable();
+        gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(20 * dp);
+        gd.setColor(colors.bgCard2());
+        gd.setStroke((int)(1 * dp), colors.divider());
+        btnDiscoverStation.setBackground(gd);
+        btnDiscoverStation.setTextColor(colors.textSecondary());
     }
 
     private void showSleepTimerDialog() {
@@ -431,9 +475,9 @@ public class HomeFragment extends Fragment {
             long[] minOpts = {15, 30, 60, 90, 120};
             String[] labels = {"15 minutes","30 minutes","1 hour","1.5 hours","2 hours"};
             for (int i = 0; i < minOpts.length; i++) {
-                final long mins = minOpts[i]; final String lbl = labels[i];
+                final long mins = minOpts[i];
                 TextView row = new TextView(requireContext());
-                row.setText(lbl); row.setTextColor(colors.textPrimary()); row.setTextSize(15f);
+                row.setText(labels[i]); row.setTextColor(colors.textPrimary()); row.setTextSize(15f);
                 row.setPadding(0,(int)(13*dp),0,(int)(13*dp));
                 row.setClickable(true); row.setFocusable(true);
                 row.setOnClickListener(v -> { SleepTimerManager.get().start(mins*60*1000L,audioService); styleSleepBtn(); if(dlgRef[0]!=null)dlgRef[0].dismiss(); });
@@ -459,22 +503,16 @@ public class HomeFragment extends Fragment {
 
     private void showCustomTimer() {
         float dp = getResources().getDisplayMetrics().density;
-        LinearLayout root = new LinearLayout(requireContext());
-        root.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout root = new LinearLayout(requireContext()); root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding((int)(20*dp),(int)(20*dp),(int)(20*dp),(int)(16*dp));
-        GradientDrawable bg = new GradientDrawable();
-        bg.setShape(GradientDrawable.RECTANGLE); bg.setCornerRadius(16*dp); bg.setColor(colors.bgCard());
-        root.setBackground(bg);
+        GradientDrawable bg = new GradientDrawable(); bg.setShape(GradientDrawable.RECTANGLE); bg.setCornerRadius(16*dp); bg.setColor(colors.bgCard()); root.setBackground(bg);
 
-        TextView tvTitle = new TextView(requireContext());
-        tvTitle.setText("Custom Duration (minutes)"); tvTitle.setTextColor(colors.textPrimary()); tvTitle.setTextSize(16f);
-        tvTitle.setPadding(0,0,0,(int)(12*dp)); root.addView(tvTitle);
+        TextView tvTitle = new TextView(requireContext()); tvTitle.setText("Custom Duration (minutes)"); tvTitle.setTextColor(colors.textPrimary()); tvTitle.setTextSize(16f); tvTitle.setPadding(0,0,0,(int)(12*dp)); root.addView(tvTitle);
 
         android.widget.EditText et = new android.widget.EditText(requireContext());
         et.setHint("e.g. 45"); et.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         et.setTextColor(colors.textPrimary()); et.setHintTextColor(colors.textSecondary());
-        GradientDrawable iBg = new GradientDrawable(); iBg.setShape(GradientDrawable.RECTANGLE); iBg.setCornerRadius(8*dp);
-        iBg.setColor(colors.bgCard2()); iBg.setStroke((int)(1*dp),colors.divider()); et.setBackground(iBg);
+        GradientDrawable iBg = new GradientDrawable(); iBg.setShape(GradientDrawable.RECTANGLE); iBg.setCornerRadius(8*dp); iBg.setColor(colors.bgCard2()); iBg.setStroke((int)(1*dp),colors.divider()); et.setBackground(iBg);
         et.setPadding((int)(12*dp),(int)(10*dp),(int)(12*dp),(int)(10*dp));
         LinearLayout.LayoutParams elp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
         elp.setMargins(0,0,0,(int)(16*dp)); et.setLayoutParams(elp); root.addView(et);
@@ -533,16 +571,16 @@ public class HomeFragment extends Fragment {
     // ── Favourites ────────────────────────────────────────────────
     private void buildFavourites() {
         List<SoundCategory> allSounds = SoundLoader.load(requireContext());
-        int perRow=cfg.favRadioPerRow(), chipH=cfg.chipHeightDp()+8; float chipR=20f;
+        int perRow=cfg.favRadioPerRow(), chipH=cfg.chipHeightDp()+8;
 
         favRadioWrap.removeAllViews();
         List<String> favRadio = deduplicateByUrl(new ArrayList<>(prefs.getFavourites()));
-        buildStationRows(favRadioWrap, favRadio, perRow, chipH, chipR);
+        buildStationRows(favRadioWrap, favRadio, perRow, chipH, 20f);
         tvFavRadioLabel.setVisibility(favRadio.isEmpty()?View.GONE:View.VISIBLE);
 
         favSoundsWrap.removeAllViews();
         List<String> favSounds = dedupList(new ArrayList<>(prefs.getFavSounds()));
-        buildSoundRows(favSoundsWrap, favSounds, allSounds, 3, chipH, chipR);
+        buildSoundRows(favSoundsWrap, favSounds, allSounds, 3, chipH, 20f);
         tvFavSoundsLabel.setVisibility(favSounds.isEmpty()?View.GONE:View.VISIBLE);
 
         dividerFav.setVisibility((!favRadio.isEmpty()||!favSounds.isEmpty())?View.VISIBLE:View.GONE);
@@ -603,7 +641,6 @@ public class HomeFragment extends Fragment {
         return tv;
     }
 
-    // Sound rows — ALL playing sounds highlighted
     private void buildSoundRows(LinearLayout c, List<String> fns, List<SoundCategory> all, int perRow, int h, float r) {
         for (int i=0;i<fns.size();i+=perRow) {
             LinearLayout row=new LinearLayout(requireContext()); row.setOrientation(LinearLayout.HORIZONTAL);
@@ -669,20 +706,21 @@ public class HomeFragment extends Fragment {
         root.setBackgroundColor(colors.bgPrimary());
         TextView title=root.findViewById(R.id.tvHomePageTitle); if(title!=null)title.setTextColor(colors.pageHeaderText());
         TextView sub=root.findViewById(R.id.tvHomePageSubtitle); if(sub!=null)sub.setTextColor(colors.pageHeaderSubtitleText());
-        if(tvNowPlayingLabel!=null)   tvNowPlayingLabel.setTextColor(colors.homeSectionTitle());
-        if(tvNowPlayingSoundsLabel!=null)tvNowPlayingSoundsLabel.setTextColor(colors.homeSectionTitle());
-        if(tvVisualizerLabel!=null)   tvVisualizerLabel.setTextColor(colors.homeSectionTitle());
-        if(tvFavRadioLabel!=null)     tvFavRadioLabel.setTextColor(colors.homeSectionTitle());
-        if(tvFavSoundsLabel!=null)    tvFavSoundsLabel.setTextColor(colors.homeSectionTitle());
-        if(tvLastPlayedLabel!=null)   tvLastPlayedLabel.setTextColor(colors.homeSectionTitle());
-        if(tvStationName!=null)       tvStationName.setTextColor(colors.textPrimary());
-        if(tvBuffering!=null)         tvBuffering.setTextColor(colors.nowPlayingAnimColor());
-        if(tvNowPlayingStop!=null)    tvNowPlayingStop.setTextColor(colors.textSecondary());
-        if(dividerNowPlaying!=null)   dividerNowPlaying.setBackgroundColor(colors.divider());
-        if(dividerFav!=null)          dividerFav.setBackgroundColor(colors.divider());
-        if(dividerLastPlayed!=null)   dividerLastPlayed.setBackgroundColor(colors.divider());
-        if(tvEmpty!=null)             tvEmpty.setTextColor(colors.homeEmptyText());
+        if(tvNowPlayingLabel!=null)      tvNowPlayingLabel.setTextColor(colors.homeSectionTitle());
+        if(tvNowPlayingSoundsLabel!=null) tvNowPlayingSoundsLabel.setTextColor(colors.homeSectionTitle());
+        if(tvVisualizerLabel!=null)      tvVisualizerLabel.setTextColor(colors.homeSectionTitle());
+        if(tvFavRadioLabel!=null)        tvFavRadioLabel.setTextColor(colors.homeSectionTitle());
+        if(tvFavSoundsLabel!=null)       tvFavSoundsLabel.setTextColor(colors.homeSectionTitle());
+        if(tvLastPlayedLabel!=null)      tvLastPlayedLabel.setTextColor(colors.homeSectionTitle());
+        if(tvStationName!=null)          tvStationName.setTextColor(colors.textPrimary());
+        if(tvBuffering!=null)            tvBuffering.setTextColor(colors.nowPlayingAnimColor());
+        if(tvNowPlayingStop!=null)       tvNowPlayingStop.setTextColor(colors.textSecondary());
+        if(dividerNowPlaying!=null)      dividerNowPlaying.setBackgroundColor(colors.divider());
+        if(dividerFav!=null)             dividerFav.setBackgroundColor(colors.divider());
+        if(dividerLastPlayed!=null)      dividerLastPlayed.setBackgroundColor(colors.divider());
+        if(tvEmpty!=null)                tvEmpty.setTextColor(colors.homeEmptyText());
         styleSleepBtn();
+        styleDiscoverBtn();
     }
 
     public void refreshTheme() {

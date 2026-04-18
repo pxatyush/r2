@@ -9,7 +9,6 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -17,17 +16,11 @@ import androidx.appcompat.widget.SwitchCompat;
 import androidx.fragment.app.Fragment;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
 
 import is.dyino.R;
 import is.dyino.util.AppPrefs;
 import is.dyino.util.ColorConfig;
-import okhttp3.Call;
-import okhttp3.Callback;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
 
 public class SettingsFragment extends Fragment {
 
@@ -44,17 +37,21 @@ public class SettingsFragment extends Fragment {
 
     // ── Static XML views ──────────────────────────────────────────
     private SwitchCompat swHaptic, swBtnSound, swPersistent;
-    private EditText     etColorCfg, etStationUrl, etCountry;
-    private TextView     btnSaveColor, btnFetch, tvFetchStatus, btnSaveCountry;
-    private TextView     tvVersion, tvMadeBy, tvSettingsTitle;
-    private LinearLayout cardToggles, cardTheme, cardStations, cardAdvanced;
+    private EditText     etColorCfg, etCountry;
+    private TextView     btnSaveColor, btnSaveCountry, tvCountryNote;
+    private TextView     tvVersion, tvMadeBy, tvSettingsTitle, tvSettingsSubtitle;
+    private LinearLayout cardToggles, cardTheme, cardStations;
     private LinearLayout themePresetsContainer;
     private LinearLayout customEditorWrap;
     private View         settingsDivider;
 
-    // ── Dynamically injected toggles (avoids XML ID issues) ───────
+    // ── Dynamically injected controls (stored for re-theming) ─────
     private SwitchCompat swWaveNotif, swPowerSaving;
     private LinearLayout navBtnsRow;
+    // Labels for extra toggles (need re-theming when theme changes)
+    private TextView tvWaveNotifTitle, tvWaveNotifSub;
+    private TextView tvPowerSavingTitle, tvPowerSavingSub;
+    private TextView tvNavPosTitle;
 
     @Nullable @Override
     public View onCreateView(@NonNull LayoutInflater inf, @Nullable ViewGroup c, @Nullable Bundle s) {
@@ -68,11 +65,11 @@ public class SettingsFragment extends Fragment {
         colors = new ColorConfig(requireContext());
 
         tvSettingsTitle      = view.findViewById(R.id.tvSettingsTitle);
+        tvSettingsSubtitle   = view.findViewById(R.id.tvSettingsSubtitle);
         settingsDivider      = view.findViewById(R.id.settingsDivider);
         cardToggles          = view.findViewById(R.id.cardToggles);
         cardTheme            = view.findViewById(R.id.cardTheme);
         cardStations         = view.findViewById(R.id.cardStations);
-        cardAdvanced         = view.findViewById(R.id.cardAdvanced);
         themePresetsContainer= view.findViewById(R.id.themePresetsContainer);
         customEditorWrap     = view.findViewById(R.id.customEditorWrap);
         swHaptic             = view.findViewById(R.id.switchHaptic);
@@ -82,9 +79,7 @@ public class SettingsFragment extends Fragment {
         btnSaveColor         = view.findViewById(R.id.btnSaveColors);
         etCountry            = view.findViewById(R.id.etCountry);
         btnSaveCountry       = view.findViewById(R.id.btnSaveCountry);
-        etStationUrl         = view.findViewById(R.id.etStationUrl);
-        btnFetch             = view.findViewById(R.id.btnFetchStations);
-        tvFetchStatus        = view.findViewById(R.id.tvFetchStatus);
+        tvCountryNote        = view.findViewById(R.id.tvCountryNote);
         tvMadeBy             = view.findViewById(R.id.tvMadeBy);
         tvVersion            = view.findViewById(R.id.tvVersion);
 
@@ -103,22 +98,20 @@ public class SettingsFragment extends Fragment {
             colors.saveRaw(etColorCfg.getText().toString());
             prefs.setActiveThemeName("Custom");
             if(listener!=null)listener.onThemeChanged();
-            // Immediately re-apply theme in this fragment
             colors=new ColorConfig(requireContext());
             applyTheme(getView());
             buildThemePresets();
-            Toast.makeText(requireContext(),"Custom theme saved",Toast.LENGTH_SHORT).show();
+            // No toast — theme change is visually obvious
         });
+
         if (btnSaveCountry!=null) btnSaveCountry.setOnClickListener(v->{
             if(etCountry==null)return;
-            String c=etCountry.getText().toString().trim();prefs.setRadioCountry(c);prefs.saveRadioCache("");
-            Toast.makeText(requireContext(),"Set to \""+(c.isEmpty()?"Global":c)+"\". Go to Radio tab.",Toast.LENGTH_LONG).show();
-        });
-        if (btnFetch!=null) btnFetch.setOnClickListener(v->{
-            if(etStationUrl==null)return;
-            String url=etStationUrl.getText().toString().trim();
-            if(url.isEmpty()){if(tvFetchStatus!=null)tvFetchStatus.setText("Enter a URL first");return;}
-            if(tvFetchStatus!=null)tvFetchStatus.setText("Fetching…");fetchAndMerge(url);
+            String c=etCountry.getText().toString().trim();
+            prefs.setRadioCountry(c);
+            prefs.saveRadioCache(""); // Invalidate cache so new country loads fresh
+            android.widget.Toast.makeText(requireContext(),
+                "Country set to \"" + (c.isEmpty()?"Global":c) + "\". Go to Radio tab.",
+                android.widget.Toast.LENGTH_LONG).show();
         });
 
         injectExtraToggles();
@@ -126,44 +119,82 @@ public class SettingsFragment extends Fragment {
         applyTheme(view);
     }
 
-    // ── Inject extra toggles programmatically ────────────────────
+    // ── Inject extra toggles ──────────────────────────────────────
     private void injectExtraToggles() {
         if (cardToggles == null) return;
         float dp = density();
 
-        // Wave Notif toggle
+        // ── Wave Notification Visualiser ──────────────────────────
         addDivider(cardToggles, dp);
-        LinearLayout wRow = makeSwitchRow("Wave Notification Visualiser",
-                "Animated waveform in media notification", dp);
+        LinearLayout wRow = new LinearLayout(requireContext());
+        wRow.setOrientation(LinearLayout.HORIZONTAL);
+        wRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        wRow.setPadding((int)(16*dp),0,(int)(12*dp),0);
+        wRow.setMinimumHeight((int)(56*dp));
+
+        LinearLayout wText = new LinearLayout(requireContext()); wText.setOrientation(LinearLayout.VERTICAL);
+        wText.setLayoutParams(new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f));
+        wText.setPadding(0,(int)(10*dp),0,(int)(10*dp));
+
+        tvWaveNotifTitle = new TextView(requireContext());
+        tvWaveNotifTitle.setText("Wave Notification Icon");
+        tvWaveNotifTitle.setTextSize(14f); wText.addView(tvWaveNotifTitle);
+
+        tvWaveNotifSub = new TextView(requireContext());
+        tvWaveNotifSub.setText("Animated wave graphic in media notification");
+        tvWaveNotifSub.setTextSize(12f);
+        tvWaveNotifSub.setPadding(0,(int)(2*dp),0,0); wText.addView(tvWaveNotifSub);
+        wRow.addView(wText);
+
         swWaveNotif = new SwitchCompat(requireContext());
         swWaveNotif.setChecked(prefs.isWaveNotifEnabled());
         swWaveNotif.setOnCheckedChangeListener((b,v)->prefs.setWaveNotifEnabled(v));
         wRow.addView(swWaveNotif);
         cardToggles.addView(wRow);
 
-        // Power Saving toggle
+        // ── Power Saving ──────────────────────────────────────────
         addDivider(cardToggles, dp);
-        LinearLayout psRow = makeSwitchRow("Power Saving Mode",
-                "Disables waves & visualizer — saves battery", dp);
+        LinearLayout psRow = new LinearLayout(requireContext());
+        psRow.setOrientation(LinearLayout.HORIZONTAL);
+        psRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        psRow.setPadding((int)(16*dp),0,(int)(12*dp),0);
+        psRow.setMinimumHeight((int)(56*dp));
+
+        LinearLayout psText = new LinearLayout(requireContext()); psText.setOrientation(LinearLayout.VERTICAL);
+        psText.setLayoutParams(new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f));
+        psText.setPadding(0,(int)(10*dp),0,(int)(10*dp));
+
+        tvPowerSavingTitle = new TextView(requireContext());
+        tvPowerSavingTitle.setText("Power Saving Mode");
+        tvPowerSavingTitle.setTextSize(14f); psText.addView(tvPowerSavingTitle);
+
+        tvPowerSavingSub = new TextView(requireContext());
+        tvPowerSavingSub.setText("Disables waves & visualizer to save battery");
+        tvPowerSavingSub.setTextSize(12f);
+        tvPowerSavingSub.setPadding(0,(int)(2*dp),0,0); psText.addView(tvPowerSavingSub);
+        psRow.addView(psText);
+
         swPowerSaving = new SwitchCompat(requireContext());
         swPowerSaving.setChecked(prefs.isPowerSavingEnabled());
         swPowerSaving.setOnCheckedChangeListener((b,v)->prefs.setPowerSavingEnabled(v));
         psRow.addView(swPowerSaving);
         cardToggles.addView(psRow);
 
-        // Nav position
+        // ── Nav position ──────────────────────────────────────────
         addDivider(cardToggles, dp);
         LinearLayout navSection = new LinearLayout(requireContext());
         navSection.setOrientation(LinearLayout.VERTICAL);
         navSection.setPadding((int)(16*dp),(int)(12*dp),(int)(12*dp),(int)(12*dp));
 
-        TextView navLabel = new TextView(requireContext());
-        navLabel.setText("Navigation Position"); navLabel.setTextColor(colors.textSettingsLabel());
-        navLabel.setTextSize(14f); navSection.addView(navLabel);
+        tvNavPosTitle = new TextView(requireContext());
+        tvNavPosTitle.setText("Navigation Position");
+        tvNavPosTitle.setTextSize(14f);
+        navSection.addView(tvNavPosTitle);
 
         navBtnsRow = new LinearLayout(requireContext());
         navBtnsRow.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams nblp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);
+        LinearLayout.LayoutParams nblp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         nblp.setMargins(0,(int)(8*dp),0,0); navBtnsRow.setLayoutParams(nblp);
         rebuildNavBtns(dp);
         navSection.addView(navBtnsRow);
@@ -184,11 +215,17 @@ public class SettingsFragment extends Fragment {
             LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
             blp.setMargins(0,0,(int)(6*dp),0); btn.setLayoutParams(blp);
 
-            GradientDrawable gd = new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(8*dp);
-            if (val.equals(current)) { gd.setColor(colors.accent()); btn.setTextColor(0xFFFFFFFF); }
-            else { gd.setColor(colors.bgCard2()); gd.setStroke((int)(1*dp),colors.divider()); btn.setTextColor(colors.textSecondary()); }
+            GradientDrawable gd = new GradientDrawable();
+            gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(8*dp);
+            if (val.equals(current)) {
+                gd.setColor(colors.accent());
+                btn.setTextColor(isLight(colors.accent()) ? 0xFF111111 : 0xFFFFFFFF);
+            } else {
+                gd.setColor(colors.bgCard2());
+                gd.setStroke((int)(1*dp), colors.divider());
+                btn.setTextColor(colors.textSecondary());
+            }
             btn.setBackground(gd);
-
             btn.setOnClickListener(v -> {
                 prefs.setNavPosition(val);
                 if (listener != null) listener.onNavPositionChanged();
@@ -202,27 +239,6 @@ public class SettingsFragment extends Fragment {
         View div = new View(requireContext()); div.setBackgroundColor(colors.divider());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,1);
         lp.setMargins((int)(16*dp),0,0,0); div.setLayoutParams(lp); parent.addView(div);
-    }
-
-    private LinearLayout makeSwitchRow(String title, String sub, float dp) {
-        LinearLayout row = new LinearLayout(requireContext());
-        row.setOrientation(LinearLayout.HORIZONTAL); row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        row.setPadding((int)(16*dp),0,(int)(12*dp),0);
-        row.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT));
-        row.setMinimumHeight((int)(56*dp));
-
-        LinearLayout text = new LinearLayout(requireContext()); text.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f);
-        text.setLayoutParams(tlp); text.setPadding(0,(int)(10*dp),0,(int)(10*dp));
-
-        TextView tvTitle = new TextView(requireContext()); tvTitle.setText(title);
-        tvTitle.setTextColor(colors.textSettingsLabel()); tvTitle.setTextSize(14f); text.addView(tvTitle);
-        TextView tvSub   = new TextView(requireContext()); tvSub.setText(sub);
-        tvSub.setTextColor(colors.textSettingsHint()); tvSub.setTextSize(12f);
-        tvSub.setPadding(0,(int)(2*dp),0,0); text.addView(tvSub);
-
-        row.addView(text);
-        return row;
     }
 
     // ── 30 Themes ─────────────────────────────────────────────────
@@ -315,7 +331,7 @@ public class SettingsFragment extends Fragment {
                 addPresetBtn(name,dp,false,name.equals(active),()->{
                     try{BufferedReader br=new BufferedReader(new InputStreamReader(requireContext().getAssets().open("themes/"+fname)));
                         StringBuilder sb=new StringBuilder();String line;while((line=br.readLine())!=null)sb.append(line).append('\n');br.close();applyThemeJson(sb.toString(),name);}
-                    catch(Exception e){Toast.makeText(requireContext(),"Failed",Toast.LENGTH_SHORT).show();}
+                    catch(Exception e){android.widget.Toast.makeText(requireContext(),"Failed",android.widget.Toast.LENGTH_SHORT).show();}
                 });
             }
         } catch (Exception ignored) {}
@@ -344,34 +360,22 @@ public class SettingsFragment extends Fragment {
     private void applyThemeJson(String json, String name) {
         colors.saveRaw(json); prefs.setActiveThemeName(name);
         colors = new ColorConfig(requireContext());
-        // Apply to this fragment immediately — before broadcasting to activity
         applyTheme(getView());
         buildThemePresets();
         if (listener != null) listener.onThemeChanged();
         if (etColorCfg != null) etColorCfg.setText(colors.readRaw());
-        Toast.makeText(requireContext(), name + " applied", Toast.LENGTH_SHORT).show();
-    }
-
-    private void fetchAndMerge(String url) {
-        new OkHttpClient().newCall(new Request.Builder().url(url).build()).enqueue(new Callback(){
-            @Override public void onFailure(Call c,IOException e){requireActivity().runOnUiThread(()->{if(tvFetchStatus!=null)tvFetchStatus.setText("Failed: "+e.getMessage());});}
-            @Override public void onResponse(Call c,Response r)throws IOException{
-                if(!r.isSuccessful()){requireActivity().runOnUiThread(()->{if(tvFetchStatus!=null)tvFetchStatus.setText("HTTP "+r.code());});return;}
-                String body=r.body()!=null?r.body().string():"";
-                try{java.io.File f=new java.io.File(requireContext().getFilesDir(),"radio_extra.cfg");java.io.FileWriter fw=new java.io.FileWriter(f,true);fw.write("\n"+body);fw.close();}catch(Exception ignored){}
-                requireActivity().runOnUiThread(()->{if(tvFetchStatus!=null)tvFetchStatus.setText("Done. Go to Radio tab.");});
-            }
-        });
+        // No toast — the visual change is the confirmation
     }
 
     // ── Theming ───────────────────────────────────────────────────
     public void applyTheme(View root) {
         if (root == null || colors == null) return;
         root.setBackgroundColor(colors.bgPrimary());
-        if (tvSettingsTitle != null) tvSettingsTitle.setTextColor(colors.pageHeaderText());
-        if (settingsDivider != null) settingsDivider.setBackgroundColor(colors.settingsDivider());
+        if (tvSettingsTitle    != null) tvSettingsTitle.setTextColor(colors.pageHeaderText());
+        if (tvSettingsSubtitle != null) tvSettingsSubtitle.setTextColor(colors.pageHeaderSubtitleText());
+        if (settingsDivider    != null) settingsDivider.setBackgroundColor(colors.settingsDivider());
 
-        styleCard(cardToggles); styleCard(cardTheme); styleCard(cardStations); styleCard(cardAdvanced);
+        styleCard(cardToggles); styleCard(cardTheme); styleCard(cardStations);
 
         lbl(root.findViewById(R.id.tvToggleHeader));
         lbl(root.findViewById(R.id.tvHapticLabel));
@@ -381,19 +385,23 @@ public class SettingsFragment extends Fragment {
         lbl(root.findViewById(R.id.tvThemePresetsHeader));
         lbl(root.findViewById(R.id.tvThemeHeader));
         lbl(root.findViewById(R.id.tvCountryHeader));
-        lbl(root.findViewById(R.id.tvCountryNote));
-        lbl(root.findViewById(R.id.tvAdvancedHeader));
-        lbl(root.findViewById(R.id.tvStationsHeader));
+        if (tvCountryNote != null) tvCountryNote.setTextColor(colors.textSettingsHint());
 
-        styleInput(etColorCfg); styleInput(etCountry); styleInput(etStationUrl);
-        styleBtn(btnSaveColor); styleBtn(btnSaveCountry); styleBtn(btnFetch);
+        styleInput(etColorCfg); styleInput(etCountry);
+        styleBtn(btnSaveColor); styleBtn(btnSaveCountry);
         buildThemePresets();
 
-        if (tvFetchStatus != null) tvFetchStatus.setTextColor(colors.textSettingsHint());
-        if (tvVersion     != null) tvVersion.setTextColor(colors.textSettingsVersion());
-        if (tvMadeBy      != null) applyMadeByColors();
+        if (tvVersion != null) tvVersion.setTextColor(colors.textSettingsVersion());
+        if (tvMadeBy  != null) applyMadeByColors();
         styleSwitches();
-        if (navBtnsRow != null) rebuildNavBtns(density());
+
+        // Re-theme dynamically-injected extra toggle labels
+        if (tvWaveNotifTitle  != null) tvWaveNotifTitle.setTextColor(colors.textSettingsLabel());
+        if (tvWaveNotifSub    != null) tvWaveNotifSub.setTextColor(colors.textSettingsHint());
+        if (tvPowerSavingTitle != null) tvPowerSavingTitle.setTextColor(colors.textSettingsLabel());
+        if (tvPowerSavingSub  != null) tvPowerSavingSub.setTextColor(colors.textSettingsHint());
+        if (tvNavPosTitle     != null) tvNavPosTitle.setTextColor(colors.textSettingsLabel());
+        if (navBtnsRow        != null) rebuildNavBtns(density());
     }
 
     private void styleSwitches() {

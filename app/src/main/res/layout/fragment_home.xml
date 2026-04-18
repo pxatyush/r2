@@ -61,16 +61,12 @@
                 android:paddingTop="20dp" android:paddingBottom="10dp"
                 android:visibility="gone"/>
 
-            <!--
-              Radio now-playing card — 3D raised.
-              Wave visualiser sits behind content.
-              Radio volume WaveView at bottom of card.
-            -->
+            <!-- Radio now-playing card -->
             <FrameLayout
                 android:id="@+id/nowPlayingRadioCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
+                android:layout_marginBottom="10dp"
                 android:elevation="8dp"
                 android:clickable="true" android:focusable="true"
                 android:visibility="gone">
@@ -80,7 +76,6 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical">
 
-                    <!-- Top row: icon + name + stop button -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -124,7 +119,6 @@
 
                         </LinearLayout>
 
-                        <!-- Stop button -->
                         <TextView
                             android:id="@+id/tvNowPlayingStop"
                             android:layout_width="32dp" android:layout_height="32dp"
@@ -134,54 +128,60 @@
 
                     </LinearLayout>
 
-                    <!-- Radio volume WaveView (drag up/down to adjust volume) -->
+                    <!-- Radio volume wave -->
                     <is.dyino.ui.sounds.WaveView
                         android:id="@+id/radioVolumeWave"
                         android:layout_width="match_parent"
                         android:layout_height="36dp"
                         android:layout_marginLeft="14dp"
                         android:layout_marginRight="14dp"
-                        android:layout_marginBottom="12dp"
-                        android:visibility="visible"/>
+                        android:layout_marginBottom="12dp"/>
 
                 </LinearLayout>
 
             </FrameLayout>
 
-            <!-- Sleep Timer — standalone pill below Now Playing, above visualizer -->
-            <TextView
-                android:id="@+id/btnSleepTimer"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="Sleep Timer"
-                android:textSize="12sp"
-                android:textColor="#8888AA"
-                android:gravity="center"
-                android:paddingLeft="18dp" android:paddingRight="18dp"
-                android:layout_gravity="start"
-                android:layout_marginBottom="12dp"
-                android:clickable="true" android:focusable="true"
-                android:visibility="gone"/>
-
-            <!-- VISUALIZER section -->
-            <TextView
-                android:id="@+id/tvVisualizerLabel"
+            <!--
+              Action row: Sleep Timer | Discover Stations
+              Visible whenever radio OR sounds are playing.
+            -->
+            <LinearLayout
+                android:id="@+id/actionButtonsRow"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="VISUALIZER"
-                android:textColor="#FFFFFF" android:textSize="11sp"
-                android:letterSpacing="0.1" android:fontFamily="sans-serif-medium"
-                android:paddingBottom="8dp"
-                android:visibility="gone"/>
+                android:orientation="horizontal"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone">
 
-            <is.dyino.ui.home.AudioVisualizerView
-                android:id="@+id/audioVisualizer"
-                android:layout_width="match_parent"
-                android:layout_height="72dp"
-                android:layout_marginBottom="16dp"
-                android:visibility="gone"/>
+                <TextView
+                    android:id="@+id/btnSleepTimer"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:text="Sleep Timer"
+                    android:textSize="12sp"
+                    android:textColor="#8888AA"
+                    android:gravity="center"
+                    android:clickable="true" android:focusable="true"/>
 
-            <!-- Active sounds label -->
+                <View
+                    android:layout_width="8dp"
+                    android:layout_height="38dp"/>
+
+                <TextView
+                    android:id="@+id/btnDiscoverStation"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:text="Discover"
+                    android:textSize="12sp"
+                    android:textColor="#8888AA"
+                    android:gravity="center"
+                    android:clickable="true" android:focusable="true"/>
+
+            </LinearLayout>
+
+            <!-- ACTIVE SOUNDS label -->
             <TextView
                 android:id="@+id/tvNowPlayingSoundsLabel"
                 android:layout_width="match_parent"
@@ -214,6 +214,24 @@
                 android:id="@+id/dividerNowPlaying"
                 android:layout_width="match_parent" android:layout_height="1dp"
                 android:background="#22223A"
+                android:visibility="gone"/>
+
+            <!-- VISUALIZER section -->
+            <TextView
+                android:id="@+id/tvVisualizerLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="VISUALIZER"
+                android:textColor="#FFFFFF" android:textSize="11sp"
+                android:letterSpacing="0.1" android:fontFamily="sans-serif-medium"
+                android:paddingTop="16dp" android:paddingBottom="8dp"
+                android:visibility="gone"/>
+
+            <is.dyino.ui.home.AudioVisualizerView
+                android:id="@+id/audioVisualizer"
+                android:layout_width="match_parent"
+                android:layout_height="72dp"
+                android:layout_marginBottom="16dp"
                 android:visibility="gone"/>
 
             <!-- FAVOURITE RADIO -->

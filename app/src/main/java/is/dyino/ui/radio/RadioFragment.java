@@ -5,7 +5,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -40,6 +39,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import is.dyino.R;
@@ -70,14 +70,12 @@ public class RadioFragment extends Fragment {
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    /** Receives state broadcasts from AudioService (notification actions, etc.) */
     private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) {
             mainHandler.post(() -> {
                 if (audioService == null || tvNowPlaying == null) return;
                 if (!audioService.isRadioSelected()) {
-                    tvNowPlaying.setText("Select a station");
-                    selectedStation = null;
+                    tvNowPlaying.setText("Select a station"); selectedStation = null;
                     if (adapter != null) adapter.setActiveStation(null);
                 } else if (audioService.isRadioPlaying()) {
                     tvNowPlaying.setText(audioService.getCurrentName());
@@ -149,59 +147,250 @@ public class RadioFragment extends Fragment {
         try { requireContext().unregisterReceiver(stateReceiver); } catch (Exception ignored) {}
     }
 
-    // ── Country dialog ───────────────────────────────────────────
+    // ── Country picker dialog ─────────────────────────────────────
     private void showCountryDialog() {
-        float dp = getResources().getDisplayMetrics().density;
-        LinearLayout container = new LinearLayout(requireContext());
-        container.setOrientation(LinearLayout.VERTICAL);
-        container.setBackgroundColor(colors.bgCard());
-        int pad = (int)(24 * dp); container.setPadding(pad, pad, pad, pad);
+        float dp      = getResources().getDisplayMetrics().density;
+        int screenW   = getResources().getDisplayMetrics().widthPixels;
+        int screenH   = getResources().getDisplayMetrics().heightPixels;
 
-        TextView title = new TextView(requireContext());
-        title.setText("Radio Country"); title.setTextColor(colors.textPrimary()); title.setTextSize(20f);
-        title.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
-        container.addView(title);
+        // Root
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        GradientDrawable rootBg = new GradientDrawable();
+        rootBg.setShape(GradientDrawable.RECTANGLE);
+        rootBg.setCornerRadius(16 * dp);
+        rootBg.setColor(colors.bgCard());
+        root.setBackground(rootBg);
+        root.setClipToOutline(true);
 
-        TextView sub = new TextView(requireContext());
-        sub.setText("Enter your country to fetch local stations");
-        sub.setTextColor(colors.textSecondary()); sub.setTextSize(13f);
-        LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        subLp.setMargins(0,(int)(6*dp),0,(int)(20*dp)); sub.setLayoutParams(subLp); container.addView(sub);
+        // Title
+        TextView tvTitle = new TextView(requireContext());
+        tvTitle.setText("Your Country");
+        tvTitle.setTextColor(colors.textPrimary()); tvTitle.setTextSize(18f);
+        tvTitle.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
+        tvTitle.setPadding((int)(20*dp), (int)(18*dp), (int)(20*dp), (int)(2*dp));
+        root.addView(tvTitle);
 
-        EditText input = new EditText(requireContext());
-        input.setHint("India, Germany, USA…"); input.setTextColor(colors.radioSearchText());
-        input.setHintTextColor(colors.radioSearchHint()); input.setTextSize(15f);
-        input.setPadding((int)(14*dp),(int)(12*dp),(int)(14*dp),(int)(12*dp)); input.setSingleLine(true);
-        GradientDrawable inputBg = new GradientDrawable();
-        inputBg.setShape(GradientDrawable.RECTANGLE); inputBg.setCornerRadius(10*dp);
-        inputBg.setColor(colors.settingsInputBg()); inputBg.setStroke((int)(1*dp), colors.divider());
-        input.setBackground(inputBg);
-        LinearLayout.LayoutParams inputLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        inputLp.setMargins(0,0,0,(int)(20*dp)); input.setLayoutParams(inputLp); container.addView(input);
+        TextView tvSub = new TextView(requireContext());
+        tvSub.setText("Select to load local radio stations");
+        tvSub.setTextColor(colors.textSecondary()); tvSub.setTextSize(12f);
+        tvSub.setPadding((int)(20*dp), 0, (int)(20*dp), (int)(10*dp));
+        root.addView(tvSub);
 
-        LinearLayout btnRow = new LinearLayout(requireContext()); btnRow.setOrientation(LinearLayout.HORIZONTAL);
-        TextView btnSkip = makeDialogBtn("Use Global", false), btnFetch = makeDialogBtn("Fetch", true);
-        LinearLayout.LayoutParams bpSkip = new LinearLayout.LayoutParams(0,(int)(44*dp),1f);
-        bpSkip.setMargins(0,0,(int)(8*dp),0); btnSkip.setLayoutParams(bpSkip);
-        btnFetch.setLayoutParams(new LinearLayout.LayoutParams(0,(int)(44*dp),1f));
-        btnRow.addView(btnSkip); btnRow.addView(btnFetch); container.addView(btnRow);
+        // Search
+        EditText etSearch2 = new EditText(requireContext());
+        etSearch2.setHint("Search countries…");
+        etSearch2.setTextColor(colors.textPrimary());
+        etSearch2.setHintTextColor(colors.textSecondary()); etSearch2.setTextSize(14f); etSearch2.setSingleLine(true);
+        etSearch2.setPadding((int)(14*dp),(int)(10*dp),(int)(14*dp),(int)(10*dp));
+        GradientDrawable sBg = new GradientDrawable(); sBg.setShape(GradientDrawable.RECTANGLE);
+        sBg.setCornerRadius(10*dp); sBg.setColor(colors.bgCard2()); sBg.setStroke((int)(1*dp),colors.divider());
+        etSearch2.setBackground(sBg);
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        slp.setMargins((int)(16*dp),0,(int)(16*dp),(int)(8*dp)); etSearch2.setLayoutParams(slp);
+        root.addView(etSearch2);
 
-        AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(container).setCancelable(false).create();
-        if (dialog.getWindow()!=null) dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-        btnSkip.setOnClickListener(v -> { prefs.setRadioCountry(""); loadRadioStations(); dialog.dismiss(); });
-        btnFetch.setOnClickListener(v -> { prefs.setRadioCountry(input.getText().toString().trim()); loadRadioStations(); dialog.dismiss(); });
+        // Loading
+        TextView tvLoading = new TextView(requireContext());
+        tvLoading.setText("Loading countries…");
+        tvLoading.setTextColor(colors.textSecondary()); tvLoading.setGravity(Gravity.CENTER);
+        tvLoading.setPadding(0,(int)(32*dp),0,(int)(32*dp));
+        root.addView(tvLoading);
+
+        // RecyclerView
+        RecyclerView rv = new RecyclerView(requireContext());
+        rv.setLayoutManager(new LinearLayoutManager(requireContext()));
+        rv.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        rv.setVisibility(View.GONE);
+        LinearLayout.LayoutParams rvLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+        rv.setLayoutParams(rvLp);
+        root.addView(rv);
+
+        // Bottom divider
+        View div = new View(requireContext());
+        div.setBackgroundColor(colors.divider());
+        div.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1));
+        root.addView(div);
+
+        // Button row
+        LinearLayout btnRow = new LinearLayout(requireContext());
+        btnRow.setOrientation(LinearLayout.HORIZONTAL);
+
+        TextView btnGlobal = makeDialogBtn2("Use Global", false);
+        btnGlobal.setLayoutParams(new LinearLayout.LayoutParams(0, (int)(48*dp), 1f));
+        btnRow.addView(btnGlobal);
+
+        View btnDiv = new View(requireContext());
+        btnDiv.setBackgroundColor(colors.divider());
+        btnDiv.setLayoutParams(new LinearLayout.LayoutParams(1, ViewGroup.LayoutParams.MATCH_PARENT));
+        btnRow.addView(btnDiv);
+
+        TextView btnConfirm = makeDialogBtn2("Confirm", true);
+        btnConfirm.setLayoutParams(new LinearLayout.LayoutParams(0, (int)(48*dp), 1f));
+        btnRow.addView(btnConfirm);
+
+        root.addView(btnRow);
+
+        // Dialog
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
+                .setView(root).setCancelable(false).create();
+        if (dialog.getWindow() != null)
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
         dialog.show();
+        if (dialog.getWindow() != null)
+            dialog.getWindow().setLayout((int)(screenW * 0.90f), (int)(screenH * 0.72f));
+
+        // State
+        String deviceIso = Locale.getDefault().getCountry().toUpperCase();
+        final String[] selectedCountry = {null};
+        final List<RadioLoader.CountryItem> allItems = new ArrayList<>();
+
+        btnGlobal.setOnClickListener(v -> {
+            prefs.setRadioCountry(""); prefs.saveRadioCache("");
+            loadRadioStations(); dialog.dismiss();
+        });
+        btnConfirm.setOnClickListener(v -> {
+            if (selectedCountry[0] != null) prefs.setRadioCountry(selectedCountry[0]);
+            else prefs.setRadioCountry("");
+            prefs.saveRadioCache(""); loadRadioStations(); dialog.dismiss();
+        });
+
+        // Fetch countries
+        RadioLoader.loadCountries(new RadioLoader.CountriesCallback() {
+            @Override public void onLoaded(List<RadioLoader.CountryItem> countries) {
+                if (!isAdded() || !dialog.isShowing()) return;
+                allItems.addAll(countries);
+
+                // Detect device country
+                String devCountry = null;
+                for (RadioLoader.CountryItem item : countries)
+                    if (item.iso.equalsIgnoreCase(deviceIso)) { devCountry = item.name; break; }
+                selectedCountry[0] = devCountry;
+
+                final CountryListAdapter adapter2 = new CountryListAdapter(countries, devCountry, colors, dp);
+                adapter2.setOnItemClickListener(name -> selectedCountry[0] = name);
+                rv.setAdapter(adapter2);
+
+                tvLoading.setVisibility(View.GONE);
+                rv.setVisibility(View.VISIBLE);
+
+                // Scroll to device country
+                if (devCountry != null) {
+                    for (int i = 0; i < countries.size(); i++) {
+                        if (countries.get(i).name.equals(devCountry)) {
+                            final int pos = Math.max(0, i - 2);
+                            rv.post(() -> rv.scrollToPosition(pos));
+                            break;
+                        }
+                    }
+                }
+
+                // Live search filter
+                etSearch2.addTextChangedListener(new TextWatcher() {
+                    @Override public void beforeTextChanged(CharSequence s, int st, int c, int a) {}
+                    @Override public void afterTextChanged(Editable s) {}
+                    @Override public void onTextChanged(CharSequence s, int st, int b, int c) {
+                        String q = s.toString().toLowerCase().trim();
+                        if (q.isEmpty()) { adapter2.updateList(allItems); return; }
+                        List<RadioLoader.CountryItem> filtered = new ArrayList<>();
+                        for (RadioLoader.CountryItem item : allItems)
+                            if (item.name.toLowerCase().contains(q)) filtered.add(item);
+                        adapter2.updateList(filtered);
+                    }
+                });
+            }
+
+            @Override public void onError() {
+                if (!isAdded()) return;
+                tvLoading.setText("Could not load countries. Use Global or try again.");
+                btnConfirm.setVisibility(View.GONE);
+            }
+        });
     }
 
-    private TextView makeDialogBtn(String label, boolean primary) {
+    private TextView makeDialogBtn2(String label, boolean primary) {
         float dp = getResources().getDisplayMetrics().density;
         TextView tv = new TextView(requireContext());
         tv.setText(label); tv.setGravity(Gravity.CENTER); tv.setTextSize(14f);
-        GradientDrawable gd = new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(10*dp);
-        if (primary) { gd.setColor(colors.accent()); tv.setTextColor(0xFFFFFFFF); }
-        else { gd.setColor(colors.bgCard2()); gd.setStroke((int)(1*dp),colors.divider()); tv.setTextColor(colors.textSecondary()); }
-        tv.setBackground(gd); tv.setClickable(true); tv.setFocusable(true);
+        tv.setClickable(true); tv.setFocusable(true);
+        if (primary) {
+            tv.setTextColor(colors.accent());
+            tv.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
+        } else {
+            tv.setTextColor(colors.textSecondary());
+        }
         return tv;
+    }
+
+    // ── Country list adapter ──────────────────────────────────────
+    static class CountryListAdapter extends RecyclerView.Adapter<CountryListAdapter.VH> {
+        interface OnItemClick { void onItem(String name); }
+
+        private List<RadioLoader.CountryItem> items;
+        private String selected;
+        private final ColorConfig colors;
+        private final float dp;
+        private OnItemClick listener;
+
+        CountryListAdapter(List<RadioLoader.CountryItem> items, String sel, ColorConfig c, float d) {
+            this.items = new ArrayList<>(items); this.selected = sel; this.colors = c; this.dp = d;
+        }
+
+        void setOnItemClickListener(OnItemClick l) { listener = l; }
+
+        void updateList(List<RadioLoader.CountryItem> newList) {
+            items = new ArrayList<>(newList); notifyDataSetChanged();
+        }
+
+        @NonNull @Override
+        public VH onCreateViewHolder(@NonNull ViewGroup parent, int vt) {
+            LinearLayout row = new LinearLayout(parent.getContext());
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding((int)(20*dp),(int)(14*dp),(int)(20*dp),(int)(14*dp));
+            row.setClickable(true); row.setFocusable(true);
+            row.setLayoutParams(new RecyclerView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+            TextView tvName = new TextView(parent.getContext());
+            tvName.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            tvName.setTextSize(14f); tvName.setTag("n");
+            row.addView(tvName);
+
+            TextView tvCount = new TextView(parent.getContext());
+            tvCount.setTextSize(11f); tvCount.setTag("c");
+            row.addView(tvCount);
+
+            return new VH(row);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull VH h, int pos) {
+            RadioLoader.CountryItem item = items.get(pos);
+            LinearLayout row = (LinearLayout) h.itemView;
+            TextView tvName  = row.findViewWithTag("n");
+            TextView tvCount = row.findViewWithTag("c");
+
+            boolean isSel = item.name.equals(selected);
+            tvName.setText(item.name);
+            tvName.setTextColor(isSel ? colors.accent() : colors.textPrimary());
+            tvName.setTypeface(android.graphics.Typeface.create(
+                    isSel ? "sans-serif-medium" : "sans-serif", android.graphics.Typeface.NORMAL));
+            tvCount.setText(String.valueOf(item.stationCount));
+            tvCount.setTextColor(isSel ? colors.accent() : colors.textSecondary());
+
+            row.setOnClickListener(v -> {
+                selected = item.name;
+                if (listener != null) listener.onItem(item.name);
+                notifyDataSetChanged();
+            });
+        }
+
+        @Override public int getItemCount() { return items.size(); }
+
+        static class VH extends RecyclerView.ViewHolder { VH(View v) { super(v); } }
     }
 
     // ── Category manager ─────────────────────────────────────────
@@ -253,7 +442,6 @@ public class RadioFragment extends Fragment {
         };
         ItemTouchHelper ith = new ItemTouchHelper(cb); ith.attachToRecyclerView(rv); catAdapter.setTouchHelper(ith);
 
-        int maxH = (int)(getResources().getDisplayMetrics().heightPixels * 0.60f);
         AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(root).create();
         if(dialog.getWindow()!=null) dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
         btnDone.setOnClickListener(v -> {
@@ -263,18 +451,20 @@ public class RadioFragment extends Fragment {
             prefs.setHiddenCategories(newHidden); dialog.dismiss(); refreshAdapter();
         });
         dialog.show();
+        int maxH = (int)(getResources().getDisplayMetrics().heightPixels * 0.60f);
         if(dialog.getWindow()!=null){ int w=(int)(getResources().getDisplayMetrics().widthPixels*0.90f); int h=Math.min(maxH,catNames.size()*(int)(56*dp)+(int)(140*dp)); dialog.getWindow().setLayout(w,h); }
     }
 
+    @SuppressLint({"ClickableViewAccessibility","SetTextI18n"})
     static class CatManagerAdapter extends RecyclerView.Adapter<CatManagerAdapter.VH> {
         final List<String> names; final List<boolean[]> visible; final ColorConfig colors; final float dp;
         ItemTouchHelper touchHelper;
-        CatManagerAdapter(List<String> n, List<boolean[]> v, ColorConfig c, float d){names=n;visible=v;colors=c;dp=d;}
+        CatManagerAdapter(List<String> n,List<boolean[]> v,ColorConfig c,float d){names=n;visible=v;colors=c;dp=d;}
         void setTouchHelper(ItemTouchHelper ith){this.touchHelper=ith;}
         @NonNull @Override public VH onCreateViewHolder(@NonNull ViewGroup parent,int type){
             LinearLayout row=new LinearLayout(parent.getContext()); row.setOrientation(LinearLayout.HORIZONTAL); row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding((int)(4*dp),0,(int)(16*dp),0); row.setLayoutParams(new RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,(int)(56*dp)));
-            TextView drag=new TextView(parent.getContext()); drag.setText("☰"); drag.setTextSize(18f); drag.setTextColor(Color.parseColor("#44445A")); drag.setPadding((int)(12*dp),0,(int)(12*dp),0); drag.setTag("drag"); row.addView(drag);
+            TextView drag=new TextView(parent.getContext()); drag.setText("☰"); drag.setTextSize(18f); drag.setTextColor(android.graphics.Color.parseColor("#44445A")); drag.setPadding((int)(12*dp),0,(int)(12*dp),0); drag.setTag("drag"); row.addView(drag);
             TextView name=new TextView(parent.getContext()); name.setLayoutParams(new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1f)); name.setTextSize(14f); name.setTag("name"); row.addView(name);
             CheckBox cb=new CheckBox(parent.getContext()); cb.setTag("check");
             try { android.content.res.ColorStateList csl=android.content.res.ColorStateList.valueOf(colors.radioCheckboxColor()); androidx.core.widget.CompoundButtonCompat.setButtonTintList(cb,csl); } catch(Exception ignored){}
@@ -328,7 +518,7 @@ public class RadioFragment extends Fragment {
         }
 
         adapter = new RadioGroupAdapter(display, this::onStationClicked,
-                (station,isFav) -> { haptic(); Toast.makeText(requireContext(), isFav ? "♥ Added to Favourites" : "Removed from Favourites", Toast.LENGTH_SHORT).show(); },
+                (station, isFav) -> { haptic(); Toast.makeText(requireContext(), isFav ? "♥ Added to Favourites" : "Removed from Favourites", Toast.LENGTH_SHORT).show(); },
                 prefs, colors,
                 new RadioGroupAdapter.SwipeActionListener() {
                     @Override public void onArchive(RadioStation s) { haptic(); prefs.addArchived(AppPrefs.stationKey(s.getName(),s.getUrl(),s.getGroup())); Toast.makeText(requireContext(),"Archived",Toast.LENGTH_SHORT).show(); refreshAdapter(); }
@@ -344,8 +534,8 @@ public class RadioFragment extends Fragment {
         haptic(); clickSound();
         if (audioService == null) return;
         if (audioService.getCurrentRadioUrl().equals(station.getUrl())) {
-            if (audioService.isRadioPlaying()) { audioService.pauseAll(); if(tvNowPlaying!=null) tvNowPlaying.setText("⏸  "+station.getName()); }
-            else { audioService.resumeAll(); if(tvNowPlaying!=null) tvNowPlaying.setText(station.getName()); }
+            if (audioService.isRadioPlaying()) { audioService.pauseAll(); if(tvNowPlaying!=null)tvNowPlaying.setText("⏸  "+station.getName()); }
+            else { audioService.resumeAll(); if(tvNowPlaying!=null)tvNowPlaying.setText(station.getName()); }
             return;
         }
         selectedStation = station;
@@ -381,27 +571,24 @@ public class RadioFragment extends Fragment {
     private void clickSound() { if(audioService!=null&&prefs!=null&&prefs.isButtonSoundEnabled()) audioService.playClickSound(); }
 
     public void applyTheme(View root) {
-        if (root == null || colors == null) return;
+        if (root==null||colors==null) return;
         root.setBackgroundColor(colors.bgPrimary());
-        // Wire page header title colour
-        if (tvRadioPageTitle != null) tvRadioPageTitle.setTextColor(colors.pageHeaderText());
-        if (tvNowPlaying    != null) tvNowPlaying.setTextColor(colors.textSecondary());
-        if (etSearch != null) {
-            etSearch.setTextColor(colors.radioSearchText());
-            etSearch.setHintTextColor(colors.radioSearchHint());
-            float dp = getResources().getDisplayMetrics().density;
-            GradientDrawable gd = new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(10*dp); gd.setColor(colors.radioSearchBg());
-            etSearch.setBackground(gd);
-        }
-        if (btnCategoryFilter != null) btnCategoryFilter.setTextColor(colors.textSecondary());
-    }
+        if (tvRadioPageTitle!=null) tvRadioPageTitle.setTextColor(colors.pageHeaderText());
+if (tvNowPlaying!=null)     tvNowPlaying.setTextColor(colors.textSecondary());
+if (etSearch!=null) {
+etSearch.setTextColor(colors.radioSearchText()); etSearch.setHintTextColor(colors.radioSearchHint());
+float dp=getResources().getDisplayMetrics().density;
+GradientDrawable gd=new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(10*dp); gd.setColor(colors.radioSearchBg());
+etSearch.setBackground(gd);
+}
+if (btnCategoryFilter!=null) btnCategoryFilter.setTextColor(colors.textSecondary());
+}
+public void refresh() {
+    if (getView()==null) return;
+    colors = new ColorConfig(requireContext());
+    applyTheme(getView());
+    refreshAdapter();
+}
 
-    public void refresh() {
-        if (getView() == null) return;
-        colors = new ColorConfig(requireContext());
-        applyTheme(getView());
-        refreshAdapter();
-    }
-
-    public RadioStation getSelectedStation() { return selectedStation; }
+public RadioStation getSelectedStation() { return selectedStation; }
 }

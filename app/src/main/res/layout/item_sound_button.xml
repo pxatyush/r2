@@ -1,65 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Sound button: wave fill behind text, horizontal volume bar on long-press -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/soundBtnRoot"
     android:layout_width="match_parent"
-    android:layout_height="56dp"
+    android:layout_height="80dp"
     android:clickable="true"
     android:focusable="true"
-    android:longClickable="true">
+    android:longClickable="true"
+    android:elevation="3dp">
 
-    <!-- Wave fill canvas drawn programmatically behind text -->
+    <!-- Wave fill drawn behind everything -->
     <is.dyino.ui.sounds.WaveView
         android:id="@+id/waveView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="invisible"/>
 
-    <!-- Text label centered -->
-    <TextView
-        android:id="@+id/tvSoundName"
+    <!-- Emoji + Name stacked -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:textColor="#FFFFFF"
-        android:textSize="13sp"
+        android:orientation="vertical"
         android:gravity="center"
-        android:singleLine="true"
-        android:ellipsize="end"
-        android:paddingLeft="10dp"
-        android:paddingRight="10dp"/>
+        android:paddingLeft="8dp"
+        android:paddingRight="8dp">
 
-    <!--
-        Horizontal volume bar — shown on long-press.
-        Looks like iOS/OneUI brightness slider:
-        a thin pill track where the fill width = current volume.
-        Wave animation is hidden while this is visible.
-    -->
-    <FrameLayout
-        android:id="@+id/volumeBarOverlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="gone"
-        android:background="#CC000011">
+        <TextView
+            android:id="@+id/tvSoundEmoji"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="26sp"
+            android:gravity="center"/>
 
-        <!-- Track (full width pill) -->
-        <FrameLayout
+        <TextView
+            android:id="@+id/tvSoundName"
             android:layout_width="match_parent"
-            android:layout_height="6dp"
-            android:layout_gravity="center"
-            android:layout_marginLeft="12dp"
-            android:layout_marginRight="12dp"
-            android:background="#44FFFFFF">
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:gravity="center"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:paddingTop="3dp"/>
 
-            <!-- Fill (expands left-to-right based on volume) -->
-            <View
-                android:id="@+id/volumeBarFill"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_gravity="start"
-                android:background="#FFFFFF"/>
-
-        </FrameLayout>
-
-    </FrameLayout>
+    </LinearLayout>
 
 </FrameLayout>

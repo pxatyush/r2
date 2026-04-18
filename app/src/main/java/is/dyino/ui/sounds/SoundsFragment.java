@@ -41,6 +41,7 @@ public class SoundsFragment extends Fragment {
     private LinearLayout categoriesContainer;
     private TextView     btnStopAll;
     private TextView     tvActiveSoundsLabel;
+    private TextView     tvSoundsTitle;
 
     private AppPrefs     prefs;
     private ColorConfig  colors;
@@ -73,6 +74,7 @@ public class SoundsFragment extends Fragment {
         categoriesContainer = view.findViewById(R.id.soundsCategoriesContainer);
         btnStopAll          = view.findViewById(R.id.btnStopAll);
         tvActiveSoundsLabel = view.findViewById(R.id.tvActiveSoundsLabel);
+        tvSoundsTitle       = view.findViewById(R.id.tvSoundsPageTitle);
 
         applyTheme(view);
         categories = SoundLoader.load(requireContext());
@@ -81,8 +83,9 @@ public class SoundsFragment extends Fragment {
         btnStopAll.setOnClickListener(v -> {
             haptic(); clickSound();
             if (audioService != null) audioService.stopAllSounds();
-            for (SoundCategory cat : categories)
-                for (SoundItem s : cat.getSounds()) s.setPlaying(false);
+            if (categories != null)
+                for (SoundCategory cat : categories)
+                    for (SoundItem s : cat.getSounds()) s.setPlaying(false);
             refreshAllButtons();
             updateActiveLabel();
         });
@@ -100,6 +103,7 @@ public class SoundsFragment extends Fragment {
         try { requireContext().unregisterReceiver(stateReceiver); } catch (Exception ignored) {}
     }
 
+    // ── Build grid ────────────────────────────────────────────────
     private void buildGrid() {
         if (categoriesContainer == null || categories == null) return;
         categoriesContainer.removeAllViews();
@@ -108,33 +112,53 @@ public class SoundsFragment extends Fragment {
         int screenW = getResources().getDisplayMetrics().widthPixels;
         int navW    = (int)(52 * dp);
         int avail   = screenW - navW;
-        int gap     = (int)(5 * dp);
+        int gap     = (int)(6 * dp);
         int btnW    = (avail - gap * 3) / 2;
-        int btnH    = (int)(52 * dp);
+        int btnH    = (int)(80 * dp); // taller to show emoji + name
 
         for (SoundCategory cat : categories) {
+            // ── Category header ───────────────────────────────────
+            LinearLayout header = new LinearLayout(requireContext());
+            header.setOrientation(LinearLayout.HORIZONTAL);
+            header.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            header.setTag("cat_header"); // skip in refreshAllButtons
+
+            // Accent left bar
+            View bar = new View(requireContext());
+            bar.setBackgroundColor(colors.accent());
+            LinearLayout.LayoutParams barLp = new LinearLayout.LayoutParams((int)(3*dp), (int)(16*dp));
+            barLp.setMargins(0, 0, (int)(10*dp), 0);
+            bar.setLayoutParams(barLp);
+            header.addView(bar);
+
             TextView tvCat = new TextView(requireContext());
-            tvCat.setText(cat.getName());
+            tvCat.setText(cat.getName().toUpperCase());
             tvCat.setTextColor(colors.textSectionTitle());
-            tvCat.setTextSize(17f);
+            tvCat.setTextSize(11f);
+            tvCat.setLetterSpacing(0.12f);
             tvCat.setTypeface(android.graphics.Typeface.create(
                     "sans-serif-medium", android.graphics.Typeface.NORMAL));
+            header.addView(tvCat);
+
             LinearLayout.LayoutParams catLp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            catLp.setMargins((int)(12*dp), (int)(18*dp), (int)(12*dp), (int)(8*dp));
-            tvCat.setLayoutParams(catLp);
-            categoriesContainer.addView(tvCat);
+            catLp.setMargins((int)(12*dp), (int)(22*dp), (int)(12*dp), (int)(10*dp));
+            header.setLayoutParams(catLp);
+            categoriesContainer.addView(header);
 
+            // ── Sound buttons in 2-column rows ────────────────────
             List<SoundItem> sounds = cat.getSounds();
             for (int i = 0; i < sounds.size(); i += 2) {
                 LinearLayout row = new LinearLayout(requireContext());
                 row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setTag("button_row");
                 LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                 rowLp.setMargins(gap, 0, gap, gap);
                 row.setLayoutParams(rowLp);
 
                 row.addView(inflateBtn(sounds.get(i), btnW, btnH));
+
                 View sp = new View(requireContext());
                 sp.setLayoutParams(new LinearLayout.LayoutParams(gap, btnH));
                 row.addView(sp);
@@ -155,14 +179,12 @@ public class SoundsFragment extends Fragment {
     private View inflateBtn(SoundItem sound, int btnW, int btnH) {
         View btn        = LayoutInflater.from(requireContext())
                             .inflate(R.layout.item_sound_button, null, false);
-        TextView tvName = btn.findViewById(R.id.tvSoundName);
-        WaveView wave   = btn.findViewById(R.id.waveView);
-
-        // Hide legacy horizontal overlay
-        View volOverlay = btn.findViewById(R.id.volumeBarOverlay);
-        if (volOverlay != null) volOverlay.setVisibility(View.GONE);
+        TextView tvEmoji = btn.findViewById(R.id.tvSoundEmoji);
+        TextView tvName  = btn.findViewById(R.id.tvSoundName);
+        WaveView wave    = btn.findViewById(R.id.waveView);
 
         btn.setLayoutParams(new LinearLayout.LayoutParams(btnW, btnH));
+        if (tvEmoji != null) tvEmoji.setText(sound.getEmoji());
         tvName.setText(sound.getName());
         tvName.setTextColor(colors.soundBtnText());
 
@@ -175,8 +197,8 @@ public class SoundsFragment extends Fragment {
             });
         }
 
-        final float[]   downY     = {0f};
-        final boolean[] inDrag    = {false};
+        final float[]   downY  = {0f};
+        final boolean[] inDrag = {false};
 
         btn.setOnLongClickListener(v -> {
             inDrag[0] = true;
@@ -184,13 +206,11 @@ public class SoundsFragment extends Fragment {
             float vol = audioService != null
                     ? audioService.getSoundVolume(sound.getFileName()) : sound.getVolume();
             if (wave != null) {
-                wave.setVolume(vol);
-                sound.setVolume(vol);
+                wave.setVolume(vol); sound.setVolume(vol);
                 if (!wave.isWaving()) {
                     int wc = (colors.soundWaveColor() & 0x00FFFFFF) | 0x88000000;
                     wave.setColors(colors.soundBtnActiveBg(), wc);
-                    wave.setVisibility(View.VISIBLE);
-                    wave.startWave();
+                    wave.setVisibility(View.VISIBLE); wave.startWave();
                 }
                 wave.beginVolumeDrag(downY[0]);
             }
@@ -201,37 +221,31 @@ public class SoundsFragment extends Fragment {
             switch (ev.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     downY[0] = ev.getY(); inDrag[0] = false; break;
-
                 case MotionEvent.ACTION_MOVE:
                     if (inDrag[0] && wave != null && wave.isDragging()) {
-                        wave.handleDragMove(ev.getY());
-                        // Already told parent to stop intercepting inside WaveView.beginVolumeDrag
-                        return true;
+                        wave.handleDragMove(ev.getY()); return true;
                     }
                     break;
-
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
                     if (inDrag[0] && wave != null) wave.endDrag();
-                    inDrag[0] = false;
-                    break;
+                    inDrag[0] = false; break;
             }
             return false;
         });
 
         btn.setOnClickListener(v -> {
             if (wave != null && wave.isDragging()) return;
-
             String fn  = sound.getFileName();
             long   now = System.currentTimeMillis();
             Long   lst = lastTapTime.get(fn);
 
             if (lst != null && (now - lst) < DOUBLE_TAP_MS) {
                 lastTapTime.remove(fn); haptic();
-                boolean f = prefs.isFavSound(fn);
-                if (f) prefs.removeFavSound(fn); else prefs.addFavSound(fn);
+                boolean fav = prefs.isFavSound(fn);
+                if (fav) prefs.removeFavSound(fn); else prefs.addFavSound(fn);
                 Toast.makeText(requireContext(),
-                        f ? "Removed from Favourites" : "♥ Added to Favourites",
+                        fav ? "Removed from Favourites" : "♥ Added to Favourites",
                         Toast.LENGTH_SHORT).show();
             } else {
                 lastTapTime.put(fn, now);
@@ -247,8 +261,7 @@ public class SoundsFragment extends Fragment {
                         int wc = (colors.soundWaveColor() & 0x00FFFFFF) | 0x5A000000;
                         wave.setColors(colors.soundBtnActiveBg(), wc);
                         wave.setVolume(sound.getVolume());
-                        wave.setVisibility(View.VISIBLE);
-                        wave.startWave();
+                        wave.setVisibility(View.VISIBLE); wave.startWave();
                     }
                     applyBtnShapeActive(btn);
                     audioService.playSound(fn, sound.getVolume());
@@ -265,10 +278,16 @@ public class SoundsFragment extends Fragment {
         boolean playing = audioService != null && audioService.isSoundPlaying(sound.getFileName());
         float dp = getResources().getDisplayMetrics().density;
         GradientDrawable gd = new GradientDrawable();
-        gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(14 * dp);
-        if (playing) { gd.setColor(colors.soundBtnActiveBg()); gd.setStroke((int)(1.5f*dp), colors.soundBtnActiveBorder()); }
-        else           gd.setColor(colors.soundBtnBg());
+        gd.setShape(GradientDrawable.RECTANGLE);
+        gd.setCornerRadius(16 * dp);
+        if (playing) {
+            gd.setColor(colors.soundBtnActiveBg());
+            gd.setStroke((int)(1.5f*dp), colors.soundBtnActiveBorder());
+        } else {
+            gd.setColor(colors.soundBtnBg());
+        }
         btn.setBackground(gd);
+        btn.setClipToOutline(true);
 
         if (wave != null) {
             if (playing) {
@@ -285,22 +304,26 @@ public class SoundsFragment extends Fragment {
     private void applyBtnShapeActive(View btn) {
         float dp = getResources().getDisplayMetrics().density;
         GradientDrawable gd = new GradientDrawable();
-        gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(14 * dp);
-        gd.setColor(colors.soundBtnActiveBg()); gd.setStroke((int)(1.5f*dp), colors.soundBtnActiveBorder());
+        gd.setShape(GradientDrawable.RECTANGLE);
+        gd.setCornerRadius(16 * dp);
+        gd.setColor(colors.soundBtnActiveBg());
+        gd.setStroke((int)(1.5f*dp), colors.soundBtnActiveBorder());
         btn.setBackground(gd);
+        btn.setClipToOutline(true);
     }
 
     private void refreshAllButtons() {
         if (categoriesContainer == null) return;
         for (int i = 0; i < categoriesContainer.getChildCount(); i++) {
             View child = categoriesContainer.getChildAt(i);
-            if (!(child instanceof LinearLayout)) continue;
+            // Skip category headers (tagged) and non-row views
+            if (!"button_row".equals(child.getTag())) continue;
             LinearLayout row = (LinearLayout) child;
             for (int j = 0; j < row.getChildCount(); j++) {
                 View     btn = row.getChildAt(j);
                 TextView tv  = btn.findViewById(R.id.tvSoundName);
                 WaveView wv  = btn.findViewById(R.id.waveView);
-                if (tv == null) continue;
+                if (tv == null || categories == null) continue;
                 for (SoundCategory cat : categories)
                     for (SoundItem s : cat.getSounds())
                         if (s.getName().equals(tv.getText().toString()))
@@ -312,7 +335,8 @@ public class SoundsFragment extends Fragment {
     private void updateActiveLabel() {
         if (tvActiveSoundsLabel == null) return;
         int cnt = audioService != null ? audioService.getAllPlayingSounds().size() : 0;
-        tvActiveSoundsLabel.setText(cnt == 0 ? "No sounds playing"
+        tvActiveSoundsLabel.setText(cnt == 0
+                ? "No sounds playing"
                 : cnt + " sound" + (cnt > 1 ? "s" : "") + " playing");
     }
 
@@ -342,9 +366,8 @@ public class SoundsFragment extends Fragment {
         if (root == null || colors == null) return;
         root.setBackgroundColor(colors.bgPrimary());
 
-        // Wire page header title colour
-        TextView title = root.findViewById(R.id.tvSoundsPageTitle);
-        if (title != null) title.setTextColor(colors.pageHeaderText());
+        if (tvSoundsTitle != null)       tvSoundsTitle.setTextColor(colors.pageHeaderText());
+        if (tvActiveSoundsLabel != null) tvActiveSoundsLabel.setTextColor(colors.textSecondary());
 
         if (btnStopAll != null) {
             float dp = getResources().getDisplayMetrics().density;
@@ -359,6 +382,7 @@ public class SoundsFragment extends Fragment {
         if (getView() == null) return;
         colors = new ColorConfig(requireContext());
         applyTheme(getView());
+        categories = SoundLoader.load(requireContext());
         buildGrid();
         updateActiveLabel();
     }
