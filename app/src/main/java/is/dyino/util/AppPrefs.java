@@ -30,12 +30,21 @@ public class AppPrefs {
     private static final String WAVE_NOTIF   = "wave_notif_enabled";
     private static final String NAV_POSITION = "nav_position";
     private static final String POWER_SAVING = "power_saving";
+    private static final String VISUALIZER_TYPE = "visualizer_type";
 
     private static final int  LAST_MAX  = 10;
     private static final long CACHE_TTL = 7L * 24 * 60 * 60 * 1000;
 
     public static final String ASSET_COLOR    = "configs/color.json";
     public static final String ASSET_SETTINGS = "configs/settings.json";
+
+    // Visualizer Types
+    public static final int VIS_CENTER_BARS = 0;
+    public static final int VIS_WAVEFORM    = 1;
+    public static final int VIS_SPECTRUM    = 2;
+    public static final int VIS_DOTS        = 3;
+    public static final int VIS_HEARTBEAT   = 4;
+    public static final int VIS_CIRCULAR    = 5;
 
     private final SharedPreferences sp;
 
@@ -62,6 +71,10 @@ public class AppPrefs {
 
     public boolean isFirstRun()      { return sp.getBoolean(FIRST_RUN, true); }
     public void    setFirstRunDone() { sp.edit().putBoolean(FIRST_RUN, false).apply(); }
+
+    // ── Visualizer ───────────────────────────────────────────────
+    public int  getVisualizerType()      { return sp.getInt(VISUALIZER_TYPE, VIS_CENTER_BARS); }
+    public void setVisualizerType(int t) { sp.edit().putInt(VISUALIZER_TYPE, t).apply(); }
 
     // ── Nav position ("left" | "right" | "bottom") ───────────────
     public String getNavPosition()         { return sp.getString(NAV_POSITION, "left"); }
