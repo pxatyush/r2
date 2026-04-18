@@ -23,12 +23,12 @@ import is.dyino.util.AppPrefs;
  * without importing this UI class from non-UI code.
  *
  * Modes:
- *   0 — CENTER_BARS  symmetric bars from center, bass-driven
- *   1 — WAVEFORM     smooth waveform line, driven by raw PCM
- *   2 — SPECTRUM     symmetric left→right frequency spectrum
- *   3 — DOTS         bouncing dots with gravity
- *   4 — HEARTBEAT    EKG pulse driven by bass amplitude
- *   5 — CIRCULAR     radial bar ring
+ * 0 — CENTER_BARS  symmetric bars from center, bass-driven
+ * 1 — WAVEFORM     smooth waveform line, driven by raw PCM
+ * 2 — SPECTRUM     symmetric left→right frequency spectrum
+ * 3 — DOTS         bouncing dots with gravity
+ * 4 — HEARTBEAT    EKG pulse driven by bass amplitude
+ * 5 — CIRCULAR     radial bar ring
  */
 public class AudioVisualizerView extends View {
 
@@ -79,7 +79,7 @@ public class AudioVisualizerView extends View {
     private final Handler  handler = new Handler(Looper.getMainLooper());
     private final Runnable tick    = new Runnable() {
         @Override public void run() {
-            animate();
+            tickAnimation(); // RENAMED FROM animate()
             invalidate();
             if (attached) handler.postDelayed(this, 33);
         }
@@ -179,7 +179,7 @@ public class AudioVisualizerView extends View {
 
     // ── Per-frame animation ───────────────────────────────────────
 
-    private void animate() {
+    private void tickAnimation() { // RENAMED FROM animate()
         if (powerSaving) return;
         if (idle) {
             idlePhase += 0.055f; hbPhase += 0.08f;

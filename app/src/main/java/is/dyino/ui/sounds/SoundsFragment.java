@@ -127,13 +127,13 @@ public class SoundsFragment extends Fragment {
 
     private int chipSizeDp() { return 84; }  // same as home active-sounds chips
 
-    private int cols() { return prefs.isBottomNav() ? 4 : 3; }
+    private int cols() { return "bottom".equals(prefs.getNavPosition()) ? 4 : 3; }
 
     /** Available width in px after nav bar and outer padding. */
     private int availWidthPx() {
         float dp   = getResources().getDisplayMetrics().density;
         int screenW = getResources().getDisplayMetrics().widthPixels;
-        int navW    = prefs.isBottomNav() ? 0 : (int)(52 * dp);
+        int navW    = "bottom".equals(prefs.getNavPosition()) ? 0 : (int)(52 * dp);
         int padH    = (int)(12 * dp) * 2;
         return screenW - navW - padH;
     }
@@ -217,7 +217,7 @@ public class SoundsFragment extends Fragment {
             // We use a HorizontalScrollView so the grid doesn't get cut off
             // regardless of screen width.
             HorizontalScrollView hsv = new HorizontalScrollView(requireContext());
-            hsv.setScrollbars(0);
+            hsv.setHorizontalScrollBarEnabled(false); // FIXED HERE
             hsv.setOverScrollMode(View.OVER_SCROLL_NEVER);
             hsv.setLayoutParams(new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
