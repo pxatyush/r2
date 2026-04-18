@@ -1,6 +1,7 @@
 package is.dyino.util;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.util.Log;
 
@@ -9,24 +10,92 @@ import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.InputStreamReader;
 
+/**
+ * Reads all UI colours from a JSON string stored in SharedPreferences.
+ * No file I/O at runtime — the active theme is stored as a single
+ * SharedPreferences string under the key "active_color_json".
+ *
+ * Migration: if the old assets/configs/color.json override file
+ * (ctx.getFilesDir()/color.json) exists, it is automatically migrated
+ * to SharedPreferences and the file is deleted.
+ *
+ * Default: the built-in Dark theme is used when no saved theme exists.
+ */
 public class ColorConfig {
 
-    private static final String TAG   = "ColorConfig";
-    private static final String FILE  = "color.json";
-    private static final String ASSET = "configs/color.json";
+    private static final String TAG        = "ColorConfig";
+    private static final String PREFS      = "dyino_prefs";      // same as AppPrefs
+    private static final String PREFS_KEY  = "active_color_json";
+    private static final String LEGACY_FILE = "color.json";      // old file to migrate
 
     private JSONObject root;
     private final Context ctx;
 
-    public ColorConfig(Context ctx) { this.ctx = ctx; load(); }
+    public ColorConfig(Context ctx) {
+        this.ctx = ctx;
+        migrateFromFileIfNeeded();
+        load();
+    }
+
+    // ── Load ──────────────────────────────────────────────────────
 
     private void load() {
-        try { root = new JSONObject(readRaw()); }
-        catch (Exception e) { Log.e(TAG, "load", e); root = new JSONObject(); }
+        try {
+            String json = sp().getString(PREFS_KEY, null);
+            root = new JSONObject(json != null && !json.isEmpty() ? json : DEFAULT_JSON);
+        } catch (Exception e) {
+            Log.e(TAG, "load", e);
+            try { root = new JSONObject(); } catch (Exception ignored) {}
+        }
     }
+
+    /** One-time migration from old per-file storage to SharedPreferences. */
+    private void migrateFromFileIfNeeded() {
+        File f = new File(ctx.getFilesDir(), LEGACY_FILE);
+        if (!f.exists()) return;
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(f));
+            StringBuilder sb = new StringBuilder(); String line;
+            while ((line = br.readLine()) != null) sb.append(line).append('\n');
+            br.close();
+            String json = sb.toString().trim();
+            if (!json.isEmpty()) {
+                new JSONObject(json); // validate
+                sp().edit().putString(PREFS_KEY, json).apply();
+                Log.d(TAG, "Migrated color.json → SharedPreferences");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "migrateFromFile", e);
+        } finally {
+            //noinspection ResultOfMethodCallIgnored
+            f.delete();
+        }
+    }
+
+    // ── Save / read raw JSON ──────────────────────────────────────
+
+    public void saveRaw(String raw) {
+        try {
+            new JSONObject(raw); // validate before saving
+            sp().edit().putString(PREFS_KEY, raw).apply();
+            load();
+        } catch (Exception e) {
+            Log.e(TAG, "saveRaw", e);
+        }
+    }
+
+    /** Returns the currently active JSON, or the built-in Dark theme if none saved. */
+    public String readRaw() {
+        String saved = sp().getString(PREFS_KEY, null);
+        return (saved != null && !saved.isEmpty()) ? saved : DEFAULT_JSON;
+    }
+
+    private SharedPreferences sp() {
+        return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    // ── Internal colour lookup ────────────────────────────────────
 
     private int color(String section, String key, String fallback) {
         try {
@@ -34,25 +103,23 @@ public class ColorConfig {
             String v = sec != null ? sec.optString(key, null) : null;
             return Color.parseColor(v != null && !v.isEmpty() ? v : fallback);
         } catch (Exception e) {
-            try { return Color.parseColor(fallback); } catch (Exception ignored) { return Color.WHITE; }
+            try { return Color.parseColor(fallback); }
+            catch (Exception ignored) { return Color.WHITE; }
         }
     }
 
     // ── Global ────────────────────────────────────────────────────
-    public int bgPrimary()       { return color("global","bg_primary",      "#0D0D14"); }
-    public int bgCard()          { return color("global","bg_card",         "#16161F"); }
-    public int bgCard2()         { return color("global","bg_card2",        "#1E1E2A"); }
-    public int accent()          { return color("global","accent",          "#6C63FF"); }
-    public int accentDim()       { return color("global","accent_dim",      "#3D3880"); }
-    public int divider()         { return color("global","divider",         "#22223A"); }
-    public int textPrimary()     { return color("global","text_primary",    "#FFFFFF"); }
-    public int textSecondary()   { return color("global","text_secondary",  "#8888AA"); }
-    public int textSectionTitle(){ return color("global","text_section_title","#FFFFFF"); }
-    public int iconNoteVecTint() { return color("global","icon_note_vec_tint","#6C63FF"); }
-
-    /** Big page-header title ("Home","Radio","Sounds","Settings"). */
-    public int pageHeaderText()         { return color("global","page_header_text",         "#FFFFFF"); }
-    /** Page-header subtitle / tagline. */
+    public int bgPrimary()              { return color("global","bg_primary",             "#0D0D14"); }
+    public int bgCard()                 { return color("global","bg_card",                "#16161F"); }
+    public int bgCard2()                { return color("global","bg_card2",               "#1E1E2A"); }
+    public int accent()                 { return color("global","accent",                 "#6C63FF"); }
+    public int accentDim()              { return color("global","accent_dim",             "#3D3880"); }
+    public int divider()                { return color("global","divider",                "#22223A"); }
+    public int textPrimary()            { return color("global","text_primary",           "#FFFFFF"); }
+    public int textSecondary()          { return color("global","text_secondary",         "#8888AA"); }
+    public int textSectionTitle()       { return color("global","text_section_title",     "#FFFFFF"); }
+    public int iconNoteVecTint()        { return color("global","icon_note_vec_tint",     "#6C63FF"); }
+    public int pageHeaderText()         { return color("global","page_header_text",       "#FFFFFF"); }
     public int pageHeaderSubtitleText() { return color("global","page_header_subtitle_text","#8888AA"); }
 
     // ── Nav ───────────────────────────────────────────────────────
@@ -61,93 +128,106 @@ public class ColorConfig {
     public int navLabelUnselected() { return color("nav","label_unselected","#44445A"); }
 
     // ── Home ─────────────────────────────────────────────────────
-    public int homeSectionTitle()     { return color("home","section_title",          "#FFFFFF"); }
-    public int homeChipPlayBg()       { return color("home","chip_playing_bg",        "#28265A"); }
-    public int homeChipBorder()       { return color("home","chip_playing_border",    "#6C63FF"); }
-    public int homeChipText()         { return color("home","chip_text",              "#FFFFFF"); }
-    public int homeEmptyText()        { return color("home","empty_text",             "#44445A"); }
-    public int nowPlayingAnimColor()  { return color("home","now_playing_anim",       "#6C63FF"); }
-    public int nowPlayingCardBg()     { return color("home","now_playing_card_bg",    "#1E1A3A"); }
-    public int nowPlayingCardBorder() { return color("home","now_playing_card_border","#6C63FF"); }
-    public int nowPlayingIconTint()   { return color("home","now_playing_icon_tint",  "#6C63FF"); }
-
-    // ── Visualizer ────────────────────────────────────────────────
-    public int visualizerBg()     { return color("home","visualizer_bg",   "#0D0D14"); }
-    public int visualizerBar()    { return color("home","visualizer_bar",  "#6C63FF"); }
+    public int homeSectionTitle()     { return color("home","section_title",           "#FFFFFF"); }
+    public int homeChipPlayBg()       { return color("home","chip_playing_bg",         "#28265A"); }
+    public int homeChipBorder()       { return color("home","chip_playing_border",     "#6C63FF"); }
+    public int homeChipText()         { return color("home","chip_text",               "#FFFFFF"); }
+    public int homeEmptyText()        { return color("home","empty_text",              "#44445A"); }
+    public int nowPlayingAnimColor()  { return color("home","now_playing_anim",        "#6C63FF"); }
+    public int nowPlayingCardBg()     { return color("home","now_playing_card_bg",     "#1E1A3A"); }
+    public int nowPlayingCardBorder() { return color("home","now_playing_card_border", "#6C63FF"); }
+    public int nowPlayingIconTint()   { return color("home","now_playing_icon_tint",   "#6C63FF"); }
+    public int visualizerBg()         { return color("home","visualizer_bg",           "#0D0D14"); }
+    public int visualizerBar()        { return color("home","visualizer_bar",          "#6C63FF"); }
 
     // ── Radio ─────────────────────────────────────────────────────
-    public int stationBg()            { return color("radio","station_bg",               "#1E1E2A"); }
-    public int stationActiveBg()      { return color("radio","station_bg_active",        "#2A1E4A"); }
-    public int stationActiveBorder()  { return color("radio","station_border_active",    "#6C63FF"); }
-    public int stationClickGlow()     { return color("radio","station_click_glow",       "#6C63FF"); }
-    public int stationText()          { return color("radio","station_text",             "#FFFFFF"); }
-    public int stationTextActive()    { return color("radio","station_text_active",      "#6C63FF"); }
-    public int eqBar()                { return color("radio","eq_bar",                   "#6C63FF"); }
-    public int radioGroupHeaderBg()   { return color("radio","group_header_bg",          "#16161F"); }
-    public int radioGroupHeaderBorder(){ return color("radio","group_header_border",     "#22223A"); }
-    public int radioGroupNameText()   { return color("radio","group_name_text",          "#6C63FF"); }
-    public int radioGroupCollapsed()  { return color("radio","group_name_collapsed_text","#8888AA"); }
-    public int radioGroupBadgeBg()    { return color("radio","group_badge_bg",           "#28265A"); }
-    public int radioGroupBadgeText()  { return color("radio","group_badge_text",         "#6C63FF"); }
-    public int radioCardBg()          { return color("radio","station_card_bg",          "#1A1A28"); }
-    public int radioCardBorder()      { return color("radio","station_card_border",      "#22223A"); }
-    public int radioSearchBg()        { return color("radio","search_bg",                "#1E1E2A"); }
-    public int radioSearchText()      { return color("radio","search_text",              "#FFFFFF"); }
-    public int radioSearchHint()      { return color("radio","search_hint",              "#8888AA"); }
-    public int radioCheckboxColor()   { return color("radio","checkbox_color",           "#6C63FF"); }
+    public int stationBg()             { return color("radio","station_bg",                "#1E1E2A"); }
+    public int stationActiveBg()       { return color("radio","station_bg_active",         "#2A1E4A"); }
+    public int stationActiveBorder()   { return color("radio","station_border_active",     "#6C63FF"); }
+    public int stationClickGlow()      { return color("radio","station_click_glow",        "#6C63FF"); }
+    public int stationText()           { return color("radio","station_text",              "#FFFFFF"); }
+    public int stationTextActive()     { return color("radio","station_text_active",       "#6C63FF"); }
+    public int eqBar()                 { return color("radio","eq_bar",                    "#6C63FF"); }
+    public int radioGroupHeaderBg()    { return color("radio","group_header_bg",           "#16161F"); }
+    public int radioGroupHeaderBorder(){ return color("radio","group_header_border",       "#22223A"); }
+    public int radioGroupNameText()    { return color("radio","group_name_text",           "#6C63FF"); }
+    public int radioGroupCollapsed()   { return color("radio","group_name_collapsed_text", "#8888AA"); }
+    public int radioGroupBadgeBg()     { return color("radio","group_badge_bg",            "#28265A"); }
+    public int radioGroupBadgeText()   { return color("radio","group_badge_text",          "#6C63FF"); }
+    public int radioCardBg()           { return color("radio","station_card_bg",           "#1A1A28"); }
+    public int radioCardBorder()       { return color("radio","station_card_border",       "#22223A"); }
+    public int radioSearchBg()         { return color("radio","search_bg",                 "#1E1E2A"); }
+    public int radioSearchText()       { return color("radio","search_text",               "#FFFFFF"); }
+    public int radioSearchHint()       { return color("radio","search_hint",               "#8888AA"); }
+    public int radioCheckboxColor()    { return color("radio","checkbox_color",            "#6C63FF"); }
 
     // ── Sounds ────────────────────────────────────────────────────
-    public int soundBtnBg()           { return color("sounds","btn_bg",          "#1A1A26"); }
-    public int soundBtnActiveBg()     { return color("sounds","btn_active_bg",   "#28265A"); }
+    public int soundBtnBg()           { return color("sounds","btn_bg",           "#1A1A26"); }
+    public int soundBtnActiveBg()     { return color("sounds","btn_active_bg",    "#28265A"); }
     public int soundBtnActiveBorder() { return color("sounds","btn_border_active","#6C63FF"); }
-    public int soundBtnText()         { return color("sounds","btn_text",        "#FFFFFF"); }
-    public int soundWaveColor()       { return color("sounds","wave_color",      "#6C63FF"); }
-    public int stopAllBg()            { return color("sounds","stop_all_bg",     "#1E1E2A"); }
-    public int stopAllBorder()        { return color("sounds","stop_all_border", "#6C63FF"); }
-    public int stopAllText()          { return color("sounds","stop_all_text",   "#FFFFFF"); }
+    public int soundBtnText()         { return color("sounds","btn_text",         "#FFFFFF"); }
+    public int soundWaveColor()       { return color("sounds","wave_color",       "#6C63FF"); }
+    public int stopAllBg()            { return color("sounds","stop_all_bg",      "#1E1E2A"); }
+    public int stopAllBorder()        { return color("sounds","stop_all_border",  "#6C63FF"); }
+    public int stopAllText()          { return color("sounds","stop_all_text",    "#FFFFFF"); }
 
     // ── Settings ─────────────────────────────────────────────────
-    public int bgSettingsCard()       { return color("settings","card_bg",        "#16161F"); }
-    public int settingsCardBorder()   { return color("settings","card_border",    "#22223A"); }
-    public int textSettingsLabel()    { return color("settings","label_text",     "#FFFFFF"); }
-    public int textSettingsHint()     { return color("settings","hint_text",      "#8888AA"); }
-    public int textSettingsVersion()  { return color("settings","version_text",   "#44445A"); }
-    public int settingsInputBg()      { return color("settings","input_bg",       "#1E1E2A"); }
-    public int settingsInputBorder()  { return color("settings","input_border",   "#22223A"); }
-    public int settingsInputText()    { return color("settings","input_text",     "#FFFFFF"); }
-    public int settingsBtnBg()        { return color("settings","btn_bg",         "#1E1E2A"); }
-    public int settingsBtnBorder()    { return color("settings","btn_border",     "#6C63FF"); }
-    public int settingsBtnText()      { return color("settings","btn_text",       "#FFFFFF"); }
-    public int settingsDivider()      { return color("settings","divider",        "#22223A"); }
-    public int settingsSwitchThumbOn()  { return color("settings","switch_thumb_on",  "#6C63FF"); }
-    public int settingsSwitchTrackOn()  { return color("settings","switch_track_on",  "#3D3880"); }
-    public int settingsSwitchThumbOff() { return color("settings","switch_thumb_off", "#8888AA"); }
-    public int settingsSwitchTrackOff() { return color("settings","switch_track_off", "#2A2A3A"); }
-    public int settingsMadeByText()     { return color("settings","made_by_text",  "#44445A"); }
-    public int settingsMadeByBrand()    { return color("settings","made_by_brand", "#6C63FF"); }
+    public int bgSettingsCard()        { return color("settings","card_bg",         "#16161F"); }
+    public int settingsCardBorder()    { return color("settings","card_border",     "#22223A"); }
+    public int textSettingsLabel()     { return color("settings","label_text",      "#FFFFFF"); }
+    public int textSettingsHint()      { return color("settings","hint_text",       "#8888AA"); }
+    public int textSettingsVersion()   { return color("settings","version_text",    "#44445A"); }
+    public int settingsInputBg()       { return color("settings","input_bg",        "#1E1E2A"); }
+    public int settingsInputBorder()   { return color("settings","input_border",    "#22223A"); }
+    public int settingsInputText()     { return color("settings","input_text",      "#FFFFFF"); }
+    public int settingsBtnBg()         { return color("settings","btn_bg",          "#1E1E2A"); }
+    public int settingsBtnBorder()     { return color("settings","btn_border",      "#6C63FF"); }
+    public int settingsBtnText()       { return color("settings","btn_text",        "#FFFFFF"); }
+    public int settingsDivider()       { return color("settings","divider",         "#22223A"); }
+    public int settingsSwitchThumbOn() { return color("settings","switch_thumb_on", "#6C63FF"); }
+    public int settingsSwitchTrackOn() { return color("settings","switch_track_on", "#3D3880"); }
+    public int settingsSwitchThumbOff(){ return color("settings","switch_thumb_off","#8888AA"); }
+    public int settingsSwitchTrackOff(){ return color("settings","switch_track_off","#2A2A3A"); }
+    public int settingsMadeByText()    { return color("settings","made_by_text",    "#44445A"); }
+    public int settingsMadeByBrand()   { return color("settings","made_by_brand",   "#6C63FF"); }
 
     // ── Notification ─────────────────────────────────────────────
     public int notifIconBg() { return color("notification","icon_bg","#6C63FF"); }
 
-    // ── Persist ──────────────────────────────────────────────────
-    public void saveRaw(String raw) {
-        try {
-            new JSONObject(raw);
-            FileWriter fw = new FileWriter(new File(ctx.getFilesDir(), FILE));
-            fw.write(raw); fw.close();
-        } catch (Exception e) { Log.e(TAG, "saveRaw", e); }
-    }
-
-    public String readRaw() {
-        File f = new File(ctx.getFilesDir(), FILE);
-        try {
-            BufferedReader br = f.exists()
-                ? new BufferedReader(new FileReader(f))
-                : new BufferedReader(new InputStreamReader(ctx.getAssets().open(ASSET)));
-            StringBuilder sb = new StringBuilder(); String line;
-            while ((line = br.readLine()) != null) sb.append(line).append('\n');
-            br.close();
-            return sb.toString();
-        } catch (Exception e) { Log.e(TAG, "readRaw", e); return "{}"; }
-    }
+    // ── Built-in Dark theme default ───────────────────────────────
+    // Used when no theme has ever been saved (fresh install).
+    // Keeping it inline avoids any assets dependency.
+    public static final String DEFAULT_JSON =
+        "{\"global\":{\"bg_primary\":\"#0D0D14\",\"bg_card\":\"#16161F\",\"bg_card2\":\"#1E1E2A\","
+      + "\"accent\":\"#6C63FF\",\"accent_dim\":\"#3D3880\",\"divider\":\"#22223A\","
+      + "\"text_primary\":\"#FFFFFF\",\"text_secondary\":\"#8888AA\",\"text_section_title\":\"#FFFFFF\","
+      + "\"icon_note_vec_tint\":\"#6C63FF\",\"page_header_text\":\"#FFFFFF\","
+      + "\"page_header_subtitle_text\":\"#8888AA\"},"
+      + "\"nav\":{\"bg\":\"#0D0D14\",\"label_selected\":\"#FFFFFF\",\"label_unselected\":\"#44445A\"},"
+      + "\"home\":{\"section_title\":\"#FFFFFF\",\"chip_playing_bg\":\"#28265A\","
+      + "\"chip_playing_border\":\"#6C63FF\",\"chip_text\":\"#FFFFFF\",\"empty_text\":\"#44445A\","
+      + "\"now_playing_anim\":\"#6C63FF\",\"now_playing_card_bg\":\"#1E1A3A\","
+      + "\"now_playing_card_border\":\"#6C63FF\",\"now_playing_icon_tint\":\"#6C63FF\","
+      + "\"visualizer_bg\":\"#0D0D14\",\"visualizer_bar\":\"#6C63FF\"},"
+      + "\"radio\":{\"station_bg\":\"#1E1E2A\",\"station_bg_active\":\"#2A1E4A\","
+      + "\"station_border_active\":\"#6C63FF\",\"station_text\":\"#FFFFFF\","
+      + "\"station_text_active\":\"#6C63FF\",\"station_click_glow\":\"#6C63FF\","
+      + "\"eq_bar\":\"#6C63FF\",\"group_header_bg\":\"#16161F\",\"group_header_border\":\"#22223A\","
+      + "\"group_name_text\":\"#6C63FF\",\"group_name_collapsed_text\":\"#8888AA\","
+      + "\"group_badge_bg\":\"#28265A\",\"group_badge_text\":\"#6C63FF\","
+      + "\"station_card_bg\":\"#1A1A28\",\"station_card_border\":\"#22223A\","
+      + "\"search_bg\":\"#1E1E2A\",\"search_text\":\"#FFFFFF\",\"search_hint\":\"#8888AA\","
+      + "\"checkbox_color\":\"#6C63FF\"},"
+      + "\"sounds\":{\"btn_bg\":\"#1A1A26\",\"btn_active_bg\":\"#28265A\","
+      + "\"btn_border_active\":\"#6C63FF\",\"btn_text\":\"#FFFFFF\","
+      + "\"wave_color\":\"#6C63FF\",\"stop_all_bg\":\"#1E1E2A\","
+      + "\"stop_all_border\":\"#6C63FF\",\"stop_all_text\":\"#FFFFFF\"},"
+      + "\"settings\":{\"card_bg\":\"#16161F\",\"card_border\":\"#22223A\","
+      + "\"label_text\":\"#FFFFFF\",\"hint_text\":\"#8888AA\",\"version_text\":\"#44445A\","
+      + "\"input_bg\":\"#1E1E2A\",\"input_border\":\"#22223A\",\"input_text\":\"#FFFFFF\","
+      + "\"btn_bg\":\"#1E1E2A\",\"btn_border\":\"#6C63FF\",\"btn_text\":\"#FFFFFF\","
+      + "\"divider\":\"#22223A\",\"switch_thumb_on\":\"#6C63FF\",\"switch_track_on\":\"#3D3880\","
+      + "\"switch_thumb_off\":\"#8888AA\",\"switch_track_off\":\"#2A2A3A\","
+      + "\"made_by_text\":\"#44445A\",\"made_by_brand\":\"#6C63FF\"},"
+      + "\"notification\":{\"icon_bg\":\"#6C63FF\"}}";
 }

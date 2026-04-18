@@ -33,12 +33,8 @@ import is.dyino.util.ColorConfig;
 /**
  * Flat-list adapter with two view types: TYPE_HEADER and TYPE_STATION.
  *
- * Header rows show a card-style pill with the category name, station count
- * badge, and expand arrow.  When expanded, station rows sit inside a visually
- * distinct card background making the section feel "3D / raised".
- *
- * Drag-to-reorder is NOT attached here — it lives only in the category dialog.
- * Duplicate URLs within the same group are automatically removed.
+ * EQ bar color is now sourced from ColorConfig.eqBar() so it follows
+ * whatever theme is active (fixes hardcoded #6C63FF).
  */
 public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
@@ -52,25 +48,25 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     private static final int TYPE_HEADER  = 0;
     private static final int TYPE_STATION = 1;
 
-    // ── Flat item ─────────────────────────────────────────────────
+    // ── Flat list item ────────────────────────────────────────────
     private static final class Item {
         final int          type;
         final RadioGroup   group;
         final RadioStation station;
         final boolean      isArch;
         final String       archKey;
-        final boolean      isFirst; // first station in group (top-rounded corners)
-        final boolean      isLast;  // last station in group (bottom-rounded corners)
+        final boolean      isFirst;
+        final boolean      isLast;
 
         static Item header(RadioGroup g) {
             return new Item(TYPE_HEADER, g, null, false, null, false, false);
         }
         static Item station(RadioStation s, boolean isArch, String archKey,
-                            boolean first, boolean last) {
+                             boolean first, boolean last) {
             return new Item(TYPE_STATION, null, s, isArch, archKey, first, last);
         }
-        private Item(int t, RadioGroup g, RadioStation s, boolean arch, String aKey,
-                     boolean first, boolean last) {
+        private Item(int t, RadioGroup g, RadioStation s, boolean arch,
+                     String aKey, boolean first, boolean last) {
             type = t; group = g; station = s; isArch = arch; archKey = aKey;
             isFirst = first; isLast = last;
         }
@@ -78,7 +74,7 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
 
     // ── State ─────────────────────────────────────────────────────
     private final List<RadioGroup>     groups;
-    private final List<Item>           flat       = new ArrayList<>();
+    private final List<Item>           flat        = new ArrayList<>();
     private final Map<String, Boolean> expandedMap = new HashMap<>();
     private final Map<String, Long>    lastTapTime = new HashMap<>();
     private static final long DOUBLE_TAP_MS = 350;
@@ -91,14 +87,16 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     private RadioStation               activeStation;
 
     public RadioGroupAdapter(List<RadioGroup> groups,
-                             StationClickListener click, FavouriteListener fav,
-                             AppPrefs prefs, ColorConfig colors, SwipeActionListener swipe) {
+                              StationClickListener click, FavouriteListener fav,
+                              AppPrefs prefs, ColorConfig colors,
+                              SwipeActionListener swipe) {
         this.groups = groups; this.clickL = click; this.favL = fav;
         this.prefs = prefs; this.colors = colors; this.swipeL = swipe;
         rebuildFlat();
     }
 
     // ── Flat list ─────────────────────────────────────────────────
+
     private void rebuildFlat() {
         flat.clear();
         for (RadioGroup g : groups) {
@@ -118,8 +116,8 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             }
 
             for (int i = 0; i < visible.size(); i++) {
-                RadioStation s = visible.get(i);
-                String aKey = isArch
+                RadioStation s    = visible.get(i);
+                String       aKey = isArch
                         ? AppPrefs.stationKey(s.getName(), s.getUrl(), s.getGroup()) : null;
                 flat.add(Item.station(s, isArch, aKey, i == 0, i == visible.size() - 1));
             }
@@ -127,13 +125,13 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     }
 
     // ── Public API ────────────────────────────────────────────────
+
     public void setActiveStation(RadioStation s) { activeStation = s; notifyDataSetChanged(); }
 
     public void attachToRecyclerView(RecyclerView rv) {
         applySavedOrder();
         rebuildFlat();
         notifyDataSetChanged();
-        // No ItemTouchHelper — drag only in category manager dialog
     }
 
     private void applySavedOrder() {
@@ -150,17 +148,17 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     }
 
     // ── RecyclerView ──────────────────────────────────────────────
+
     @Override public int getItemCount()           { return flat.size(); }
     @Override public int getItemViewType(int pos) { return flat.get(pos).type; }
 
     @NonNull @Override
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int vt) {
         LayoutInflater inf = LayoutInflater.from(parent.getContext());
-        if (vt == TYPE_HEADER) {
+        if (vt == TYPE_HEADER)
             return new HeaderVH(inf.inflate(R.layout.item_radio_group_header, parent, false));
-        } else {
+        else
             return new StationVH(inf.inflate(R.layout.item_radio_station, parent, false));
-        }
     }
 
     @Override
@@ -171,13 +169,13 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     }
 
     // ── Header binding ────────────────────────────────────────────
+
     private void bindHeader(HeaderVH h, Item item) {
-        RadioGroup g     = item.group;
-        String     name  = g.getName();
-        boolean isArch   = "__ARCHIVED__".equals(name);
+        RadioGroup g    = item.group;
+        String     name = g.getName();
+        boolean isArch  = "__ARCHIVED__".equals(name);
         boolean expanded = Boolean.TRUE.equals(expandedMap.get(name));
 
-        // Count visible stations
         int count = 0;
         if (!isArch) {
             LinkedHashSet<String> seen = new LinkedHashSet<>();
@@ -195,7 +193,6 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         h.tvLabel.setTextColor(expanded ? colors.radioGroupNameText()
                                         : colors.radioGroupCollapsed());
 
-        // Badge
         if (h.tvCount != null && count > 0) {
             h.tvCount.setText(String.valueOf(count));
             h.tvCount.setVisibility(View.VISIBLE);
@@ -211,20 +208,16 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             h.tvCount.setVisibility(View.GONE);
         }
 
-        // Arrow
         if (h.tvArrow != null) {
             h.tvArrow.setRotation(expanded ? 90f : 0f);
             h.tvArrow.setTextColor(expanded ? colors.radioGroupNameText()
                                             : colors.radioGroupCollapsed());
         }
 
-        // Header card background
         float dp = density(h.itemView);
         GradientDrawable headerBg = new GradientDrawable();
         headerBg.setShape(GradientDrawable.RECTANGLE);
-        headerBg.setCornerRadius(expanded ? 0f : 10 * dp);
         if (expanded) {
-            // When expanded, top corners rounded, bottom square (stations sit below)
             headerBg.setCornerRadii(new float[]{10*dp,10*dp, 10*dp,10*dp, 0,0, 0,0});
             headerBg.setColor(colors.radioGroupHeaderBg());
             headerBg.setStroke((int)(1f*dp), colors.radioGroupHeaderBorder());
@@ -246,6 +239,7 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     }
 
     // ── Station binding ───────────────────────────────────────────
+
     @SuppressWarnings("ClickableViewAccessibility")
     private void bindStation(StationVH h, Item item) {
         RadioStation station = item.station;
@@ -261,10 +255,8 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         boolean active = !isArch && activeStation != null
                 && activeStation.getUrl().equals(station.getUrl());
 
-        // Card-style background — rounded only on first/last station in group
         float dp = density(h.root);
-        float top  = item.isFirst ? 0f : 0f; // group card handles top radius on header
-        float bot  = item.isLast  ? 10 * dp : 0f;
+        float bot = item.isLast ? 10 * dp : 0f;
         GradientDrawable stationBg = new GradientDrawable();
         stationBg.setShape(GradientDrawable.RECTANGLE);
         stationBg.setCornerRadii(new float[]{0,0, 0,0, bot,bot, bot,bot});
@@ -275,6 +267,13 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             h.root.setBackground(stationBg);
             h.tvName.setTextColor(colors.stationTextActive());
             h.eqView.setVisibility(View.VISIBLE);
+
+            // ── EQ bar color from theme ──────────────────────────
+            int eqColor = colors.eqBar();
+            if (h.eq1 != null) h.eq1.setBackgroundColor(eqColor);
+            if (h.eq2 != null) h.eq2.setBackgroundColor(eqColor);
+            if (h.eq3 != null) h.eq3.setBackgroundColor(eqColor);
+
             h.eq1Anim = animEq(h.eq1, 400, 4, 14);
             h.eq2Anim = animEq(h.eq2, 600, 8, 18);
             h.eq3Anim = animEq(h.eq3, 500, 3, 12);
@@ -292,8 +291,8 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         } else {
             h.root.setOnClickListener(v -> {
                 String url = station.getUrl();
-                long now   = System.currentTimeMillis();
-                Long lst   = lastTapTime.get(url);
+                long   now = System.currentTimeMillis();
+                Long   lst = lastTapTime.get(url);
                 if (lst != null && (now - lst) < DOUBLE_TAP_MS) {
                     lastTapTime.remove(url);
                     haptic(v);
@@ -315,6 +314,8 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         }
     }
 
+    // ── Swipe to archive ─────────────────────────────────────────
+
     @SuppressWarnings("ClickableViewAccessibility")
     private void attachSwipe(View sv, RadioStation station, boolean isArch, String archKey) {
         final float[]   sx     = {0};
@@ -328,8 +329,10 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
                     if (Math.abs(dx) > 90 && !swiped[0]) {
                         swiped[0] = true; haptic(v);
                         v.animate()
-                         .translationX(dx > 0 ? v.getWidth() : -v.getWidth()).alpha(0f)
-                         .setDuration(380).setInterpolator(new DecelerateInterpolator(2f))
+                         .translationX(dx > 0 ? v.getWidth() : -v.getWidth())
+                         .alpha(0f)
+                         .setDuration(380)
+                         .setInterpolator(new DecelerateInterpolator(2f))
                          .withEndAction(() -> {
                              v.setTranslationX(0); v.setAlpha(1f);
                              if (swipeL != null) {
@@ -364,12 +367,16 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         a.setRepeatCount(ValueAnimator.INFINITE);
         a.addUpdateListener(anim -> {
             ViewGroup.LayoutParams lp = bar.getLayoutParams();
-            lp.height = (int) anim.getAnimatedValue();
-            bar.setLayoutParams(lp);
+            if (lp != null) {
+                lp.height = (int) anim.getAnimatedValue();
+                bar.setLayoutParams(lp);
+            }
         });
         a.start();
         return a;
     }
+
+    // ── Haptic ────────────────────────────────────────────────────
 
     private void haptic(View v) {
         try {
@@ -396,6 +403,7 @@ public class RadioGroupAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     }
 
     // ── ViewHolders ───────────────────────────────────────────────
+
     static class HeaderVH extends RecyclerView.ViewHolder {
         final TextView tvLabel, tvArrow, tvCount;
         HeaderVH(View v) {
