@@ -52,6 +52,7 @@ public class SoundsFragment extends Fragment {
     private static final long DOUBLE_TAP_MS = 350;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
+    // ── State broadcast ───────────────────────────────────────────
     private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) {
             mainHandler.post(() -> { refreshAllButtons(); updateActiveLabel(); });
@@ -61,7 +62,9 @@ public class SoundsFragment extends Fragment {
     public void setAudioService(AudioService svc) { this.audioService = svc; }
 
     @Nullable @Override
-    public View onCreateView(@NonNull LayoutInflater inf, @Nullable ViewGroup c, @Nullable Bundle s) {
+    public View onCreateView(@NonNull LayoutInflater inf,
+                             @Nullable ViewGroup c,
+                             @Nullable Bundle s) {
         return inf.inflate(R.layout.fragment_sounds, c, false);
     }
 
@@ -103,7 +106,7 @@ public class SoundsFragment extends Fragment {
         try { requireContext().unregisterReceiver(stateReceiver); } catch (Exception ignored) {}
     }
 
-    // ── Build grid ────────────────────────────────────────────────
+    // ── Build 2-column grid ───────────────────────────────────────
     private void buildGrid() {
         if (categoriesContainer == null || categories == null) return;
         categoriesContainer.removeAllViews();
@@ -114,19 +117,21 @@ public class SoundsFragment extends Fragment {
         int avail   = screenW - navW;
         int gap     = (int)(6 * dp);
         int btnW    = (avail - gap * 3) / 2;
-        int btnH    = (int)(80 * dp); // taller to show emoji + name
+        int btnH    = (int)(80 * dp);
 
         for (SoundCategory cat : categories) {
-            // ── Category header ───────────────────────────────────
+
+            // ── Category header pill ──────────────────────────────
             LinearLayout header = new LinearLayout(requireContext());
             header.setOrientation(LinearLayout.HORIZONTAL);
             header.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            header.setTag("cat_header"); // skip in refreshAllButtons
+            header.setTag("cat_header");
 
             // Accent left bar
             View bar = new View(requireContext());
             bar.setBackgroundColor(colors.accent());
-            LinearLayout.LayoutParams barLp = new LinearLayout.LayoutParams((int)(3*dp), (int)(16*dp));
+            LinearLayout.LayoutParams barLp =
+                    new LinearLayout.LayoutParams((int)(3*dp), (int)(16*dp));
             barLp.setMargins(0, 0, (int)(10*dp), 0);
             bar.setLayoutParams(barLp);
             header.addView(bar);
@@ -146,12 +151,13 @@ public class SoundsFragment extends Fragment {
             header.setLayoutParams(catLp);
             categoriesContainer.addView(header);
 
-            // ── Sound buttons in 2-column rows ────────────────────
+            // ── 2-column button rows ──────────────────────────────
             List<SoundItem> sounds = cat.getSounds();
             for (int i = 0; i < sounds.size(); i += 2) {
                 LinearLayout row = new LinearLayout(requireContext());
                 row.setOrientation(LinearLayout.HORIZONTAL);
                 row.setTag("button_row");
+
                 LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                 rowLp.setMargins(gap, 0, gap, gap);
@@ -166,6 +172,7 @@ public class SoundsFragment extends Fragment {
                 if (i + 1 < sounds.size()) {
                     row.addView(inflateBtn(sounds.get(i + 1), btnW, btnH));
                 } else {
+                    // Placeholder so left button keeps its width
                     View ph = new View(requireContext());
                     ph.setLayoutParams(new LinearLayout.LayoutParams(btnW, btnH));
                     row.addView(ph);
@@ -175,20 +182,20 @@ public class SoundsFragment extends Fragment {
         }
     }
 
+    // ── Single button ─────────────────────────────────────────────
     @SuppressLint("ClickableViewAccessibility")
     private View inflateBtn(SoundItem sound, int btnW, int btnH) {
-        View btn        = LayoutInflater.from(requireContext())
-                            .inflate(R.layout.item_sound_button, null, false);
-        TextView tvEmoji = btn.findViewById(R.id.tvSoundEmoji);
-        TextView tvName  = btn.findViewById(R.id.tvSoundName);
-        WaveView wave    = btn.findViewById(R.id.waveView);
+        View btn     = LayoutInflater.from(requireContext())
+                          .inflate(R.layout.item_sound_button, null, false);
+        TextView tvName = btn.findViewById(R.id.tvSoundName);
+        WaveView wave   = btn.findViewById(R.id.waveView);
 
         btn.setLayoutParams(new LinearLayout.LayoutParams(btnW, btnH));
-        if (tvEmoji != null) tvEmoji.setText(sound.getEmoji());
         tvName.setText(sound.getName());
         tvName.setTextColor(colors.soundBtnText());
 
         applyBtnShape(btn, sound, wave);
+
         if (wave != null) {
             wave.setVolume(sound.getVolume());
             wave.setVolumeDragListener(vol -> {
@@ -204,13 +211,16 @@ public class SoundsFragment extends Fragment {
             inDrag[0] = true;
             haptic();
             float vol = audioService != null
-                    ? audioService.getSoundVolume(sound.getFileName()) : sound.getVolume();
+                    ? audioService.getSoundVolume(sound.getFileName())
+                    : sound.getVolume();
             if (wave != null) {
-                wave.setVolume(vol); sound.setVolume(vol);
+                wave.setVolume(vol);
+                sound.setVolume(vol);
                 if (!wave.isWaving()) {
                     int wc = (colors.soundWaveColor() & 0x00FFFFFF) | 0x88000000;
                     wave.setColors(colors.soundBtnActiveBg(), wc);
-                    wave.setVisibility(View.VISIBLE); wave.startWave();
+                    wave.setVisibility(View.VISIBLE);
+                    wave.startWave();
                 }
                 wave.beginVolumeDrag(downY[0]);
             }
@@ -229,18 +239,21 @@ public class SoundsFragment extends Fragment {
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
                     if (inDrag[0] && wave != null) wave.endDrag();
-                    inDrag[0] = false; break;
+                    inDrag[0] = false;
+                    break;
             }
             return false;
         });
 
         btn.setOnClickListener(v -> {
             if (wave != null && wave.isDragging()) return;
+
             String fn  = sound.getFileName();
             long   now = System.currentTimeMillis();
             Long   lst = lastTapTime.get(fn);
 
             if (lst != null && (now - lst) < DOUBLE_TAP_MS) {
+                // Double-tap → toggle favourite
                 lastTapTime.remove(fn); haptic();
                 boolean fav = prefs.isFavSound(fn);
                 if (fav) prefs.removeFavSound(fn); else prefs.addFavSound(fn);
@@ -251,17 +264,22 @@ public class SoundsFragment extends Fragment {
                 lastTapTime.put(fn, now);
                 haptic(); clickSound();
                 if (audioService == null) return;
+
                 if (audioService.isSoundPlaying(fn)) {
                     audioService.stopSound(fn);
                     sound.setPlaying(false);
-                    if (wave != null) { wave.stopWave(); wave.setVisibility(View.INVISIBLE); }
+                    if (wave != null) {
+                        wave.stopWave();
+                        wave.setVisibility(View.INVISIBLE);
+                    }
                 } else {
                     sound.setPlaying(true);
                     if (wave != null) {
                         int wc = (colors.soundWaveColor() & 0x00FFFFFF) | 0x5A000000;
                         wave.setColors(colors.soundBtnActiveBg(), wc);
                         wave.setVolume(sound.getVolume());
-                        wave.setVisibility(View.VISIBLE); wave.startWave();
+                        wave.setVisibility(View.VISIBLE);
+                        wave.startWave();
                     }
                     applyBtnShapeActive(btn);
                     audioService.playSound(fn, sound.getVolume());
@@ -274,9 +292,13 @@ public class SoundsFragment extends Fragment {
         return btn;
     }
 
+    // ── Button visuals ────────────────────────────────────────────
+
     private void applyBtnShape(View btn, SoundItem sound, WaveView wave) {
-        boolean playing = audioService != null && audioService.isSoundPlaying(sound.getFileName());
+        boolean playing = audioService != null
+                && audioService.isSoundPlaying(sound.getFileName());
         float dp = getResources().getDisplayMetrics().density;
+
         GradientDrawable gd = new GradientDrawable();
         gd.setShape(GradientDrawable.RECTANGLE);
         gd.setCornerRadius(16 * dp);
@@ -294,10 +316,15 @@ public class SoundsFragment extends Fragment {
                 int wc = (colors.soundWaveColor() & 0x00FFFFFF) | 0x5A000000;
                 wave.setColors(colors.soundBtnActiveBg(), wc);
                 float vol = audioService != null
-                        ? audioService.getSoundVolume(sound.getFileName()) : sound.getVolume();
-                wave.setVolume(vol); wave.setVisibility(View.VISIBLE);
+                        ? audioService.getSoundVolume(sound.getFileName())
+                        : sound.getVolume();
+                wave.setVolume(vol);
+                wave.setVisibility(View.VISIBLE);
                 if (!wave.isWaving()) wave.startWave();
-            } else { wave.stopWave(); wave.setVisibility(View.INVISIBLE); }
+            } else {
+                wave.stopWave();
+                wave.setVisibility(View.INVISIBLE);
+            }
         }
     }
 
@@ -312,11 +339,12 @@ public class SoundsFragment extends Fragment {
         btn.setClipToOutline(true);
     }
 
+    // ── Refresh helpers ───────────────────────────────────────────
+
     private void refreshAllButtons() {
         if (categoriesContainer == null) return;
         for (int i = 0; i < categoriesContainer.getChildCount(); i++) {
             View child = categoriesContainer.getChildAt(i);
-            // Skip category headers (tagged) and non-row views
             if (!"button_row".equals(child.getTag())) continue;
             LinearLayout row = (LinearLayout) child;
             for (int j = 0; j < row.getChildCount(); j++) {
@@ -340,20 +368,28 @@ public class SoundsFragment extends Fragment {
                 : cnt + " sound" + (cnt > 1 ? "s" : "") + " playing");
     }
 
+    // ── Haptic / click sound ──────────────────────────────────────
+
     private void haptic() {
         if (prefs == null || !prefs.isHapticEnabled()) return;
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 VibratorManager vm = (VibratorManager) requireContext()
                         .getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE);
-                if (vm != null) { vm.getDefaultVibrator().vibrate(VibrationEffect.createOneShot(50, 255)); return; }
+                if (vm != null) {
+                    vm.getDefaultVibrator().vibrate(
+                            VibrationEffect.createOneShot(50, 255));
+                    return;
+                }
             }
             @SuppressWarnings("deprecation")
-            Vibrator vib = (Vibrator) requireContext().getSystemService(android.content.Context.VIBRATOR_SERVICE);
+            Vibrator vib = (Vibrator) requireContext()
+                    .getSystemService(android.content.Context.VIBRATOR_SERVICE);
             if (vib == null || !vib.hasVibrator()) return;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 vib.vibrate(VibrationEffect.createOneShot(50, 255));
-            else vib.vibrate(50);
+            else
+                vib.vibrate(50);
         } catch (Exception ignored) {}
     }
 
@@ -362,19 +398,23 @@ public class SoundsFragment extends Fragment {
             audioService.playClickSound();
     }
 
+    // ── Theme ─────────────────────────────────────────────────────
+
     public void applyTheme(View root) {
         if (root == null || colors == null) return;
         root.setBackgroundColor(colors.bgPrimary());
-
-        if (tvSoundsTitle != null)       tvSoundsTitle.setTextColor(colors.pageHeaderText());
+        if (tvSoundsTitle       != null) tvSoundsTitle.setTextColor(colors.pageHeaderText());
         if (tvActiveSoundsLabel != null) tvActiveSoundsLabel.setTextColor(colors.textSecondary());
 
         if (btnStopAll != null) {
             float dp = getResources().getDisplayMetrics().density;
             GradientDrawable gd = new GradientDrawable();
-            gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(20 * dp);
-            gd.setColor(colors.stopAllBg()); gd.setStroke((int)(1.5f*dp), colors.stopAllBorder());
-            btnStopAll.setBackground(gd); btnStopAll.setTextColor(colors.stopAllText());
+            gd.setShape(GradientDrawable.RECTANGLE);
+            gd.setCornerRadius(20 * dp);
+            gd.setColor(colors.stopAllBg());
+            gd.setStroke((int)(1.5f*dp), colors.stopAllBorder());
+            btnStopAll.setBackground(gd);
+            btnStopAll.setTextColor(colors.stopAllText());
         }
     }
 

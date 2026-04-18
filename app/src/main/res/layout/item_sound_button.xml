@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Sound button: animated sine-wave fill behind a centred name label.
+  No emoji row — clean and consistent with the overall app style.
+  Elevation gives a subtle 3D lift; shape/border are set in code.
+-->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/soundBtnRoot"
     android:layout_width="match_parent"
@@ -6,42 +11,28 @@
     android:clickable="true"
     android:focusable="true"
     android:longClickable="true"
-    android:elevation="3dp">
+    android:elevation="3dp"
+    android:stateListAnimator="@null">
 
-    <!-- Wave fill drawn behind everything -->
+    <!-- Wave fill drawn behind the label -->
     <is.dyino.ui.sounds.WaveView
         android:id="@+id/waveView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="invisible"/>
 
-    <!-- Emoji + Name stacked -->
-    <LinearLayout
+    <!-- Centred name — single line with ellipsis -->
+    <TextView
+        android:id="@+id/tvSoundName"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
+        android:textColor="#FFFFFF"
+        android:textSize="13sp"
+        android:fontFamily="sans-serif-medium"
         android:gravity="center"
-        android:paddingLeft="8dp"
-        android:paddingRight="8dp">
-
-        <TextView
-            android:id="@+id/tvSoundEmoji"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="26sp"
-            android:gravity="center"/>
-
-        <TextView
-            android:id="@+id/tvSoundName"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textColor="#FFFFFF"
-            android:textSize="11sp"
-            android:gravity="center"
-            android:singleLine="true"
-            android:ellipsize="end"
-            android:paddingTop="3dp"/>
-
-    </LinearLayout>
+        android:singleLine="true"
+        android:ellipsize="end"
+        android:paddingLeft="10dp"
+        android:paddingRight="10dp"/>
 
 </FrameLayout>
