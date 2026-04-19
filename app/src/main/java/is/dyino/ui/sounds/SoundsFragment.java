@@ -45,9 +45,9 @@ import is.dyino.util.SoundLoader;
  * Sounds page.
  *
  * Layout per category:
- *   • Category name (bold section heading)
- *   • HorizontalScrollView containing small square chips
- *     (same size as Home page active-sounds chips: 84dp × 64dp)
+ * • Category name (bold section heading)
+ * • HorizontalScrollView containing small square chips
+ * (same size as Home page active-sounds chips: 84dp × 64dp)
  *
  * Visual update is INSTANT on tap — no waiting for a broadcast.
  * Broadcasts still call syncAllChips() as a safety net for remote stops.
@@ -182,7 +182,7 @@ public class SoundsFragment extends Fragment {
 
             // ── Horizontal scroll row of chips ────────────────────
             HorizontalScrollView hsv = new HorizontalScrollView(requireContext());
-            hsv.setScrollbars(0);
+            hsv.setHorizontalScrollBarEnabled(false);
             hsv.setOverScrollMode(View.OVER_SCROLL_NEVER);
             LinearLayout.LayoutParams hsvLp = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);

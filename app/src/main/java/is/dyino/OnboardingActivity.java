@@ -16,8 +16,8 @@ import is.dyino.util.ColorConfig;
  * Onboarding screen — shown only on first launch.
  *
  * System theme detection:
- *   Dark mode  → applies the AMOLED preset (deep black, accent #6C63FF)
- *   Light mode → applies the Day Blue preset (bright background, accent #2979FF)
+ * Dark mode  → applies the AMOLED preset (deep black, accent #6C63FF)
+ * Light mode → applies the Day Blue preset (bright background, accent #2979FF)
  *
  * This runs BEFORE setContentView so the ColorConfig is ready and colors
  * are applied programmatically to the root view and all text.

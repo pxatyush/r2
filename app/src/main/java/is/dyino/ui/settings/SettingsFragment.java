@@ -284,7 +284,7 @@ public class SettingsFragment extends Fragment {
 
         tvVisHeader = new TextView(requireContext()); tvVisHeader.setText("VISUALIZER STYLE"); tvVisHeader.setTextSize(11f); tvVisHeader.setLetterSpacing(0.1f); tvVisHeader.setPadding(0,0,0,(int)(10*dp)); card.addView(tvVisHeader);
 
-        HorizontalScrollView hsv = new HorizontalScrollView(requireContext()); hsv.setScrollbars(0); hsv.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        HorizontalScrollView hsv = new HorizontalScrollView(requireContext()); hsv.setHorizontalScrollBarEnabled(false); hsv.setOverScrollMode(View.OVER_SCROLL_NEVER);
         hsv.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT));
         visPresetContainer = new LinearLayout(requireContext()); visPresetContainer.setOrientation(LinearLayout.HORIZONTAL);
         hsv.addView(visPresetContainer); card.addView(hsv);

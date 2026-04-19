@@ -6,19 +6,18 @@
     android:background="#0D0D14"
     android:gravity="center_horizontal">
 
-    <!-- Top spacer -->
     <View android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1"/>
 
-    <!-- Logo -->
     <ImageView
+        android:id="@+id/ivOnboardingLogo"
         android:layout_width="64dp"
         android:layout_height="64dp"
         android:src="@drawable/ic_note_vec"
         android:scaleType="fitCenter"
         android:alpha="0.9"/>
 
-    <!-- App name -->
     <TextView
+        android:id="@+id/tvOnboardingAppName"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="dyino"
@@ -28,8 +27,8 @@
         android:letterSpacing="0.1"
         android:layout_marginTop="16dp"/>
 
-    <!-- Tagline -->
     <TextView
+        android:id="@+id/tvOnboardingTagline"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Ambient Radio &amp; Sounds"
@@ -38,15 +37,14 @@
         android:letterSpacing="0.05"
         android:layout_marginTop="6dp"/>
 
-    <!-- Accent line -->
     <View
+        android:id="@+id/viewOnboardingAccentBar"
         android:layout_width="32dp"
         android:layout_height="2dp"
         android:background="#6C63FF"
         android:layout_marginTop="28dp"
         android:layout_marginBottom="36dp"/>
 
-    <!-- Instructions — minimal, no emojis -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -54,45 +52,69 @@
         android:paddingLeft="48dp"
         android:paddingRight="48dp">
 
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        <LinearLayout
+            android:id="@+id/tvOnboardingDot1" 
+            android:layout_width="match_parent" android:layout_height="wrap_content"
             android:orientation="horizontal" android:gravity="top" android:layout_marginBottom="16dp">
-            <View android:layout_width="4dp" android:layout_height="4dp"
+            <View 
+                android:id="@+id/dotBullet1"
+                android:layout_width="4dp" android:layout_height="4dp"
                 android:background="#6C63FF"
                 android:layout_marginTop="8dp" android:layout_marginRight="14dp"/>
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+            <TextView 
+                android:id="@+id/tvOnboardingStep1"
+                android:layout_width="0dp" android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Tap a radio station to stream it"
                 android:textColor="#CCCCCC" android:textSize="14sp" android:lineSpacingExtra="4dp"/>
         </LinearLayout>
 
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        <LinearLayout 
+            android:id="@+id/tvOnboardingDot2"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
             android:orientation="horizontal" android:gravity="top" android:layout_marginBottom="16dp">
-            <View android:layout_width="4dp" android:layout_height="4dp"
+            <View 
+                android:id="@+id/dotBullet2"
+                android:layout_width="4dp" android:layout_height="4dp"
                 android:background="#6C63FF"
                 android:layout_marginTop="8dp" android:layout_marginRight="14dp"/>
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+            <TextView 
+                android:id="@+id/tvOnboardingStep2"
+                android:layout_width="0dp" android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Tap sound buttons to layer ambient sounds"
                 android:textColor="#CCCCCC" android:textSize="14sp" android:lineSpacingExtra="4dp"/>
         </LinearLayout>
 
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        <LinearLayout 
+            android:id="@+id/tvOnboardingDot3"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
             android:orientation="horizontal" android:gravity="top" android:layout_marginBottom="16dp">
-            <View android:layout_width="4dp" android:layout_height="4dp"
+            <View 
+                android:id="@+id/dotBullet3"
+                android:layout_width="4dp" android:layout_height="4dp"
                 android:background="#6C63FF"
                 android:layout_marginTop="8dp" android:layout_marginRight="14dp"/>
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+            <TextView 
+                android:id="@+id/tvOnboardingStep3"
+                android:layout_width="0dp" android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Long press a sound to adjust its volume"
                 android:textColor="#CCCCCC" android:textSize="14sp" android:lineSpacingExtra="4dp"/>
         </LinearLayout>
 
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        <LinearLayout 
+            android:id="@+id/tvOnboardingDot4"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
             android:orientation="horizontal" android:gravity="top">
-            <View android:layout_width="4dp" android:layout_height="4dp"
+            <View 
+                android:id="@+id/dotBullet4"
+                android:layout_width="4dp" android:layout_height="4dp"
                 android:background="#6C63FF"
                 android:layout_marginTop="8dp" android:layout_marginRight="14dp"/>
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+            <TextView 
+                android:id="@+id/tvOnboardingStep4"
+                android:layout_width="0dp" android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Double tap any station or sound to favourite it"
                 android:textColor="#CCCCCC" android:textSize="14sp" android:lineSpacingExtra="4dp"/>
@@ -100,10 +122,8 @@
 
     </LinearLayout>
 
-    <!-- Bottom spacer -->
     <View android:layout_width="1dp" android:layout_height="0dp" android:layout_weight="1"/>
 
-    <!-- CTA button -->
     <TextView
         android:id="@+id/btnGetStarted"
         android:layout_width="220dp"
@@ -118,6 +138,7 @@
         android:focusable="true"/>
 
     <TextView
+        android:id="@+id/tvOnboardingBy"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="by pxatyush"

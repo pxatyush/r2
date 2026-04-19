@@ -18,13 +18,13 @@ import android.view.View;
  * Multi-mode audio visualizer with 7 rendering types.
  *
  * Type strings (set via setVisualizerType):
- *   "center_bars"   – symmetric bars from center (default)
- *   "spectrum"      – classic L→R frequency bars, mirrored
- *   "dots"          – bouncing dots with gravity
- *   "heartbeat"     – EKG with 4–5 spikes across full width
- *   "circular"      – radial ring bars
- *   "waveform"      – smooth FFT-reconstructed waveform (NOT raw PCM)
- *   "river_waves"   – overlapping translucent water waves
+ * "center_bars"   – symmetric bars from center (default)
+ * "spectrum"      – classic L→R frequency bars, mirrored
+ * "dots"          – bouncing dots with gravity
+ * "heartbeat"     – EKG with 4–5 spikes across full width
+ * "circular"      – radial ring bars
+ * "waveform"      – smooth FFT-reconstructed waveform (NOT raw PCM)
+ * "river_waves"   – overlapping translucent water waves
  *
  * Preset names are resolved to type strings externally (SettingsFragment reads
  * assets/visualizer/*.json and passes the "type" field here).
@@ -92,7 +92,7 @@ public class AudioVisualizerView extends View {
     private final Handler  handler = new Handler(Looper.getMainLooper());
     private final Runnable tick    = new Runnable() {
         @Override public void run() {
-            animate(); invalidate();
+            updateAnimation(); invalidate();
             if (attached) handler.postDelayed(this, 33);
         }
     };
@@ -179,7 +179,7 @@ public class AudioVisualizerView extends View {
 
     // ── Per-frame animation ───────────────────────────────────────
 
-    private void animate() {
+    private void updateAnimation() {
         if (powerSaving) return;
         if (idle) {
             idlePhase  += 0.045f;
