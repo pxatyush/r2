@@ -1,5 +1,9 @@
 package is.dyino.ui.home;
 
+// HomeFragment — visualizer now reads preset type string from AppPrefs.getVisualizerPreset()
+// Active sounds chips: 84dp wide × 64dp tall (same as before, reverted to small size)
+// Sleep timer + Discover always visible
+
 import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -10,6 +14,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -31,6 +36,8 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.resource.bitmap.RoundedCorners;
 import com.bumptech.glide.request.RequestOptions;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -50,8 +57,13 @@ import is.dyino.util.SettingsConfig;
 import is.dyino.util.SleepTimerManager;
 import is.dyino.util.SoundLoader;
 
+import org.json.JSONObject;
+
 public class HomeFragment extends Fragment {
 
+    private static final String TAG = "HomeFragment";
+
+    // ── Views ─────────────────────────────────────────────────────
     private FrameLayout         nowPlayingRadioCard;
     private WaveView            radioVolumeWave;
     private AudioVisualizerView audioVisualizer;
@@ -80,6 +92,7 @@ public class HomeFragment extends Fragment {
     private float   radioWaveDownY  = 0f;
     private boolean radioWaveInDrag = false;
 
+    // ── Broadcast ─────────────────────────────────────────────────
     private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context c, Intent i) {
             mainHandler.post(HomeFragment.this::refresh);
@@ -142,7 +155,12 @@ public class HomeFragment extends Fragment {
 
         SleepTimerManager.get().setListener(timerListener);
         setupRadioVolumeWave();
-        setupActionButtons();
+        // Action buttons always visible
+        if (actionButtonsRow != null) actionButtonsRow.setVisibility(View.VISIBLE);
+        updateSleepBtn(SleepTimerManager.get().isRunning() ? SleepTimerManager.get().getRemainingMs() : 0);
+        styleDiscoverBtn();
+        if (btnSleepTimer      != null) btnSleepTimer.setOnClickListener(v -> showSleepTimerDialog());
+        if (btnDiscoverStation != null) btnDiscoverStation.setOnClickListener(v -> discoverStation());
         applyTheme(view);
         refresh();
     }
@@ -154,62 +172,8 @@ public class HomeFragment extends Fragment {
                 new IntentFilter(AudioService.BROADCAST_STATE),
                 ContextCompat.RECEIVER_NOT_EXPORTED);
     }
-
-    @Override public void onStop() {
-        super.onStop();
-        try { requireContext().unregisterReceiver(stateReceiver); } catch (Exception ignored) {}
-    }
-
+    @Override public void onStop()   { super.onStop();   try { requireContext().unregisterReceiver(stateReceiver); } catch (Exception ignored) {} }
     @Override public void onResume() { super.onResume(); refresh(); }
-
-    // ── Setup ─────────────────────────────────────────────────────
-
-    private void setupActionButtons() {
-        // Sleep Timer and Discover are ALWAYS visible on Home, not gated by playing state
-        if (actionButtonsRow != null) actionButtonsRow.setVisibility(View.VISIBLE);
-
-        styleSleepBtn(SleepTimerManager.get().isRunning()
-                ? SleepTimerManager.get().getRemainingMs() : 0);
-        styleDiscoverBtn();
-
-        if (btnSleepTimer != null)
-            btnSleepTimer.setOnClickListener(v -> showSleepTimerDialog());
-        if (btnDiscoverStation != null)
-            btnDiscoverStation.setOnClickListener(v -> discoverStation());
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    private void setupRadioVolumeWave() {
-        if (radioVolumeWave == null) return;
-        radioVolumeWave.setPowerSaving(prefs.isPowerSavingEnabled());
-        int wc = (colors.nowPlayingAnimColor() & 0x00FFFFFF) | 0x66000000;
-        radioVolumeWave.setColors(colors.nowPlayingCardBg(), wc);
-
-        radioVolumeWave.setVolumeDragListener(vol -> {
-            if (audioService != null) audioService.setRadioVolume(vol);
-        });
-        radioVolumeWave.setOnLongClickListener(v -> {
-            radioWaveInDrag = true;
-            float vol = audioService != null ? audioService.getRadioVolume() : 0.8f;
-            radioVolumeWave.setVolume(vol);
-            radioVolumeWave.beginVolumeDrag(radioWaveDownY);
-            return true;
-        });
-        radioVolumeWave.setOnTouchListener((v, ev) -> {
-            switch (ev.getActionMasked()) {
-                case MotionEvent.ACTION_DOWN:
-                    radioWaveDownY = ev.getY(); radioWaveInDrag = false; break;
-                case MotionEvent.ACTION_MOVE:
-                    if (radioWaveInDrag && radioVolumeWave.isDragging()) {
-                        radioVolumeWave.handleDragMove(ev.getY()); return true; }
-                    break;
-                case MotionEvent.ACTION_UP: case MotionEvent.ACTION_CANCEL:
-                    if (radioWaveInDrag) radioVolumeWave.endDrag();
-                    radioWaveInDrag = false; break;
-            }
-            return false;
-        });
-    }
 
     // ─────────────────────────────────────────────────────────────
 
@@ -220,268 +184,216 @@ public class HomeFragment extends Fragment {
         buildLastPlayed();
     }
 
+    @SuppressLint("ClickableViewAccessibility")
+    private void setupRadioVolumeWave() {
+        if (radioVolumeWave == null) return;
+        radioVolumeWave.setPowerSaving(prefs.isPowerSavingEnabled());
+        int wc = (colors.nowPlayingAnimColor() & 0x00FFFFFF) | 0x66000000;
+        radioVolumeWave.setColors(colors.nowPlayingCardBg(), wc);
+        radioVolumeWave.setVolumeDragListener(vol -> { if (audioService!=null) audioService.setRadioVolume(vol); });
+        radioVolumeWave.setOnLongClickListener(v -> {
+            radioWaveInDrag = true;
+            float vol = audioService!=null ? audioService.getRadioVolume() : 0.8f;
+            radioVolumeWave.setVolume(vol); radioVolumeWave.beginVolumeDrag(radioWaveDownY); return true;
+        });
+        radioVolumeWave.setOnTouchListener((v, ev) -> {
+            switch (ev.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN: radioWaveDownY=ev.getY(); radioWaveInDrag=false; break;
+                case MotionEvent.ACTION_MOVE: if(radioWaveInDrag&&radioVolumeWave.isDragging()){radioVolumeWave.handleDragMove(ev.getY());return true;} break;
+                case MotionEvent.ACTION_UP: case MotionEvent.ACTION_CANCEL: if(radioWaveInDrag)radioVolumeWave.endDrag(); radioWaveInDrag=false; break;
+            }
+            return false;
+        });
+    }
+
     private void buildNowPlaying() {
-        boolean radioSelected = audioService != null && audioService.isRadioSelected();
-        boolean radioPlaying  = audioService != null && audioService.isRadioPlaying();
-        boolean radioPaused   = audioService != null && audioService.isRadioPaused();
-        Map<String, Float> activeSounds = audioService != null
-                ? audioService.getAllPlayingSounds() : new java.util.HashMap<>();
+        boolean radioSelected = audioService!=null && audioService.isRadioSelected();
+        boolean radioPlaying  = audioService!=null && audioService.isRadioPlaying();
+        boolean radioPaused   = audioService!=null && audioService.isRadioPaused();
+        Map<String,Float> activeSounds = audioService!=null ? audioService.getAllPlayingSounds() : new java.util.HashMap<>();
         boolean soundsPlaying = !activeSounds.isEmpty();
         boolean powerSaving   = prefs.isPowerSavingEnabled();
 
-        // ── Radio card ──
         if (radioSelected) {
             nowPlayingRadioCard.setVisibility(View.VISIBLE);
-            String name    = audioService.getCurrentName();
-            String favicon = audioService.getCurrentFavicon();
-            tvStationName.setText(name.isEmpty() ? "Radio" : name);
-            if (tvBuffering != null)
-                tvBuffering.setVisibility(!radioPlaying && !radioPaused ? View.VISIBLE : View.GONE);
+            String name=audioService.getCurrentName(), favicon=audioService.getCurrentFavicon();
+            tvStationName.setText(name.isEmpty()?"Radio":name);
+            if (tvBuffering!=null) tvBuffering.setVisibility(!radioPlaying&&!radioPaused?View.VISIBLE:View.GONE);
 
-            if (favicon != null && !favicon.isEmpty()) {
-                if (ivStationIcon != null) ivStationIcon.clearColorFilter();
-                Glide.with(this).load(favicon)
-                        .apply(RequestOptions.bitmapTransform(new RoundedCorners(dp(14)))
-                                .placeholder(R.drawable.ic_note_vec).error(R.drawable.ic_note_vec))
-                        .into(ivStationIcon);
+            if (favicon!=null&&!favicon.isEmpty()) {
+                if(ivStationIcon!=null)ivStationIcon.clearColorFilter();
+                Glide.with(this).load(favicon).apply(RequestOptions.bitmapTransform(new RoundedCorners(dp(14))).placeholder(R.drawable.ic_note_vec).error(R.drawable.ic_note_vec)).into(ivStationIcon);
             } else {
-                if (ivStationIcon != null) {
-                    ivStationIcon.setImageResource(R.drawable.ic_note_vec);
-                    ivStationIcon.setColorFilter(colors.nowPlayingIconTint(), PorterDuff.Mode.SRC_IN);
-                }
+                if(ivStationIcon!=null){ivStationIcon.setImageResource(R.drawable.ic_note_vec);ivStationIcon.setColorFilter(colors.nowPlayingIconTint(),PorterDuff.Mode.SRC_IN);}
             }
 
-            if (radioVolumeWave != null) {
-                float vol = audioService.getRadioVolume();
-                radioVolumeWave.setVolume(vol);
-                radioVolumeWave.setPowerSaving(powerSaving);
-                int wc = (colors.nowPlayingAnimColor() & 0x00FFFFFF) | 0x55000000;
-                radioVolumeWave.setColors(colors.nowPlayingCardBg(), wc);
-                if (radioPlaying && !powerSaving) { if (!radioVolumeWave.isWaving()) radioVolumeWave.startWave(); }
-                else radioVolumeWave.stopWave();
+            if (radioVolumeWave!=null) {
+                float vol=audioService.getRadioVolume(); radioVolumeWave.setVolume(vol); radioVolumeWave.setPowerSaving(powerSaving);
+                int wc=(colors.nowPlayingAnimColor()&0x00FFFFFF)|0x55000000; radioVolumeWave.setColors(colors.nowPlayingCardBg(),wc);
+                if(radioPlaying&&!powerSaving){if(!radioVolumeWave.isWaving())radioVolumeWave.startWave();}else radioVolumeWave.stopWave();
                 radioVolumeWave.setVisibility(View.VISIBLE);
             }
 
             style3DCard(nowPlayingRadioCard, radioPlaying);
-
             nowPlayingRadioCard.setOnClickListener(v -> {
-                long now = System.currentTimeMillis();
-                Long lst = lastTapTime.get("__np__");
-                if (lst != null && (now - lst) < DOUBLE_TAP_MS) {
-                    lastTapTime.remove("__np__"); toggleFav();
-                } else { lastTapTime.put("__np__", now); toggleRadio(); }
+                long now=System.currentTimeMillis(); Long lst=lastTapTime.get("__np__");
+                if(lst!=null&&(now-lst)<DOUBLE_TAP_MS){lastTapTime.remove("__np__");toggleFav();}
+                else{lastTapTime.put("__np__",now);toggleRadio();}
             });
+            if(tvNowPlayingStop!=null)tvNowPlayingStop.setOnClickListener(v->{SleepTimerManager.get().cancel();if(audioService!=null)audioService.stopRadio();refresh();});
 
-            if (tvNowPlayingStop != null)
-                tvNowPlayingStop.setOnClickListener(v -> {
-                    SleepTimerManager.get().cancel();
-                    if (audioService != null) audioService.stopRadio();
-                    refresh();
-                });
-
-            // Visualizer
-            if (audioVisualizer != null && tvVisualizerLabel != null) {
+            // Visualizer — resolve preset name to type string
+            if (audioVisualizer!=null&&tvVisualizerLabel!=null) {
                 if (powerSaving) {
-                    audioVisualizer.setVisibility(View.GONE);
-                    tvVisualizerLabel.setVisibility(View.GONE);
+                    audioVisualizer.setVisibility(View.GONE); tvVisualizerLabel.setVisibility(View.GONE);
                 } else {
-                    tvVisualizerLabel.setVisibility(View.VISIBLE);
-                    audioVisualizer.setVisibility(View.VISIBLE);
+                    tvVisualizerLabel.setVisibility(View.VISIBLE); audioVisualizer.setVisibility(View.VISIBLE);
                     audioVisualizer.setColors(colors.accent(), colors.visualizerBg());
-                    audioVisualizer.setVisualizerType(prefs.getVisualizerType());
-                    if (radioPlaying && audioService.getRadioAudioSessionId() != 0)
+                    audioVisualizer.setVisualizerType(resolveVisualizerType());
+                    if(radioPlaying&&audioService.getRadioAudioSessionId()!=0)
                         audioVisualizer.attachAudioSession(audioService.getRadioAudioSessionId());
                     else audioVisualizer.startIdle();
                 }
             }
         } else {
             nowPlayingRadioCard.setVisibility(View.GONE);
-            if (audioVisualizer  != null) { audioVisualizer.release(); audioVisualizer.setVisibility(View.GONE); }
-            if (tvVisualizerLabel != null) tvVisualizerLabel.setVisibility(View.GONE);
-            if (radioVolumeWave  != null)  radioVolumeWave.stopWave();
+            if(audioVisualizer!=null){audioVisualizer.release();audioVisualizer.setVisibility(View.GONE);}
+            if(tvVisualizerLabel!=null)tvVisualizerLabel.setVisibility(View.GONE);
+            if(radioVolumeWave!=null)radioVolumeWave.stopWave();
         }
 
-        // Action buttons: ALWAYS visible on Home page (not gated by playing state)
-        if (actionButtonsRow != null) actionButtonsRow.setVisibility(View.VISIBLE);
-        updateSleepBtn(SleepTimerManager.get().isRunning()
-                ? SleepTimerManager.get().getRemainingMs() : 0);
+        // Action buttons ALWAYS visible
+        if (actionButtonsRow!=null) actionButtonsRow.setVisibility(View.VISIBLE);
+        updateSleepBtn(SleepTimerManager.get().isRunning()?SleepTimerManager.get().getRemainingMs():0);
 
-        // ── Active sounds chips ──
+        // Active sounds — small chips 84×64dp matching original home size
         nowPlayingSoundsContainer.removeAllViews();
-        List<SoundCategory> allSounds = SoundLoader.load(requireContext());
+        List<SoundCategory> allSounds=SoundLoader.load(requireContext());
         if (soundsPlaying) {
-            float dp  = getResources().getDisplayMetrics().density;
-            int   chipW = (int)(84*dp), chipH = (int)(84*dp), gap = (int)(8*dp);
-            for (Map.Entry<String, Float> e : activeSounds.entrySet()) {
-                String fn = e.getKey(); float vol = e.getValue();
-                View chip = buildSoundChip(fn, soundDisplayName(fn, allSounds), vol, chipW, chipH, powerSaving);
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(chipW, chipH);
-                lp.setMargins(0,0,gap,0); chip.setLayoutParams(lp);
+            float dp=getResources().getDisplayMetrics().density;
+            int chipW=(int)(84*dp), chipH=(int)(64*dp), gap=(int)(8*dp);
+            for(Map.Entry<String,Float>e:activeSounds.entrySet()){
+                String fn=e.getKey(); float vol=e.getValue();
+                View chip=buildSoundChip(fn,soundDisplayName(fn,allSounds),vol,chipW,chipH,powerSaving);
+                LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(chipW,chipH); lp.setMargins(0,0,gap,0); chip.setLayoutParams(lp);
                 nowPlayingSoundsContainer.addView(chip);
             }
         }
-        tvNowPlayingSoundsLabel.setVisibility(soundsPlaying ? View.VISIBLE : View.GONE);
-        nowPlayingSoundsScroll.setVisibility(soundsPlaying ? View.VISIBLE : View.GONE);
+        tvNowPlayingSoundsLabel.setVisibility(soundsPlaying?View.VISIBLE:View.GONE);
+        nowPlayingSoundsScroll.setVisibility(soundsPlaying?View.VISIBLE:View.GONE);
 
-        boolean anyPlaying = radioSelected || soundsPlaying;
-        tvNowPlayingLabel.setVisibility(anyPlaying ? View.VISIBLE : View.GONE);
-        dividerNowPlaying.setVisibility(anyPlaying ? View.VISIBLE : View.GONE);
+        boolean anyPlaying=radioSelected||soundsPlaying;
+        tvNowPlayingLabel.setVisibility(anyPlaying?View.VISIBLE:View.GONE);
+        dividerNowPlaying.setVisibility(anyPlaying?View.VISIBLE:View.GONE);
 
-        boolean anything = anyPlaying
-                || !prefs.getFavourites().isEmpty()
-                || !prefs.getFavSounds().isEmpty()
-                || !prefs.getLastPlayed().isEmpty();
-        tvEmpty.setVisibility(anything ? View.GONE : View.VISIBLE);
+        boolean anything=anyPlaying||!prefs.getFavourites().isEmpty()||!prefs.getFavSounds().isEmpty()||!prefs.getLastPlayed().isEmpty();
+        tvEmpty.setVisibility(anything?View.GONE:View.VISIBLE);
     }
 
-    // ── Sound chip (matching home active-sounds style, 84dp square) ─
+    /** Resolves the stored visualizer preset name → AudioVisualizerView type string. */
+    private String resolveVisualizerType() {
+        String presetName = prefs.getVisualizerPreset();
+        // Try to read from assets/visualizer/*.json to find the matching type
+        try {
+            String[] files = requireContext().getAssets().list("visualizer");
+            if (files != null) {
+                for (String f : files) {
+                    if (!f.endsWith(".json")) continue;
+                    try {
+                        BufferedReader br = new BufferedReader(new InputStreamReader(
+                                requireContext().getAssets().open("visualizer/" + f)));
+                        StringBuilder sb = new StringBuilder(); String line;
+                        while ((line = br.readLine()) != null) sb.append(line); br.close();
+                        JSONObject o = new JSONObject(sb.toString());
+                        if (presetName.equals(o.optString("name", "")))
+                            return o.optString("type", AudioVisualizerView.T_CENTER_BARS);
+                    } catch (Exception ignored) {}
+                }
+            }
+        } catch (Exception e) { Log.w(TAG, "resolveVisualizerType", e); }
+        return AudioVisualizerView.T_CENTER_BARS;
+    }
 
     @SuppressLint("ClickableViewAccessibility")
     private View buildSoundChip(String fn, String label, float vol, int w, int h, boolean powerSaving) {
-        FrameLayout frame = new FrameLayout(requireContext());
-        WaveView wave = new WaveView(requireContext());
-        wave.setPowerSaving(powerSaving);
-        int wc = (colors.soundWaveColor() & 0x00FFFFFF) | 0x6A000000;
-        wave.setColors(colors.soundBtnActiveBg(), wc);
-        wave.setVolume(vol);
-        if (!powerSaving) wave.startWave();
-        frame.addView(wave, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-
-        TextView tv = new TextView(requireContext());
-        tv.setText(label); tv.setTextColor(colors.soundBtnText()); tv.setTextSize(11f);
-        tv.setGravity(Gravity.CENTER); tv.setSingleLine(true);
-        tv.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        tv.setPadding(dp(4), dp(4), dp(4), dp(4));
-        frame.addView(tv, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-
-        GradientDrawable gd = new GradientDrawable();
-        gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(dp(14));
-        gd.setColor(colors.soundBtnActiveBg()); gd.setStroke(dp(1), colors.soundBtnActiveBorder());
-        frame.setBackground(gd); frame.setClipToOutline(true);
-
-        wave.setVolumeDragListener(v2 -> { if (audioService != null) audioService.setSoundVolume(fn, v2); });
-
-        final float[] downY = {0f}; final boolean[] inDrag = {false};
-        frame.setOnLongClickListener(v -> { inDrag[0]=true; float cur=audioService!=null?audioService.getSoundVolume(fn):vol; wave.setVolume(cur); wave.beginVolumeDrag(downY[0]); return true; });
-        frame.setOnTouchListener((v, ev) -> {
-            switch (ev.getActionMasked()) {
-                case MotionEvent.ACTION_DOWN: downY[0]=ev.getY(); inDrag[0]=false; break;
-                case MotionEvent.ACTION_MOVE: if(inDrag[0]&&wave.isDragging()){wave.handleDragMove(ev.getY());return true;} break;
-                case MotionEvent.ACTION_UP: case MotionEvent.ACTION_CANCEL: if(inDrag[0])wave.endDrag(); inDrag[0]=false; break;
-            }
-            return false;
-        });
-        frame.setOnClickListener(v -> { if(!wave.isDragging()&&audioService!=null){audioService.stopSound(fn);refresh();} });
+        FrameLayout frame=new FrameLayout(requireContext());
+        WaveView wave=new WaveView(requireContext()); wave.setPowerSaving(powerSaving);
+        int wc=(colors.soundWaveColor()&0x00FFFFFF)|0x6A000000; wave.setColors(colors.soundBtnActiveBg(),wc);
+        wave.setVolume(vol); if(!powerSaving)wave.startWave();
+        frame.addView(wave,new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT));
+        TextView tv=new TextView(requireContext()); tv.setText(label); tv.setTextColor(colors.soundBtnText()); tv.setTextSize(11f);
+        tv.setGravity(Gravity.CENTER); tv.setSingleLine(true); tv.setEllipsize(android.text.TextUtils.TruncateAt.END); tv.setPadding(dp(4),dp(4),dp(4),dp(4));
+        frame.addView(tv,new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT));
+        GradientDrawable gd=new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(dp(14)); gd.setColor(colors.soundBtnActiveBg()); gd.setStroke(dp(1),colors.soundBtnActiveBorder()); frame.setBackground(gd); frame.setClipToOutline(true);
+        wave.setVolumeDragListener(v2->{if(audioService!=null)audioService.setSoundVolume(fn,v2);});
+        final float[]downY={0f}; final boolean[]inDrag={false};
+        frame.setOnLongClickListener(v->{inDrag[0]=true;float cur=audioService!=null?audioService.getSoundVolume(fn):vol;wave.setVolume(cur);wave.beginVolumeDrag(downY[0]);return true;});
+        frame.setOnTouchListener((v,ev)->{switch(ev.getActionMasked()){case MotionEvent.ACTION_DOWN:downY[0]=ev.getY();inDrag[0]=false;break;case MotionEvent.ACTION_MOVE:if(inDrag[0]&&wave.isDragging()){wave.handleDragMove(ev.getY());return true;}break;case MotionEvent.ACTION_UP:case MotionEvent.ACTION_CANCEL:if(inDrag[0])wave.endDrag();inDrag[0]=false;break;}return false;});
+        frame.setOnClickListener(v->{if(!wave.isDragging()&&audioService!=null){audioService.stopSound(fn);refresh();}});
         return frame;
     }
 
-    // ── Discover station ──────────────────────────────────────────
-
+    // ── Discover ──────────────────────────────────────────────────
     private void discoverStation() {
-        if (audioService == null) return;
-        java.util.Set<String> hidden   = prefs.getHiddenCategories();
-        java.util.Set<String> archived = prefs.getArchived();
-
-        RadioLoader.load(requireContext(), prefs, groups -> {
-            if (!isAdded()) return;
-            List<RadioStation> pool = new ArrayList<>();
-            for (RadioGroup g : groups) {
-                if ("__ARCHIVED__".equals(g.getName())) continue;
-                if (hidden.contains(g.getName())) continue;
-                for (RadioStation s : g.getStations()) {
-                    String key = AppPrefs.stationKey(s.getName(), s.getUrl(), s.getGroup());
-                    if (!archived.contains(key)) pool.add(s);
-                }
-            }
-            if (pool.isEmpty()) { Toast.makeText(requireContext(), "No stations available", Toast.LENGTH_SHORT).show(); return; }
-            RadioStation picked = pool.get((int)(Math.random() * pool.size()));
-            prefs.addLastPlayed(AppPrefs.stationKey(picked.getName(), picked.getUrl(), picked.getGroup()));
-            audioService.playRadio(picked.getName(), picked.getUrl(), picked.getFaviconUrl());
-            refresh();
+        if(audioService==null)return;
+        java.util.Set<String>hidden=prefs.getHiddenCategories(), archived=prefs.getArchived();
+        RadioLoader.load(requireContext(),prefs,groups->{
+            if(!isAdded())return;
+            List<RadioStation>pool=new ArrayList<>();
+            for(RadioGroup g:groups){if("__ARCHIVED__".equals(g.getName())||hidden.contains(g.getName()))continue;
+                for(RadioStation s:g.getStations()){String k=AppPrefs.stationKey(s.getName(),s.getUrl(),s.getGroup());if(!archived.contains(k))pool.add(s);}}
+            if(pool.isEmpty()){Toast.makeText(requireContext(),"No stations available",Toast.LENGTH_SHORT).show();return;}
+            RadioStation p=pool.get((int)(Math.random()*pool.size()));
+            prefs.addLastPlayed(AppPrefs.stationKey(p.getName(),p.getUrl(),p.getGroup()));
+            audioService.playRadio(p.getName(),p.getUrl(),p.getFaviconUrl()); refresh();
         });
     }
 
-    // ── Sleep timer UI ────────────────────────────────────────────
-
+    // ── Sleep timer ───────────────────────────────────────────────
     private void updateSleepBtn(long ms) {
-        if (btnSleepTimer == null) return;
-        float dp = getResources().getDisplayMetrics().density;
-        boolean running = ms > 0;
-        btnSleepTimer.setText(running ? SleepTimerManager.formatRemaining(ms) : "Sleep Timer");
-        GradientDrawable gd = new GradientDrawable();
-        gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(20*dp);
-        gd.setColor(running ? colors.accentDim() : colors.bgCard2());
-        gd.setStroke((int)(1*dp), running ? colors.accent() : colors.divider());
-        btnSleepTimer.setBackground(gd);
-        btnSleepTimer.setTextColor(running ? colors.accent() : colors.textSecondary());
+        if(btnSleepTimer==null)return;
+        float dp=getResources().getDisplayMetrics().density; boolean running=ms>0;
+        btnSleepTimer.setText(running?SleepTimerManager.formatRemaining(ms):"Sleep Timer");
+        GradientDrawable gd=new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(20*dp);
+        gd.setColor(running?colors.accentDim():colors.bgCard2()); gd.setStroke((int)(1*dp),running?colors.accent():colors.divider());
+        btnSleepTimer.setBackground(gd); btnSleepTimer.setTextColor(running?colors.accent():colors.textSecondary());
     }
-
-    // Convenient alias
-    private void styleSleepBtn(long ms) { updateSleepBtn(ms); }
-
     private void styleDiscoverBtn() {
-        if (btnDiscoverStation == null) return;
-        float dp = getResources().getDisplayMetrics().density;
-        GradientDrawable gd = new GradientDrawable();
-        gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(20*dp);
-        gd.setColor(colors.bgCard2()); gd.setStroke((int)(1*dp), colors.divider());
-        btnDiscoverStation.setBackground(gd);
-        btnDiscoverStation.setTextColor(colors.textSecondary());
+        if(btnDiscoverStation==null)return;
+        float dp=getResources().getDisplayMetrics().density;
+        GradientDrawable gd=new GradientDrawable(); gd.setShape(GradientDrawable.RECTANGLE); gd.setCornerRadius(20*dp); gd.setColor(colors.bgCard2()); gd.setStroke((int)(1*dp),colors.divider());
+        btnDiscoverStation.setBackground(gd); btnDiscoverStation.setTextColor(colors.textSecondary());
     }
 
     private void showSleepTimerDialog() {
-        float dp = getResources().getDisplayMetrics().density;
-        LinearLayout root = new LinearLayout(requireContext());
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding((int)(20*dp),(int)(20*dp),(int)(20*dp),(int)(16*dp));
-        GradientDrawable bg = new GradientDrawable(); bg.setShape(GradientDrawable.RECTANGLE); bg.setCornerRadius(16*dp); bg.setColor(colors.bgCard()); root.setBackground(bg);
-
-        TextView tvTitle = new TextView(requireContext()); tvTitle.setText("Sleep Timer"); tvTitle.setTextColor(colors.textPrimary()); tvTitle.setTextSize(18f);
-        tvTitle.setTypeface(android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.NORMAL));
-        tvTitle.setPadding(0,0,0,(int)(16*dp)); root.addView(tvTitle);
-
-        AlertDialog[] dlgRef = {null};
-
-        if (SleepTimerManager.get().isRunning()) {
-            TextView tvCancel = new TextView(requireContext());
-            tvCancel.setText("Cancel  ("+SleepTimerManager.formatRemaining(SleepTimerManager.get().getRemainingMs())+" left)");
-            tvCancel.setTextColor(colors.accent()); tvCancel.setTextSize(14f);
-            tvCancel.setPadding(0,0,0,(int)(12*dp)); tvCancel.setClickable(true); tvCancel.setFocusable(true);
-            tvCancel.setOnClickListener(v->{SleepTimerManager.get().cancel();updateSleepBtn(0);if(dlgRef[0]!=null)dlgRef[0].dismiss();});
-            root.addView(tvCancel);
+        float dp=getResources().getDisplayMetrics().density;
+        LinearLayout root=new LinearLayout(requireContext()); root.setOrientation(LinearLayout.VERTICAL); root.setPadding((int)(20*dp),(int)(20*dp),(int)(20*dp),(int)(16*dp));
+        GradientDrawable bg=new GradientDrawable(); bg.setShape(GradientDrawable.RECTANGLE); bg.setCornerRadius(16*dp); bg.setColor(colors.bgCard()); root.setBackground(bg);
+        TextView tvTitle=new TextView(requireContext()); tvTitle.setText("Sleep Timer"); tvTitle.setTextColor(colors.textPrimary()); tvTitle.setTextSize(18f); tvTitle.setTypeface(android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.NORMAL)); tvTitle.setPadding(0,0,0,(int)(16*dp)); root.addView(tvTitle);
+        AlertDialog[]dlgRef={null};
+        if(SleepTimerManager.get().isRunning()){
+            TextView tvC=new TextView(requireContext()); tvC.setText("Cancel  ("+SleepTimerManager.formatRemaining(SleepTimerManager.get().getRemainingMs())+" left)"); tvC.setTextColor(colors.accent()); tvC.setTextSize(14f); tvC.setPadding(0,0,0,(int)(12*dp)); tvC.setClickable(true); tvC.setFocusable(true);
+            tvC.setOnClickListener(v->{SleepTimerManager.get().cancel();updateSleepBtn(0);if(dlgRef[0]!=null)dlgRef[0].dismiss();}); root.addView(tvC);
         } else {
-            long[] minOpts = {15,30,60,90,120};
-            String[] labels = {"15 minutes","30 minutes","1 hour","1.5 hours","2 hours"};
-            for (int i=0;i<minOpts.length;i++){
-                final long mins=minOpts[i];
-                TextView row=new TextView(requireContext());row.setText(labels[i]);row.setTextColor(colors.textPrimary());row.setTextSize(15f);
-                row.setPadding(0,(int)(13*dp),0,(int)(13*dp));row.setClickable(true);row.setFocusable(true);
-                row.setOnClickListener(v->{SleepTimerManager.get().start(mins*60*1000L,audioService);updateSleepBtn(mins*60*1000L);if(dlgRef[0]!=null)dlgRef[0].dismiss();});
-                root.addView(row);
-                View sep=new View(requireContext());sep.setBackgroundColor(colors.divider());sep.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,1));root.addView(sep);
-            }
-            TextView rowCustom=new TextView(requireContext());rowCustom.setText("Custom…");rowCustom.setTextColor(colors.accent());rowCustom.setTextSize(15f);
-            rowCustom.setPadding(0,(int)(13*dp),0,(int)(13*dp));rowCustom.setClickable(true);rowCustom.setFocusable(true);
-            rowCustom.setOnClickListener(v->{if(dlgRef[0]!=null)dlgRef[0].dismiss();showCustomTimer();});root.addView(rowCustom);
+            long[]mins={15,30,60,90,120}; String[]labs={"15 minutes","30 minutes","1 hour","1.5 hours","2 hours"};
+            for(int i=0;i<mins.length;i++){final long m=mins[i];TextView row=new TextView(requireContext());row.setText(labs[i]);row.setTextColor(colors.textPrimary());row.setTextSize(15f);row.setPadding(0,(int)(13*dp),0,(int)(13*dp));row.setClickable(true);row.setFocusable(true);row.setOnClickListener(v->{SleepTimerManager.get().start(m*60*1000L,audioService);updateSleepBtn(m*60*1000L);if(dlgRef[0]!=null)dlgRef[0].dismiss();});root.addView(row);View sep=new View(requireContext());sep.setBackgroundColor(colors.divider());sep.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,1));root.addView(sep);}
+            TextView rc=new TextView(requireContext());rc.setText("Custom…");rc.setTextColor(colors.accent());rc.setTextSize(15f);rc.setPadding(0,(int)(13*dp),0,(int)(13*dp));rc.setClickable(true);rc.setFocusable(true);rc.setOnClickListener(v->{if(dlgRef[0]!=null)dlgRef[0].dismiss();showCustomTimer();});root.addView(rc);
         }
-
         AlertDialog dlg=new AlertDialog.Builder(requireContext()).setView(root).create();
         if(dlg.getWindow()!=null)dlg.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-        dlgRef[0]=dlg;
-        if(dlg.getWindow()!=null){int w=(int)(getResources().getDisplayMetrics().widthPixels*0.80f);dlg.getWindow().setLayout(w,ViewGroup.LayoutParams.WRAP_CONTENT);}
-        dlg.show();
+        dlgRef[0]=dlg; if(dlg.getWindow()!=null){int w=(int)(getResources().getDisplayMetrics().widthPixels*0.80f);dlg.getWindow().setLayout(w,ViewGroup.LayoutParams.WRAP_CONTENT);} dlg.show();
     }
 
     private void showCustomTimer() {
         float dp=getResources().getDisplayMetrics().density;
         LinearLayout root=new LinearLayout(requireContext());root.setOrientation(LinearLayout.VERTICAL);root.setPadding((int)(20*dp),(int)(20*dp),(int)(20*dp),(int)(16*dp));
         GradientDrawable bg=new GradientDrawable();bg.setShape(GradientDrawable.RECTANGLE);bg.setCornerRadius(16*dp);bg.setColor(colors.bgCard());root.setBackground(bg);
-        TextView tvTitle=new TextView(requireContext());tvTitle.setText("Custom Duration (minutes)");tvTitle.setTextColor(colors.textPrimary());tvTitle.setTextSize(16f);tvTitle.setPadding(0,0,0,(int)(12*dp));root.addView(tvTitle);
+        TextView tvT=new TextView(requireContext());tvT.setText("Custom Duration (minutes)");tvT.setTextColor(colors.textPrimary());tvT.setTextSize(16f);tvT.setPadding(0,0,0,(int)(12*dp));root.addView(tvT);
         android.widget.EditText et=new android.widget.EditText(requireContext());et.setHint("e.g. 45");et.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);et.setTextColor(colors.textPrimary());et.setHintTextColor(colors.textSecondary());
-        GradientDrawable iBg=new GradientDrawable();iBg.setShape(GradientDrawable.RECTANGLE);iBg.setCornerRadius(8*dp);iBg.setColor(colors.bgCard2());iBg.setStroke((int)(1*dp),colors.divider());et.setBackground(iBg);
-        et.setPadding((int)(12*dp),(int)(10*dp),(int)(12*dp),(int)(10*dp));LinearLayout.LayoutParams elp=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);elp.setMargins(0,0,0,(int)(16*dp));et.setLayoutParams(elp);root.addView(et);
+        GradientDrawable iBg=new GradientDrawable();iBg.setShape(GradientDrawable.RECTANGLE);iBg.setCornerRadius(8*dp);iBg.setColor(colors.bgCard2());iBg.setStroke((int)(1*dp),colors.divider());et.setBackground(iBg);et.setPadding((int)(12*dp),(int)(10*dp),(int)(12*dp),(int)(10*dp));
+        LinearLayout.LayoutParams elp=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);elp.setMargins(0,0,0,(int)(16*dp));et.setLayoutParams(elp);root.addView(et);
         LinearLayout btnRow=new LinearLayout(requireContext());btnRow.setOrientation(LinearLayout.HORIZONTAL);
-        TextView cancel=makeDialogBtn("Cancel",false,dp),set=makeDialogBtn("Set",true,dp);
+        TextView cancel=mkBtn("Cancel",false,dp),set=mkBtn("Set",true,dp);
         LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(0,(int)(42*dp),1f);bp.setMargins(0,0,(int)(8*dp),0);cancel.setLayoutParams(bp);set.setLayoutParams(new LinearLayout.LayoutParams(0,(int)(42*dp),1f));
         btnRow.addView(cancel);btnRow.addView(set);root.addView(btnRow);
         AlertDialog dlg=new AlertDialog.Builder(requireContext()).setView(root).create();
@@ -491,192 +403,83 @@ public class HomeFragment extends Fragment {
         dlg.show();if(dlg.getWindow()!=null){int w=(int)(getResources().getDisplayMetrics().widthPixels*0.80f);dlg.getWindow().setLayout(w,ViewGroup.LayoutParams.WRAP_CONTENT);}
     }
 
-    private TextView makeDialogBtn(String label, boolean primary, float dp) {
+    private TextView mkBtn(String label,boolean primary,float dp){
         TextView tv=new TextView(requireContext());tv.setText(label);tv.setGravity(Gravity.CENTER);tv.setTextSize(14f);
         GradientDrawable gd=new GradientDrawable();gd.setShape(GradientDrawable.RECTANGLE);gd.setCornerRadius(10*dp);
-        if(primary){gd.setColor(colors.accent());tv.setTextColor(0xFFFFFFFF);}
-        else{gd.setColor(colors.bgCard2());gd.setStroke((int)(1*dp),colors.divider());tv.setTextColor(colors.textSecondary());}
+        if(primary){gd.setColor(colors.accent());tv.setTextColor(0xFFFFFFFF);}else{gd.setColor(colors.bgCard2());gd.setStroke((int)(1*dp),colors.divider());tv.setTextColor(colors.textSecondary());}
         tv.setBackground(gd);tv.setClickable(true);tv.setFocusable(true);return tv;
     }
 
-    // ── Favourites & Recently Played ──────────────────────────────
-
+    // ── Favourites + Recently Played ──────────────────────────────
     private void buildFavourites() {
-        List<SoundCategory> allSounds = SoundLoader.load(requireContext());
+        List<SoundCategory> allSounds=SoundLoader.load(requireContext());
         int perRow=cfg.favRadioPerRow(), chipH=cfg.chipHeightDp()+8;
-
         favRadioWrap.removeAllViews();
-        // Ghost space fix: pre-filter valid keys
-        List<String> favRadio = filterValidKeys(deduplicateByUrl(new ArrayList<>(prefs.getFavourites())));
-        buildStationRows(favRadioWrap, favRadio, perRow, chipH, 20f);
-        tvFavRadioLabel.setVisibility(favRadio.isEmpty() ? View.GONE : View.VISIBLE);
-
+        List<String>favRadio=filterValidKeys(deduplicateByUrl(new ArrayList<>(prefs.getFavourites())));
+        buildStationRows(favRadioWrap,favRadio,perRow,chipH,20f);
+        tvFavRadioLabel.setVisibility(favRadio.isEmpty()?View.GONE:View.VISIBLE);
         favSoundsWrap.removeAllViews();
-        List<String> favSounds = dedupList(new ArrayList<>(prefs.getFavSounds()));
-        buildSoundRows(favSoundsWrap, favSounds, allSounds, 3, chipH, 20f);
-        tvFavSoundsLabel.setVisibility(favSounds.isEmpty() ? View.GONE : View.VISIBLE);
-
-        dividerFav.setVisibility((!favRadio.isEmpty()||!favSounds.isEmpty()) ? View.VISIBLE : View.GONE);
+        List<String>favSounds=dedupList(new ArrayList<>(prefs.getFavSounds()));
+        buildSoundRows(favSoundsWrap,favSounds,allSounds,3,chipH,20f);
+        tvFavSoundsLabel.setVisibility(favSounds.isEmpty()?View.GONE:View.VISIBLE);
+        dividerFav.setVisibility((!favRadio.isEmpty()||!favSounds.isEmpty())?View.VISIBLE:View.GONE);
     }
 
     private void buildLastPlayed() {
         lastPlayedWrap.removeAllViews();
-        // Ghost space fix: pre-filter valid keys before building rows
-        List<String> last = filterValidKeys(deduplicateByUrl(prefs.getLastPlayed()));
-        if (last.isEmpty()) {
-            tvLastPlayedLabel.setVisibility(View.GONE);
-            dividerLastPlayed.setVisibility(View.GONE);
-            return;
-        }
+        List<String>last=filterValidKeys(deduplicateByUrl(prefs.getLastPlayed()));
+        if(last.isEmpty()){tvLastPlayedLabel.setVisibility(View.GONE);dividerLastPlayed.setVisibility(View.GONE);return;}
         tvLastPlayedLabel.setVisibility(View.VISIBLE);
-        buildStationRows(lastPlayedWrap, last, cfg.favRadioPerRow(), cfg.chipHeightDp()+8, 20f);
+        buildStationRows(lastPlayedWrap,last,cfg.favRadioPerRow(),cfg.chipHeightDp()+8,20f);
         dividerLastPlayed.setVisibility(View.VISIBLE);
     }
 
-    /**
-     * Removes keys with missing/empty name or URL so buildStationRows()
-     * never has to skip mid-row — the ghost-space bug source.
-     */
     private List<String> filterValidKeys(List<String> keys) {
-        List<String> valid = new ArrayList<>();
-        for (String key : keys) {
-            if (key == null || key.isEmpty()) continue;
-            String[] p = AppPrefs.splitKey(key);
-            if (p.length >= 2 && !p[0].trim().isEmpty() && !p[1].trim().isEmpty())
-                valid.add(key);
-        }
+        List<String>valid=new ArrayList<>();
+        for(String key:keys){if(key==null||key.isEmpty())continue;String[]p=AppPrefs.splitKey(key);if(p.length>=2&&!p[0].trim().isEmpty()&&!p[1].trim().isEmpty())valid.add(key);}
         return valid;
     }
 
     private void buildStationRows(LinearLayout c, List<String> keys, int perRow, int chipH, float chipR) {
-        for (int i = 0; i < keys.size(); i += perRow) {
-            LinearLayout row = new LinearLayout(requireContext());
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            int count = Math.min(perRow, keys.size() - i);
-
-            for (int j = 0; j < count; j++) {
-                String key = keys.get(i + j);
-                String[] p = AppPrefs.splitKey(key);
-                View chip  = makeStationChip(p[0].trim(), p[1].trim(), key, chipH, chipR);
-                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(chipH), 1f);
-                lp.setMargins(0, 0, j < count-1 ? dp(6) : 0, 0);
-                chip.setLayoutParams(lp);
-                row.addView(chip);
-            }
-            // Fill remaining slots with invisible placeholders to keep widths
-            for (int k = count; k < perRow; k++) {
-                View ph = new View(requireContext());
-                ph.setLayoutParams(new LinearLayout.LayoutParams(0, dp(chipH), 1f));
-                ph.setVisibility(View.INVISIBLE);
-                row.addView(ph);
-            }
-            LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            rowLp.setMargins(0, 0, 0, dp(8));
-            row.setLayoutParams(rowLp);
-            c.addView(row);
-        }
+        for(int i=0;i<keys.size();i+=perRow){
+            LinearLayout row=new LinearLayout(requireContext());row.setOrientation(LinearLayout.HORIZONTAL);
+            int count=Math.min(perRow,keys.size()-i);
+            for(int j=0;j<count;j++){String key=keys.get(i+j);String[]p=AppPrefs.splitKey(key);View chip=makeStationChip(p[0].trim(),p[1].trim(),key,chipH,chipR);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(chipH),1f);lp.setMargins(0,0,j<count-1?dp(6):0,0);chip.setLayoutParams(lp);row.addView(chip);}
+            for(int k=count;k<perRow;k++){View ph=new View(requireContext());ph.setLayoutParams(new LinearLayout.LayoutParams(0,dp(chipH),1f));ph.setVisibility(View.INVISIBLE);row.addView(ph);}
+            LinearLayout.LayoutParams rowLp=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);rowLp.setMargins(0,0,0,dp(8));row.setLayoutParams(rowLp);c.addView(row);}
     }
 
-    private View makeStationChip(String name, String url, String key, int h, float r) {
-        String  curUrl  = audioService != null ? audioService.getCurrentRadioUrl() : "";
-        boolean current = curUrl.equals(url);
-        boolean playing = current && audioService != null && audioService.isRadioPlaying();
-        int bg    = playing ? colors.stationActiveBg()     : colors.stationBg();
-        int border= playing ? colors.stationActiveBorder() : colors.divider();
-        int textC = playing ? colors.stationTextActive()   : colors.stationText();
-        TextView tv = new TextView(requireContext());
-        tv.setText(name); tv.setTextColor(textC); tv.setTextSize(13f);
-        tv.setGravity(Gravity.CENTER); tv.setSingleLine(true);
-        tv.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        tv.setPadding(dp(12), dp(8), dp(12), dp(8));
-        tv.setBackground(squircleBg(bg, border, r));
-        tv.setOnClickListener(v -> {
-            long now = System.currentTimeMillis(); Long lst = lastTapTime.get(key);
-            if (lst!=null&&(now-lst)<DOUBLE_TAP_MS) {
-                lastTapTime.remove(key);
-                if(prefs.isFavourite(key)){prefs.removeFavourite(key);Toast.makeText(requireContext(),"Removed",Toast.LENGTH_SHORT).show();}
-                else{prefs.addFavourite(key);Toast.makeText(requireContext(),"♥ Added",Toast.LENGTH_SHORT).show();}
-                refresh();
-            } else {
-                lastTapTime.put(key,now);
-                if(audioService==null)return;
-                if(audioService.getCurrentRadioUrl().equals(url)){if(audioService.isRadioPlaying())audioService.pauseAll();else audioService.resumeAll();}
-                else{prefs.addLastPlayed(key);audioService.playRadio(name,url);}
-                refresh();
-            }
-        });
+    private View makeStationChip(String name,String url,String key,int h,float r){
+        String curUrl=audioService!=null?audioService.getCurrentRadioUrl():"";
+        boolean playing=curUrl.equals(url)&&audioService!=null&&audioService.isRadioPlaying();
+        TextView tv=new TextView(requireContext());tv.setText(name);tv.setTextColor(playing?colors.stationTextActive():colors.stationText());tv.setTextSize(13f);tv.setGravity(Gravity.CENTER);tv.setSingleLine(true);tv.setEllipsize(android.text.TextUtils.TruncateAt.END);tv.setPadding(dp(12),dp(8),dp(12),dp(8));tv.setBackground(squircleBg(playing?colors.stationActiveBg():colors.stationBg(),playing?colors.stationActiveBorder():colors.divider(),r));
+        tv.setOnClickListener(v->{long now=System.currentTimeMillis();Long lst=lastTapTime.get(key);
+            if(lst!=null&&(now-lst)<DOUBLE_TAP_MS){lastTapTime.remove(key);if(prefs.isFavourite(key)){prefs.removeFavourite(key);Toast.makeText(requireContext(),"Removed",Toast.LENGTH_SHORT).show();}else{prefs.addFavourite(key);Toast.makeText(requireContext(),"♥ Added",Toast.LENGTH_SHORT).show();}refresh();}
+            else{lastTapTime.put(key,now);if(audioService==null)return;if(audioService.getCurrentRadioUrl().equals(url)){if(audioService.isRadioPlaying())audioService.pauseAll();else audioService.resumeAll();}else{prefs.addLastPlayed(key);audioService.playRadio(name,url);}refresh();}});
         return tv;
     }
 
     private void buildSoundRows(LinearLayout c, List<String> fns, List<SoundCategory> all, int perRow, int h, float r) {
-        for (int i=0;i<fns.size();i+=perRow) {
-            LinearLayout row=new LinearLayout(requireContext());row.setOrientation(LinearLayout.HORIZONTAL);
-            int count=Math.min(perRow,fns.size()-i);
-            for(int j=0;j<count;j++){
-                String fn=fns.get(i+j);if(fn==null||fn.isEmpty())continue;
-                boolean playing=audioService!=null&&audioService.isSoundPlaying(fn);
-                final String ffn=fn;
-                TextView chip=new TextView(requireContext());
-                chip.setText(soundDisplayName(fn,all));chip.setTextColor(colors.soundBtnText());chip.setTextSize(13f);
-                chip.setGravity(Gravity.CENTER);chip.setSingleLine(true);chip.setEllipsize(android.text.TextUtils.TruncateAt.END);
-                chip.setPadding(dp(10),dp(8),dp(10),dp(8));
-                chip.setBackground(squircleBg(playing?colors.soundBtnActiveBg():colors.soundBtnBg(),playing?colors.soundBtnActiveBorder():colors.divider(),r));
-                chip.setOnClickListener(v->{long now=System.currentTimeMillis();Long lst=lastTapTime.get("snd_"+ffn);
-                    if(lst!=null&&(now-lst)<DOUBLE_TAP_MS){lastTapTime.remove("snd_"+ffn);prefs.removeFavSound(ffn);Toast.makeText(requireContext(),"Removed",Toast.LENGTH_SHORT).show();refresh();}
-                    else{lastTapTime.put("snd_"+ffn,now);if(audioService==null)return;if(audioService.isSoundPlaying(ffn))audioService.stopSound(ffn);else audioService.playSound(ffn,0.8f);refresh();}});
-                LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(h),1f);lp.setMargins(0,0,j<count-1?dp(6):0,0);chip.setLayoutParams(lp);row.addView(chip);
-            }
+        for(int i=0;i<fns.size();i+=perRow){
+            LinearLayout row=new LinearLayout(requireContext());row.setOrientation(LinearLayout.HORIZONTAL);int count=Math.min(perRow,fns.size()-i);
+            for(int j=0;j<count;j++){String fn=fns.get(i+j);if(fn==null||fn.isEmpty())continue;boolean playing=audioService!=null&&audioService.isSoundPlaying(fn);final String ffn=fn;
+                TextView chip=new TextView(requireContext());chip.setText(soundDisplayName(fn,all));chip.setTextColor(colors.soundBtnText());chip.setTextSize(13f);chip.setGravity(Gravity.CENTER);chip.setSingleLine(true);chip.setEllipsize(android.text.TextUtils.TruncateAt.END);chip.setPadding(dp(10),dp(8),dp(10),dp(8));chip.setBackground(squircleBg(playing?colors.soundBtnActiveBg():colors.soundBtnBg(),playing?colors.soundBtnActiveBorder():colors.divider(),r));
+                chip.setOnClickListener(v->{long now=System.currentTimeMillis();Long lst=lastTapTime.get("snd_"+ffn);if(lst!=null&&(now-lst)<DOUBLE_TAP_MS){lastTapTime.remove("snd_"+ffn);prefs.removeFavSound(ffn);Toast.makeText(requireContext(),"Removed",Toast.LENGTH_SHORT).show();refresh();}else{lastTapTime.put("snd_"+ffn,now);if(audioService==null)return;if(audioService.isSoundPlaying(ffn))audioService.stopSound(ffn);else audioService.playSound(ffn,0.8f);refresh();}});
+                LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(h),1f);lp.setMargins(0,0,j<count-1?dp(6):0,0);chip.setLayoutParams(lp);row.addView(chip);}
             for(int k=count;k<perRow;k++){View ph=new View(requireContext());ph.setLayoutParams(new LinearLayout.LayoutParams(0,dp(h),1f));ph.setVisibility(View.INVISIBLE);row.addView(ph);}
-            LinearLayout.LayoutParams rowLp=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);rowLp.setMargins(0,0,0,dp(8));row.setLayoutParams(rowLp);c.addView(row);
-        }
+            LinearLayout.LayoutParams rowLp=new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT);rowLp.setMargins(0,0,0,dp(8));row.setLayoutParams(rowLp);c.addView(row);}
     }
 
-    // ── Helpers ───────────────────────────────────────────────────
-
-    private void toggleFav() {
-        if (audioService==null) return;
-        String url=audioService.getCurrentRadioUrl();if(url.isEmpty())return;
-        String key=AppPrefs.stationKey(audioService.getCurrentName(),url,"");
-        if(prefs.isFavourite(key)){prefs.removeFavourite(key);Toast.makeText(requireContext(),"Removed from Favourites",Toast.LENGTH_SHORT).show();}
-        else{prefs.addFavourite(key);Toast.makeText(requireContext(),"♥ Added to Favourites",Toast.LENGTH_SHORT).show();}
-        refresh();
-    }
-
-    private void toggleRadio() {
-        if(audioService==null)return;
-        if(audioService.isRadioPlaying())audioService.pauseAll();else audioService.resumeAll();refresh();
-    }
-
-    private GradientDrawable squircleBg(int bg, int border, float r) {
-        GradientDrawable gd=new GradientDrawable();gd.setShape(GradientDrawable.RECTANGLE);gd.setCornerRadius(dp(r));gd.setColor(bg);gd.setStroke(dp(1),border);return gd;
-    }
-
-    private void style3DCard(View card, boolean active) {
-        float dp=getResources().getDisplayMetrics().density;
-        GradientDrawable gd=new GradientDrawable();gd.setShape(GradientDrawable.RECTANGLE);gd.setCornerRadius(18*dp);
-        gd.setColor(active?colors.nowPlayingCardBg():colors.bgCard());gd.setStroke((int)(1.5f*dp),active?colors.nowPlayingCardBorder():colors.divider());
-        card.setBackground(gd);card.setClipToOutline(true);card.setTranslationZ(active?8*dp:3*dp);
-    }
-
-    private List<String> deduplicateByUrl(List<String> keys) {
-        LinkedHashMap<String,String> map=new LinkedHashMap<>();
-        for(String key:keys){if(key==null||key.isEmpty())continue;String[]p=AppPrefs.splitKey(key);if(p.length<2||p[1].trim().isEmpty())continue;map.putIfAbsent(p[1].trim().toLowerCase(),key);}
-        return new ArrayList<>(map.values());
-    }
-    private List<String> dedupList(List<String> list) {
-        LinkedHashMap<String,Boolean> seen=new LinkedHashMap<>();
-        for(String s:list)if(s!=null&&!s.isEmpty())seen.put(s,true);return new ArrayList<>(seen.keySet());
-    }
-    private String soundDisplayName(String fn, List<SoundCategory> cats) {
-        for(SoundCategory cat:cats)for(SoundItem s:cat.getSounds())if(s.getFileName().equals(fn))return s.getName();
-        return fn.replaceAll("\\.(mp3|ogg|wav)$","").replace("_"," ");
-    }
+    private void toggleFav(){if(audioService==null)return;String url=audioService.getCurrentRadioUrl();if(url.isEmpty())return;String key=AppPrefs.stationKey(audioService.getCurrentName(),url,"");if(prefs.isFavourite(key)){prefs.removeFavourite(key);Toast.makeText(requireContext(),"Removed from Favourites",Toast.LENGTH_SHORT).show();}else{prefs.addFavourite(key);Toast.makeText(requireContext(),"♥ Added to Favourites",Toast.LENGTH_SHORT).show();}refresh();}
+    private void toggleRadio(){if(audioService==null)return;if(audioService.isRadioPlaying())audioService.pauseAll();else audioService.resumeAll();refresh();}
+    private GradientDrawable squircleBg(int bg,int border,float r){GradientDrawable gd=new GradientDrawable();gd.setShape(GradientDrawable.RECTANGLE);gd.setCornerRadius(dp(r));gd.setColor(bg);gd.setStroke(dp(1),border);return gd;}
+    private void style3DCard(View card,boolean active){float dp=getResources().getDisplayMetrics().density;GradientDrawable gd=new GradientDrawable();gd.setShape(GradientDrawable.RECTANGLE);gd.setCornerRadius(18*dp);gd.setColor(active?colors.nowPlayingCardBg():colors.bgCard());gd.setStroke((int)(1.5f*dp),active?colors.nowPlayingCardBorder():colors.divider());card.setBackground(gd);card.setClipToOutline(true);card.setTranslationZ(active?8*dp:3*dp);}
+    private List<String> deduplicateByUrl(List<String>keys){LinkedHashMap<String,String>map=new LinkedHashMap<>();for(String key:keys){if(key==null||key.isEmpty())continue;String[]p=AppPrefs.splitKey(key);if(p.length<2||p[1].trim().isEmpty())continue;map.putIfAbsent(p[1].trim().toLowerCase(),key);}return new ArrayList<>(map.values());}
+    private List<String> dedupList(List<String>list){LinkedHashMap<String,Boolean>seen=new LinkedHashMap<>();for(String s:list)if(s!=null&&!s.isEmpty())seen.put(s,true);return new ArrayList<>(seen.keySet());}
+    private String soundDisplayName(String fn,List<SoundCategory>cats){for(SoundCategory cat:cats)for(SoundItem s:cat.getSounds())if(s.getFileName().equals(fn))return s.getName();return fn.replaceAll("\\.(mp3|ogg|wav)$","").replace("_"," ");}
     private int dp(float v){return(int)(v*getResources().getDisplayMetrics().density);}
 
-    // ── Theme ─────────────────────────────────────────────────────
-
-    public void applyTheme(View root) {
+    public void applyTheme(View root){
         if(root==null||colors==null)return;
         root.setBackgroundColor(colors.bgPrimary());
         TextView title=root.findViewById(R.id.tvHomePageTitle);if(title!=null)title.setTextColor(colors.pageHeaderText());
@@ -695,12 +498,8 @@ public class HomeFragment extends Fragment {
         if(dividerLastPlayed!=null)      dividerLastPlayed.setBackgroundColor(colors.divider());
         if(tvEmpty!=null)                tvEmpty.setTextColor(colors.homeEmptyText());
         styleDiscoverBtn();
-        updateSleepBtn(SleepTimerManager.get().isRunning() ? SleepTimerManager.get().getRemainingMs() : 0);
+        updateSleepBtn(SleepTimerManager.get().isRunning()?SleepTimerManager.get().getRemainingMs():0);
     }
 
-    public void refreshTheme() {
-        if(getView()==null)return;
-        colors=new ColorConfig(requireContext());cfg=new SettingsConfig(requireContext());
-        applyTheme(getView());refresh();
-    }
+    public void refreshTheme(){if(getView()==null)return;colors=new ColorConfig(requireContext());cfg=new SettingsConfig(requireContext());applyTheme(getView());refresh();}
 }
